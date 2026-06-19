@@ -84,7 +84,10 @@ if (!accesAutorise) {
 
         <button
           onClick={() => {
-            if (motDePasse === "admin123") {
+            if (
+  motDePasse ===
+  (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123")
+) {
               setAccesAutorise(true);
             } else {
               alert("Mot de passe incorrect.");
