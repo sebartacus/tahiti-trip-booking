@@ -500,7 +500,7 @@ const recap = (
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">⚓ Permis Côtier</h1>
 
-        <div className="mb-8 grid grid-cols-4 gap-2 text-center text-sm">
+        <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs md:text-sm">
           <div className={`rounded-xl p-3 ${formule ? "bg-green-600" : "bg-sky-800"}`}>1. Formule</div>
           <div className={`rounded-xl p-3 ${session ? "bg-green-600" : "bg-sky-800"}`}>2. Examen</div>
           <div className={`rounded-xl p-3 ${reservation ? "bg-green-600" : "bg-sky-800"}`}>3. Cours</div>
@@ -508,21 +508,21 @@ const recap = (
         </div>
 
         {formule && (
-          <button onClick={retour} className="mb-6 bg-slate-700 hover:bg-slate-600 px-5 py-3 rounded-xl">
+          <button onClick={retour} className="mb-6 cursor-pointer bg-slate-700 hover:bg-slate-600 px-5 py-3 rounded-xl">
             ← Retour
           </button>
         )}
 
         {!formule && (
           <div className="grid md:grid-cols-2 gap-6">
-            <button onClick={() => setFormule("Classique")} className="bg-sky-800 rounded-2xl p-6 text-left hover:bg-sky-700">
+            <button onClick={() => setFormule("Classique")} className="cursor-pointer bg-sky-800 rounded-2xl p-6 text-left hover:bg-sky-700">
               <h2 className="text-2xl font-bold mb-4">Formule Classique</h2>
               <p className="text-4xl font-bold mb-4">25 000 XPF</p>
               <p>Application de code, cours pratique, dossier, examen.</p>
               <p className="mt-4 text-red-200">Timbres fiscaux à fournir.</p>
             </button>
 
-            <button onClick={() => setFormule("Sérénité")} className="bg-cyan-700 rounded-2xl p-6 text-left hover:bg-cyan-600">
+            <button onClick={() => setFormule("Sérénité")} className="cursor-pointer bg-cyan-700 rounded-2xl p-6 text-left hover:bg-cyan-600">
               <h2 className="text-2xl font-bold mb-4">Formule Sérénité</h2>
               <p className="text-4xl font-bold mb-4">33 000 XPF</p>
               <p>Application de code, cours pratique, dossier, examen.</p>
@@ -628,25 +628,34 @@ const recap = (
         )}
 
         {reservation === "maintenant" && dateCours && typeCours && !creneau && (
-          <section className="bg-cyan-900 rounded-2xl p-8">
-            <h2 className="text-2xl font-bold mb-4">Choisissez votre créneau</h2>
+  <section className="bg-cyan-900 rounded-2xl p-8">
+    <h2 className="text-2xl font-bold mb-4">Choisissez votre créneau</h2>
 
-            <div className="space-y-4">
-              {creneauxDisponibles
-  .filter((horaire) => creneauDisponible(horaire))
-  .map((horaire) => (
-                <button
-                  key={horaire}
-                  onClick={() => setCreneau(horaire)}
-                  className="w-full bg-blue-600 p-4 rounded-xl hover:bg-blue-500"
-                >
-                  {horaire}
-                </button>
-              ))}
+    <div className="space-y-4">
+      {creneauxDisponibles.map((horaire) => {
+        const disponible = creneauDisponible(horaire);
+
+        return (
+          <button
+            key={horaire}
+            disabled={!disponible}
+            onClick={() => disponible && setCreneau(horaire)}
+            className={`w-full p-4 rounded-xl text-left font-bold ${
+              disponible
+                ? "cursor-pointer bg-green-600 hover:bg-green-500"
+                : "cursor-not-allowed bg-red-700 opacity-80"
+            }`}
+          >
+            <div>{horaire}</div>
+            <div className="text-sm">
+              {disponible ? "Disponible" : "Déjà réservé"}
             </div>
-          </section>
-        )}
-
+          </button>
+        );
+      })}
+    </div>
+  </section>
+)}
         {reservation === "maintenant" && dateCours && typeCours && creneau && (
           <section className="bg-green-800 rounded-2xl p-8">
             <h2 className="text-2xl font-bold mb-4">Résumé de votre réservation</h2>
