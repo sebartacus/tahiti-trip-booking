@@ -207,6 +207,7 @@ nom2: typeCours === "commun" ? nom2 : null,
         date_cours: dateCours?.toLocaleDateString("fr-FR") || null,
         type_cours: typeCours || null,
         creneau: creneau || null,
+paiement_effectue: false,
         certificat_url: certificatUrl,
         formulaire_url: formulaireUrl,
         photo_url: photoUrl,
@@ -221,8 +222,40 @@ nom2: typeCours === "commun" ? nom2 : null,
     return;
   }
 
-  setPaiementValide(true);
+  const reponsePayzen = await fetch("/api/payzen", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+  montant: prix,
+  email,
+}),
+});
+
+const paiement = await reponsePayzen.json();
+
+if (!reponsePayzen.ok) {
+  console.error(paiement);
+  setErreur("Erreur lors de la préparation du paiement.");
   setEnregistrementEnCours(false);
+  return;
+}
+
+const formulaire = document.createElement("form");
+formulaire.method = "POST";
+formulaire.action = paiement.url;
+
+Object.entries(paiement.champs).forEach(([nom, valeur]) => {
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = nom;
+  input.value = String(valeur);
+  formulaire.appendChild(input);
+});
+
+document.body.appendChild(formulaire);
+formulaire.submit();
 }
 const recap = (
     <div className="mt-6 bg-sky-100 text-black rounded-xl p-4">
@@ -383,7 +416,7 @@ const recap = (
   >
     {enregistrementEnCours
   ? "Enregistrement..."
-  : "Simuler le paiement"}
+  : "Payer maintenant"}
   </button>
 {paiementValide && (
   <div className="mt-6 bg-green-100 text-green-900 rounded-2xl p-6">
