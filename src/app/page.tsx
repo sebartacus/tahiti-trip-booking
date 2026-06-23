@@ -1,3 +1,4 @@
+import Link from "next/link";
 export default function Home() {
   return (
     <main className="min-h-screen bg-sky-950 text-white">
@@ -13,16 +14,19 @@ export default function Home() {
 
         <div className="grid md:grid-cols-2 gap-6">
 
-          <div className="rounded-2xl bg-sky-800 p-8 shadow-lg cursor-pointer hover:bg-sky-700">
-            <h2 className="text-2xl font-bold mb-2">
-              ⚓ Permis Côtier
-            </h2>
-            <p>
-              Réserver une formation permis côtier
-            </p>
-          </div>
+          <Link href="/permis">
+  <div className="rounded-2xl bg-sky-800 p-8 shadow-lg cursor-pointer hover:bg-sky-700">
+    <h2 className="text-2xl font-bold mb-2">
+      ⚓ Permis Côtier
+    </h2>
+    <p>
+      Réserver une formation permis côtier
+    </p>
+  </div>
+</Link>
 
-          <div className="rounded-2xl bg-cyan-700 p-8 shadow-lg cursor-pointer hover:bg-cyan-600">
+          <Link href="/baleines">
+  <div className="rounded-2xl bg-cyan-700 p-8 shadow-lg cursor-pointer hover:bg-cyan-600">
             <h2 className="text-2xl font-bold mb-2">
               🐋 Whale Watching
             </h2>
@@ -30,6 +34,7 @@ export default function Home() {
               Réserver une sortie observation des baleines
             </p>
           </div>
+</Link>
 
           <div className="rounded-2xl bg-blue-700 p-8 shadow-lg cursor-pointer hover:bg-blue-600">
             <h2 className="text-2xl font-bold mb-2">
