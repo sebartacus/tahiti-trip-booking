@@ -20,6 +20,12 @@ const CAPACITE_OBSERVATEUR = 2;
 const PRIX_MISE_EAU = 15000;
 const PRIX_OBSERVATEUR = 8500;
 const PRIX_ENFANT_OBSERVATEUR = 7000;
+const DATE_DEBUT_BALEINES = new Date("2026-07-20");
+const DATE_FIN_BALEINES = new Date("2026-11-20");
+
+function dateAutorisee(date: Date) {
+  return date >= DATE_DEBUT_BALEINES && date <= DATE_FIN_BALEINES;
+}
 
 export default function BaleinesPage() {
   const [dateSortie, setDateSortie] = useState<Date | null>(null);
@@ -124,7 +130,9 @@ const total =
             <Calendar
               onChange={(value) => setDateSortie(value as Date)}
               value={dateSortie}
-              minDate={new Date()}
+              minDate={DATE_DEBUT_BALEINES}
+maxDate={DATE_FIN_BALEINES}
+tileDisabled={({ date }) => !dateAutorisee(date)}
               locale="fr-FR"
               className="w-full border-none"
             />
