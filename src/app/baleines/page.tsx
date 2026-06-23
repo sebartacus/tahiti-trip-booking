@@ -24,21 +24,33 @@ const PRIX_ENFANT_OBSERVATEUR = 7000;
 export default function BaleinesPage() {
   const [dateSortie, setDateSortie] = useState<Date | null>(null);
 const [tour, setTour] = useState("");
+const [responsablePrenom, setResponsablePrenom] = useState("");
+const [responsableNom, setResponsableNom] = useState("");
+const [responsableTelephone, setResponsableTelephone] = useState("");
+const [responsableEmail, setResponsableEmail] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
 
   const totalMiseEau = participants.filter((p) => p.type === "mise_eau").length;
-  const totalObservateur = participants.filter((p) => p.type === "observateur").length;
 
-  const placesRestantesMiseEau = CAPACITE_MISE_EAU - totalMiseEau;
-  const placesRestantesObservateur = CAPACITE_OBSERVATEUR - totalObservateur;
+const totalObservateurAdulte = participants.filter(
+  (p) => p.type === "observateur" && p.age === "+12 ans"
+).length;
 
-  const total = participants.reduce((somme, participant) => {
-    if (participant.type === "mise_eau") return somme + PRIX_MISE_EAU;
-    if (participant.age === "6/10 ans" || participant.age === "10/12 ans") {
-      return somme + PRIX_ENFANT_OBSERVATEUR;
-    }
-    return somme + PRIX_OBSERVATEUR;
-  }, 0);
+const totalObservateurEnfant = participants.filter(
+  (p) =>
+    p.type === "observateur" &&
+    (p.age === "6/10 ans" || p.age === "10/12 ans")
+).length;
+
+const totalObservateur = totalObservateurAdulte + totalObservateurEnfant;
+
+const placesRestantesMiseEau = CAPACITE_MISE_EAU - totalMiseEau;
+const placesRestantesObservateur = CAPACITE_OBSERVATEUR - totalObservateur;
+
+const total =
+  totalMiseEau * PRIX_MISE_EAU +
+  totalObservateurAdulte * PRIX_OBSERVATEUR +
+  totalObservateurEnfant * PRIX_ENFANT_OBSERVATEUR;
 
   function ajouterParticipant() {
   if (
@@ -167,7 +179,9 @@ const [tour, setTour] = useState("");
         </section>
 
         <section className="bg-white text-black rounded-2xl p-6">
-          <h2 className="text-2xl font-bold mb-4">Participants</h2>
+  <h2 className="text-2xl font-bold mb-4">
+    Participants
+  </h2>
 
 {participants.length === 0 && (
   <div className="bg-sky-100 border border-sky-300 rounded-xl p-4 mb-6">
@@ -183,7 +197,11 @@ const [tour, setTour] = useState("");
               return (
                 <div key={index} className="border rounded-2xl p-4 bg-slate-50">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold">Participant {index + 1}</h3>
+                    <h3 className="font-bold">
+  {index === 0
+    ? "Participant 1 (responsable de la réservation)"
+    : `Participant ${index + 1}`}
+</h3>
 
                     {participants.length > 1 && (
                       <button
@@ -296,19 +314,48 @@ const [tour, setTour] = useState("");
             type="button"
             onClick={ajouterParticipant}
             disabled={
-              totalMiseEau >= CAPACITE_MISE_EAU &&
-              totalObservateur >= CAPACITE_OBSERVATEUR
-            }
+  !dateSortie ||
+  !tour ||
+  (totalMiseEau >= CAPACITE_MISE_EAU &&
+    totalObservateur >= CAPACITE_OBSERVATEUR)
+}
             className="mt-6 w-full cursor-pointer bg-blue-600 text-white font-bold p-4 rounded-xl hover:bg-blue-500 disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
-            Ajouter un participant
+            {!dateSortie || !tour
+  ? "Choisissez d’abord une date et un départ"
+  : "Ajouter un participant"}
           </button>
 
           <div className="mt-6 bg-yellow-100 rounded-xl p-4">
-            <p className="font-bold text-xl">
-              Total : {total.toLocaleString("fr-FR")} FCP
-            </p>
-          </div>
+  <h3 className="font-bold text-xl mb-3">
+    Récapitulatif tarif
+  </h3>
+
+  {totalMiseEau > 0 && (
+    <p>
+      Mise à l’eau : {totalMiseEau} × 15 000 FCP ={" "}
+      {(totalMiseEau * PRIX_MISE_EAU).toLocaleString("fr-FR")} FCP
+    </p>
+  )}
+
+  {totalObservateurAdulte > 0 && (
+    <p>
+      Observateur adulte : {totalObservateurAdulte} × 8 500 FCP ={" "}
+      {(totalObservateurAdulte * PRIX_OBSERVATEUR).toLocaleString("fr-FR")} FCP
+    </p>
+  )}
+
+  {totalObservateurEnfant > 0 && (
+    <p>
+      Enfant observateur : {totalObservateurEnfant} × 7 000 FCP ={" "}
+      {(totalObservateurEnfant * PRIX_ENFANT_OBSERVATEUR).toLocaleString("fr-FR")} FCP
+    </p>
+  )}
+
+  <p className="font-bold text-xl mt-4">
+    Total : {total.toLocaleString("fr-FR")} FCP
+  </p>
+</div>
 
           <button className="mt-6 w-full cursor-pointer bg-yellow-500 text-black font-bold p-4 rounded-xl">
             Réserver ma sortie
