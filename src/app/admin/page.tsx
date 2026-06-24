@@ -256,8 +256,53 @@ return (
 <option>Permis obtenu</option>
   </select>
 </div>      
-<div className="overflow-x-auto">
-        <table className="w-full bg-white rounded-xl overflow-hidden">
+<div className="block md:hidden space-y-4 text-slate-900">
+  {reservations
+    .filter((reservation) =>
+      filtreStatut === "Tous"
+        ? true
+        : reservation.statut === filtreStatut
+    )
+    .map((reservation) => (
+      <div className="hidden lg:block overflow-x-auto bg-white rounded-xl shadow-sm">
+>
+        <h2 className="text-xl font-bold mb-2">
+          {reservation.prenom} {reservation.nom}
+        </h2>
+
+        <p><strong>Participant 2 :</strong> {reservation.prenom2 && reservation.nom2 ? `${reservation.prenom2} ${reservation.nom2}` : "-"}</p>
+        <p><strong>Téléphone :</strong> {reservation.telephone}</p>
+        <p><strong>Email :</strong> {reservation.email}</p>
+        <p><strong>Formule :</strong> {reservation.formule}</p>
+        <p><strong>Examen :</strong> {reservation.examen}</p>
+        <p><strong>Cours :</strong> {reservation.date_cours}</p>
+        <p><strong>Créneau :</strong> {reservation.creneau}</p>
+
+        <div className="mt-4">
+          <label className="font-bold block mb-2">Statut</label>
+          <select
+            value={reservation.statut || "En attente"}
+            onChange={(e) => modifierStatut(reservation.id, e.target.value)}
+            className="w-full cursor-pointer rounded-xl border p-3 font-bold"
+          >
+            <option>En attente</option>
+            <option>Validé</option>
+            <option>Incomplet</option>
+            <option>Permis obtenu</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          <button onClick={() => ouvrirDocument(reservation.certificat_url)} className="cursor-pointer bg-green-600 text-white rounded-xl p-2">Certificat</button>
+          <button onClick={() => ouvrirDocument(reservation.formulaire_url)} className="cursor-pointer bg-green-600 text-white rounded-xl p-2">Formulaire</button>
+          <button onClick={() => ouvrirDocument(reservation.photo_url)} className="cursor-pointer bg-green-600 text-white rounded-xl p-2">Photo</button>
+          <button onClick={() => ouvrirDocument(reservation.identite_url)} className="cursor-pointer bg-green-600 text-white rounded-xl p-2">Identité</button>
+        </div>
+      </div>
+    ))}
+</div>
+<div className="hidden md:block overflow-x-auto bg-white rounded-xl shadow-sm">
+        <table className="min-w-[1400px] w-full bg-white rounded-xl overflow-hidden text-sm">
           <thead className="bg-sky-800 text-white">
             <tr>
               <th className="p-3 text-left">Nom</th>
