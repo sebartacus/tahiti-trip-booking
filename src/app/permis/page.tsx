@@ -1,17 +1,85 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import UploadDocuments from "@/app/UploadDocuments";
 import { uploadDocument } from "@/lib/uploadDocuments";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
-const examens = [
-  { label: "Session du 10 juin 2026", value: "10 juin 2026", limite: "2 juin 2026" },
-  { label: "Session du 24 juin 2026", value: "24 juin 2026", limite: "16 juin 2026" },
-  { label: "Je choisirai plus tard", value: "Plus tard", limite: "" },
+const joursFeriesPolynesie = [
+  "2026-01-01",
+  "2026-03-05",
+  "2026-04-03",
+  "2026-04-06",
+  "2026-05-01",
+  "2026-05-08",
+  "2026-05-14",
+  "2026-05-25",
+  "2026-06-29",
+  "2026-07-14",
+  "2026-08-15",
+  "2026-11-01",
+  "2026-11-11",
+  "2026-12-25",
 ];
+
+function formatDateISO(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
+function formatDateFR(date: Date) {
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function ajouterJours(date: Date, jours: number) {
+  const nouvelleDate = new Date(date);
+  nouvelleDate.setDate(nouvelleDate.getDate() + jours);
+  return nouvelleDate;
+}
+
+function genererExamens() {
+  const aujourdHui = new Date();
+  aujourdHui.setHours(0, 0, 0, 0);
+
+  const examensDisponibles = [];
+  let date = new Date(aujourdHui);
+
+  while (examensDisponibles.length < 4) {
+    date.setDate(date.getDate() + 1);
+
+    const estMercredi = date.getDay() === 3;
+
+    if (!estMercredi) continue;
+
+    let dateExamen = new Date(date);
+
+    if (joursFeriesPolynesie.includes(formatDateISO(dateExamen))) {
+      dateExamen = ajouterJours(dateExamen, 1);
+    }
+
+    const limiteInscription = ajouterJours(dateExamen, -8);
+
+    if (aujourdHui <= limiteInscription) {
+      examensDisponibles.push({
+  label: `Session du ${formatDateFR(dateExamen)}`,
+  value: formatDateFR(dateExamen),
+  limite: formatDateFR(limiteInscription),
+  iso: formatDateISO(dateExamen),
+});
+    }
+  }
+
+  return [
+    ...examensDisponibles,
+    { label: "Je choisirai plus tard", value: "Plus tard", limite: "" },
+  ];
+}
+
 
 const creneauxIndividuels = [
   "07h00 - 09h00",
@@ -60,6 +128,32 @@ const [paiementValide, setPaiementValide] = useState(false);
 const [enregistrementEnCours, setEnregistrementEnCours] = useState(false);
 const [accepteCgv, setAccepteCgv] = useState(false);
 const [accepteDocuments, setAccepteDocuments] = useState(false);
+const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
+
+useEffect(() => {
+  async function chargerExamensBloques() {
+    const { data, error } = await supabase
+      .from("examens_bloques")
+      .select("date_examen");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setDatesExamensBloques(
+      (data || []).map((item) => item.date_examen)
+    );
+  }
+
+  chargerExamensBloques();
+}, []);
+
+const examens = genererExamens().filter(
+  (examen) =>
+    examen.value === "Plus tard" ||
+    !datesExamensBloques.includes(examen.iso)
+);
 
   const mercredi = isMercredi(dateCours);
 const prixBase = formule === "Sérénité" ? 33000 : 25000;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -16,6 +16,100 @@ const mercredi = dateCours?.getDay() === 3;
 const [creneauxReserves, setCreneauxReserves] = useState<string[]>([]);
   const [erreur, setErreur] = useState("");
 const [message, setMessage] = useState("");
+const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
+
+useEffect(() => {
+  async function chargerExamensBloques() {
+    const { data, error } = await supabase
+      .from("examens_bloques")
+      .select("date_examen");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setDatesExamensBloques((data || []).map((item) => item.date_examen));
+  }
+
+  chargerExamensBloques();
+}, []);
+const joursFeriesPolynesie = [
+  "2026-01-01",
+  "2026-03-05",
+  "2026-04-03",
+  "2026-04-06",
+  "2026-05-01",
+  "2026-05-08",
+  "2026-05-14",
+  "2026-05-25",
+  "2026-06-29",
+  "2026-07-14",
+  "2026-08-15",
+  "2026-11-01",
+  "2026-11-11",
+  "2026-12-25",
+];
+
+function formatDateISO(date: Date) {
+  return date.toISOString().split("T")[0];
+}
+
+function formatDateFR(date: Date) {
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function ajouterJours(date: Date, jours: number) {
+  const nouvelleDate = new Date(date);
+  nouvelleDate.setDate(nouvelleDate.getDate() + jours);
+  return nouvelleDate;
+}
+
+function genererExamens() {
+  const aujourdHui = new Date();
+  aujourdHui.setHours(0, 0, 0, 0);
+
+  const examensDisponibles = [];
+  let date = new Date(aujourdHui);
+
+  while (examensDisponibles.length < 4) {
+    date.setDate(date.getDate() + 1);
+
+    if (date.getDay() !== 3) continue;
+
+    let dateExamen = new Date(date);
+
+    if (joursFeriesPolynesie.includes(formatDateISO(dateExamen))) {
+      dateExamen = ajouterJours(dateExamen, 1);
+    }
+
+    const limiteInscription = ajouterJours(dateExamen, -8);
+
+    if (aujourdHui <= limiteInscription) {
+      examensDisponibles.push({
+  label: `Session du ${formatDateFR(dateExamen)}`,
+  value: formatDateFR(dateExamen),
+  limite: formatDateFR(limiteInscription),
+  iso: formatDateISO(dateExamen),
+});
+    }
+  }
+
+  return [
+    ...examensDisponibles,
+    { label: "Je choisirai plus tard", value: "Plus tard", limite: "" },
+  ];
+}
+
+const examens = genererExamens().filter(
+  (examen) =>
+    examen.value === "Plus tard" ||
+    !datesExamensBloques.includes(examen.iso)
+);
 
 async function chargerCreneauxReserves(date: Date) {
   const dateFormatee = date.toLocaleDateString("fr-FR");
@@ -91,15 +185,7 @@ async function mettreAJourReservation() {
     return;
   }
 
-  if (examen === "10 juin 2026" && dateCours && dateCours > new Date("2026-06-10")) {
-    alert("Le cours pratique doit être programmé avant l'examen du 10 juin 2026.");
-    return;
-  }
-
-  if (examen === "24 juin 2026" && dateCours && dateCours > new Date("2026-06-24")) {
-    alert("Le cours pratique doit être programmé avant l'examen du 24 juin 2026.");
-    return;
-  }
+  
 
   if (dateCours && !creneau) {
     alert("Veuillez choisir un créneau horaire.");
@@ -209,8 +295,13 @@ setMessage("Réservation mise à jour avec succès.");
 onChange={(e) => setExamen(e.target.value)}
   >
     <option value="">Choisir</option>
-    <option value="10 juin 2026">10 juin 2026</option>
-    <option value="24 juin 2026">24 juin 2026</option>
+{examens
+  .filter((e) => e.value !== "Plus tard")
+  .map((examen) => (
+    <option key={examen.value} value={examen.value}>
+      {examen.value}
+    </option>
+))}
   </select>
 </div>
 <div className="mt-6 bg-white text-black rounded-2xl p-4">
