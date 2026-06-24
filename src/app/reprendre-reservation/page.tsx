@@ -108,7 +108,7 @@ function genererExamens() {
 const examens = genererExamens().filter(
   (examen) =>
     examen.value === "Plus tard" ||
-    !datesExamensBloques.includes(examen.iso)
+    (examen.iso && !datesExamensBloques.includes(examen.iso))
 );
 
 async function chargerCreneauxReserves(date: Date) {
