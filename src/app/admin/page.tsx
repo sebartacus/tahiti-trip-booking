@@ -8,10 +8,14 @@ export default function AdminPage() {
 const [filtreStatut, setFiltreStatut] = useState("Tous");
 const [motDePasse, setMotDePasse] = useState("");
 const [accesAutorise, setAccesAutorise] = useState(false);
+const [dateExamenBloquee, setDateExamenBloquee] = useState("");
+const [motifBlocage, setMotifBlocage] = useState("");
+const [examensBloques, setExamensBloques] = useState<any[]>([]);
 
   useEffect(() => {
-    chargerReservations();
-  }, []);
+  chargerReservations();
+  chargerExamensBloques();
+}, []);
 
   async function chargerReservations() {
     const { data, error } = await supabase
@@ -26,6 +30,60 @@ const [accesAutorise, setAccesAutorise] = useState(false);
 
     setReservations(data || []);
   }
+async function chargerExamensBloques() {
+  const { data, error } = await supabase
+    .from("examens_bloques")
+    .select("*")
+    .order("date_examen", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setExamensBloques(data || []);
+}
+
+async function bloquerDateExamen() {
+  if (!dateExamenBloquee) {
+    alert("Veuillez choisir une date à bloquer.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("examens_bloques")
+    .insert([
+      {
+        date_examen: dateExamenBloquee,
+        motif: motifBlocage || "Date bloquée manuellement",
+      },
+    ]);
+
+  if (error) {
+    console.error(error);
+    alert("Impossible de bloquer cette date.");
+    return;
+  }
+
+  setDateExamenBloquee("");
+  setMotifBlocage("");
+  chargerExamensBloques();
+}
+
+async function debloquerDateExamen(id: string) {
+  const { error } = await supabase
+    .from("examens_bloques")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert("Impossible de débloquer cette date.");
+    return;
+  }
+
+  chargerExamensBloques();
+}
 async function ouvrirDocument(path: string | null) {
   if (!path) return;
 
@@ -106,6 +164,65 @@ return (
       <h1 className="text-4xl font-bold mb-8">
         Réservations Permis Côtier
       </h1>
+<section className="bg-white rounded-2xl p-6 mb-8">
+  <h2 className="text-2xl font-bold mb-4">
+    Dates d’examen bloquées
+  </h2>
+
+  <div className="grid md:grid-cols-3 gap-4 mb-6">
+    <input
+      type="date"
+      value={dateExamenBloquee}
+      onChange={(e) => setDateExamenBloquee(e.target.value)}
+      className="border rounded-xl p-3"
+    />
+
+    <input
+      value={motifBlocage}
+      onChange={(e) => setMotifBlocage(e.target.value)}
+      placeholder="Motif"
+      className="border rounded-xl p-3"
+    />
+
+    <button
+      onClick={bloquerDateExamen}
+      className="cursor-pointer bg-red-600 text-white font-bold rounded-xl p-3"
+    >
+      Bloquer cette date
+    </button>
+  </div>
+
+  <div className="space-y-3">
+    {examensBloques.length === 0 && (
+      <p className="text-slate-500">
+        Aucune date d’examen bloquée.
+      </p>
+    )}
+
+    {examensBloques.map((examen) => (
+      <div
+        key={examen.id}
+        className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-100 rounded-xl p-4"
+      >
+        <div>
+          <p className="font-bold">
+            {examen.date_examen.split("-").reverse().join("/")}
+          </p>
+          <p className="text-sm text-slate-600">
+            {examen.motif}
+          </p>
+        </div>
+
+        <button
+          onClick={() => debloquerDateExamen(examen.id)}
+          className="cursor-pointer bg-slate-700 text-white rounded-xl px-4 py-2"
+        >
+          Débloquer
+        </button>
+      </div>
+    ))}
+  </div>
+</section>
 <div className="mb-6 grid md:grid-cols-5 gap-4">
   <div className="bg-white rounded-xl p-4 font-bold">
     Total : {reservations.length}
