@@ -12,13 +12,11 @@ const reservationId = String(
   formData.get("vads_ext_reservation_id") || ""
 );
 
- console.log("Notification PayZen reçue", {
-  statutPaiement,
-  email,
-  transactionId,
-  typeReservation,
-  reservationId,
-});
+  console.log("Notification PayZen reçue", {
+    statutPaiement,
+    email,
+    transactionId,
+  });
 
   if (statutPaiement !== "AUTHORISED") {
     return NextResponse.json({
