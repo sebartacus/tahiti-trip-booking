@@ -2,24 +2,24 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 function signerPayzen(champs: Record<string, string>, cle: string) {
-    const ordre = [
-  "vads_action_mode",
-  "vads_amount",
-  "vads_ctx_mode",
-  "vads_currency",
-  "vads_cust_email",
-  "vads_ext_reservation_id",
-  "vads_ext_type",
-  "vads_order_id",
-  "vads_page_action",
-  "vads_payment_config",
-  "vads_site_id",
-  "vads_trans_date",
-  "vads_trans_id",
-  "vads_url_check",
-  "vads_url_return",
-  "vads_version",
-];
+  const ordre = [
+    "vads_action_mode",
+    "vads_amount",
+    "vads_ctx_mode",
+    "vads_currency",
+"vads_order_id",
+"vads_cust_email",
+"vads_ext_reservation_id",
+"vads_ext_type",
+    "vads_page_action",
+    "vads_payment_config",
+    "vads_site_id",
+    "vads_trans_date",
+    "vads_trans_id",
+"vads_url_check",
+    "vads_url_return",
+    "vads_version",
+  ];
 
   const chaine = ordre
     .map((key) => champs[key])
