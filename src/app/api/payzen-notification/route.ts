@@ -7,12 +7,17 @@ export async function POST(request: Request) {
   const statutPaiement = String(formData.get("vads_trans_status") || "");
   const email = String(formData.get("vads_cust_email") || "");
   const transactionId = String(formData.get("vads_trans_id") || "");
-const orderId = String(formData.get("vads_order_id") || "");
+const typeReservation = String(formData.get("vads_ext_type") || "permis");
+const reservationId = String(
+  formData.get("vads_ext_reservation_id") || ""
+);
+
  console.log("Notification PayZen reçue", {
   statutPaiement,
   email,
   transactionId,
-  orderId,
+  typeReservation,
+  reservationId,
 });
 
   if (statutPaiement !== "AUTHORISED") {
@@ -31,26 +36,23 @@ const orderId = String(formData.get("vads_order_id") || "");
 
   let error = null;
 
-// On cherche d'abord une réservation Baleines
-let resultat = await supabase
-  .from("reservations_baleines")
-  .update({
-    paiement_effectue: true,
-    statut: "Payé",
-  })
-  .eq("order_id", orderId);
+if (typeReservation === "baleines") {
+  const resultat = await supabase
+    .from("reservations_baleines")
+    .update({
+      paiement_effectue: true,
+      statut: "Payé",
+    })
+    .eq("id", reservationId);
 
-error = resultat.error;
-
-// Si aucune réservation Baleines n'a été trouvée,
-// on tente une réservation Permis
-if (!error) {
-  resultat = await supabase
+  error = resultat.error;
+} else {
+  const resultat = await supabase
     .from("reservations")
     .update({
       paiement_effectue: true,
     })
-    .eq("order_id", orderId);
+    .eq("email", email);
 
   error = resultat.error;
 }

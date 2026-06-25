@@ -7,7 +7,6 @@ function signerPayzen(champs: Record<string, string>, cle: string) {
     "vads_amount",
     "vads_ctx_mode",
     "vads_currency",
-"vads_order_id",
 "vads_cust_email",
 "vads_ext_reservation_id",
 "vads_ext_type",
@@ -65,8 +64,7 @@ vads_ext_type: String(body.type || "permis"),
 vads_ext_reservation_id: String(body.reservationId || ""),    
 vads_page_action: "PAYMENT",
     vads_payment_config: "SINGLE",
-vads_order_id: String(body.orderId || transactionId),    
-vads_site_id: siteId,
+    vads_site_id: siteId,
     vads_trans_date: (() => {
   const date = new Date();
 

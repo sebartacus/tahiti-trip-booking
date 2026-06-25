@@ -152,44 +152,26 @@ for (let i = 0; i < participants.length; i++) {
     return;
   }
 
- if (
-  participant.type === "mise_eau" &&
-  !participant.materielPerso &&
-  !participant.tailleCombinaison
-) {
-  setErreur(
-    `Veuillez choisir la taille de combinaison du participant ${i + 1}.`
-  );
-  return;
-}
+  if (!participant.materielPerso && !participant.tailleCombinaison) {
+    setErreur(`Veuillez choisir la taille de combinaison du participant ${i + 1}.`);
+    return;
+  }
 
-if (
-  participant.type === "mise_eau" &&
-  !participant.materielPerso &&
-  !participant.pointurePalmes
-) {
-  setErreur(
-    `Veuillez choisir la pointure de palmes du participant ${i + 1}.`
-  );
-  return;
-}
+  if (!participant.materielPerso && !participant.pointurePalmes) {
+    setErreur(`Veuillez choisir la pointure de palmes du participant ${i + 1}.`);
+    return;
+  }
 }
 
   setEnregistrementEnCours(true);
 
 const responsable = participants[0];
 
-const orderId =
-  "BAL-" +
-  Date.now() +
-  "-" +
-  Math.random().toString(36).substring(2, 8).toUpperCase();
 const { data: reservationCreee, error: erreurReservation } = await supabase
   .from("reservations_baleines")
   .insert([
     {
-order_id: orderId,      
-date_sortie: dateSortie.toLocaleDateString("fr-FR"),
+      date_sortie: dateSortie.toLocaleDateString("fr-FR"),
       tour,
       prenom: responsable.prenom,
       nom: responsable.nom,
@@ -216,7 +198,7 @@ const reponsePayzen = await fetch("/api/payzen", {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-  orderId: orderId,
+  reservationId: reservationCreee.id,
   montant: total,
   email: responsable.email,
   type: "baleines",
@@ -443,56 +425,47 @@ tileDisabled={({ date }) => !dateAutorisee(date)}
                       </option>
                     </select>
 
-                   {participant.type === "mise_eau" && (
-  <>
-    {!participant.materielPerso && (
-      <div className="grid md:grid-cols-2 gap-4">
-        <select
-          className="p-3 rounded-xl border"
-          value={participant.tailleCombinaison}
-          onChange={(e) =>
-            modifierParticipant(index, "tailleCombinaison", e.target.value)
-          }
-        >
-          <option value="">Taille combinaison</option>
-          <option>XS</option>
-          <option>S</option>
-          <option>M</option>
-          <option>L</option>
-          <option>XL</option>
-          <option>XXL</option>
-        </select>
+                    <select
+  className="p-3 rounded-xl border"
+  value={participant.tailleCombinaison}
+  onChange={(e) =>
+    modifierParticipant(index, "tailleCombinaison", e.target.value)
+  }
+>
+  <option value="">Taille combinaison</option>
+  <option>XS</option>
+  <option>S</option>
+  <option>M</option>
+  <option>L</option>
+  <option>XL</option>
+  <option>XXL</option>
+</select>
 
-        <select
-          className="p-3 rounded-xl border"
-          value={participant.pointurePalmes}
-          onChange={(e) =>
-            modifierParticipant(index, "pointurePalmes", e.target.value)
-          }
-        >
-          <option value="">Pointure palmes</option>
-          <option>34/36</option>
-          <option>37/39</option>
-          <option>40/42</option>
-          <option>43/45</option>
-          <option>46/48</option>
-        </select>
-      </div>
-    )}
-
-    <label className="mt-4 flex gap-3 items-center">
-      <input
-        type="checkbox"
-        checked={participant.materielPerso}
-        onChange={(e) =>
-          modifierParticipant(index, "materielPerso", e.target.checked)
-        }
-      />
-      <span>J'ai déjà mon matériel</span>
-    </label>
-  </>
-)}
+                    <select
+  className="p-3 rounded-xl border"
+  value={participant.pointurePalmes}
+  onChange={(e) =>
+    modifierParticipant(index, "pointurePalmes", e.target.value)
+  }
+>
+  <option value="">Pointure palmes</option>
+  <option>36/38</option>
+  <option>39/41</option>
+  <option>42/44</option>
+  <option>45+</option>
+</select>
                   </div>
+
+                  <label className="mt-4 flex gap-3 items-center">
+                    <input
+                      type="checkbox"
+                      checked={participant.materielPerso}
+                      onChange={(e) =>
+                        modifierParticipant(index, "materielPerso", e.target.checked)
+                      }
+                    />
+                    <span>J’ai déjà mon matériel</span>
+                  </label>
                 </div>
               );
             })}
