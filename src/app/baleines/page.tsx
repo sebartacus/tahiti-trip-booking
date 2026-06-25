@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
 type Participant = {
   prenom: string;
   nom: string;
-  telephone?: string;
-  email?: string;
   age: string;
   type: "mise_eau" | "observateur";
   tailleCombinaison: string;
@@ -38,8 +35,6 @@ const [responsableNom, setResponsableNom] = useState("");
 const [responsableTelephone, setResponsableTelephone] = useState("");
 const [responsableEmail, setResponsableEmail] = useState("");
   const [participants, setParticipants] = useState<Participant[]>([]);
-const [erreur, setErreur] = useState("");
-const [enregistrementEnCours, setEnregistrementEnCours] = useState(false);
 
   const totalMiseEau = participants.filter((p) => p.type === "mise_eau").length;
 
@@ -77,16 +72,14 @@ const total =
   setParticipants([
     ...participants,
     {
-  prenom: "",
-  nom: "",
-  telephone: "",
-  email: "",
-  age: "+12 ans",
-  type: typeParDefaut,
-  tailleCombinaison: "",
-  pointurePalmes: "",
-  materielPerso: false,
-},
+      prenom: "",
+      nom: "",
+      age: "+12 ans",
+      type: typeParDefaut,
+      tailleCombinaison: "",
+      pointurePalmes: "",
+      materielPerso: false,
+    },
   ]);
 }
 
@@ -112,129 +105,6 @@ const total =
   function supprimerParticipant(index: number) {
     setParticipants(participants.filter((_, i) => i !== index));
   }
-async function reserverSortie() {
-  setErreur("");
-
-  if (!dateSortie) {
-    setErreur("Veuillez choisir une date.");
-    return;
-  }
-
-  if (!tour) {
-    setErreur("Veuillez choisir un départ.");
-    return;
-  }
-
-  if (participants.length === 0) {
-    setErreur("Ajoutez au moins un participant.");
-    return;
-  }
-for (let i = 0; i < participants.length; i++) {
-  const participant = participants[i];
-
-  if (!participant.prenom.trim()) {
-    setErreur(`Veuillez renseigner le prénom du participant ${i + 1}.`);
-    return;
-  }
-
-  if (!participant.nom.trim()) {
-    setErreur(`Veuillez renseigner le nom du participant ${i + 1}.`);
-    return;
-  }
-
-  if (!participant.age) {
-    setErreur(`Veuillez choisir l'âge du participant ${i + 1}.`);
-    return;
-  }
-
-  if (!participant.type) {
-    setErreur(`Veuillez choisir le type de participation du participant ${i + 1}.`);
-    return;
-  }
-
-  if (!participant.materielPerso && !participant.tailleCombinaison) {
-    setErreur(`Veuillez choisir la taille de combinaison du participant ${i + 1}.`);
-    return;
-  }
-
-  if (!participant.materielPerso && !participant.pointurePalmes) {
-    setErreur(`Veuillez choisir la pointure de palmes du participant ${i + 1}.`);
-    return;
-  }
-}
-
-  setEnregistrementEnCours(true);
-
-const responsable = participants[0];
-
-const { data: reservationCreee, error: erreurReservation } = await supabase
-  .from("reservations_baleines")
-  .insert([
-    {
-      date_sortie: dateSortie.toLocaleDateString("fr-FR"),
-      tour,
-      prenom: responsable.prenom,
-      nom: responsable.nom,
-      telephone: responsable.telephone,
-      email: responsable.email,
-      participants,
-      total,
-      paiement_effectue: false,
-      statut: "En attente",
-    },
-  ])
-  .select()
-  .single();
-
-if (erreurReservation) {
-  console.error(erreurReservation);
-  setErreur("Erreur lors de l'enregistrement de la réservation.");
-  setEnregistrementEnCours(false);
-  return;
-}
-const reponsePayzen = await fetch("/api/payzen", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-  reservationId: reservationCreee.id,
-  montant: total,
-  email: responsable.email,
-  type: "baleines",
-  dateSortie: dateSortie.toLocaleDateString("fr-FR"),
-  tour,
-  participants,
-  telephone: responsable.telephone,
-  nom: responsable.nom,
-  prenom: responsable.prenom,
-}),
-});
-
-const paiement = await reponsePayzen.json();
-
-if (!reponsePayzen.ok) {
-  console.error(paiement);
-  setErreur("Erreur lors de la préparation du paiement.");
-  setEnregistrementEnCours(false);
-  return;
-}
-
-const formulaire = document.createElement("form");
-formulaire.method = "POST";
-formulaire.action = paiement.url;
-
-Object.entries(paiement.champs).forEach(([nom, valeur]) => {
-  const input = document.createElement("input");
-  input.type = "hidden";
-  input.name = nom;
-  input.value = String(valeur);
-  formulaire.appendChild(input);
-});
-
-document.body.appendChild(formulaire);
-formulaire.submit();
-}
 
   return (
     <main className="min-h-screen bg-sky-950 text-white p-6">
@@ -353,46 +223,23 @@ tileDisabled={({ date }) => !dateAutorisee(date)}
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4">
-  <input
-    className="p-3 rounded-xl border"
-    placeholder="Prénom"
-    value={participant.prenom}
-    onChange={(e) =>
-      modifierParticipant(index, "prenom", e.target.value)
-    }
-  />
+                    <input
+                      className="p-3 rounded-xl border"
+                      placeholder="Prénom"
+                      value={participant.prenom}
+                      onChange={(e) =>
+                        modifierParticipant(index, "prenom", e.target.value)
+                      }
+                    />
 
-  <input
-    className="p-3 rounded-xl border"
-    placeholder="Nom"
-    value={participant.nom}
-    onChange={(e) =>
-      modifierParticipant(index, "nom", e.target.value)
-    }
-  />
-
-  {index === 0 && (
-    <>
-      <input
-        className="p-3 rounded-xl border"
-        placeholder="Téléphone"
-        value={participant.telephone || ""}
-        onChange={(e) =>
-          modifierParticipant(index, "telephone", e.target.value)
-        }
-      />
-
-      <input
-        type="email"
-        className="p-3 rounded-xl border"
-        placeholder="E-mail"
-        value={participant.email || ""}
-        onChange={(e) =>
-          modifierParticipant(index, "email", e.target.value)
-        }
-      />
-    </>
-  )}
+                    <input
+                      className="p-3 rounded-xl border"
+                      placeholder="Nom"
+                      value={participant.nom}
+                      onChange={(e) =>
+                        modifierParticipant(index, "nom", e.target.value)
+                      }
+                    />
 
                     <select
                       className="p-3 rounded-xl border"
@@ -518,19 +365,9 @@ tileDisabled={({ date }) => !dateAutorisee(date)}
   </p>
 </div>
 
-          {erreur && (
-  <div className="mt-6 bg-red-100 text-red-700 rounded-xl p-4">
-    {erreur}
-  </div>
-)}
-
-<button
-  onClick={reserverSortie}
-  disabled={enregistrementEnCours}
-  className="mt-6 w-full cursor-pointer bg-yellow-500 text-black font-bold p-4 rounded-xl disabled:bg-slate-400 disabled:cursor-not-allowed"
->
-  {enregistrementEnCours ? "Préparation..." : "Réserver ma sortie"}
-</button>
+          <button className="mt-6 w-full cursor-pointer bg-yellow-500 text-black font-bold p-4 rounded-xl">
+            Réserver ma sortie
+          </button>
         </section>
       </div>
     </main>
