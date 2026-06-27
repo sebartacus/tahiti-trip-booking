@@ -36,6 +36,8 @@ export function useBookingStep() {
     currentStep,
     currentStepIndex,
     totalSteps: BOOKING_STEPS.length,
+    isFirstStep: currentStepIndex === 0,
+    isLastStep: currentStepIndex === BOOKING_STEPS.length - 1,
     goNext,
     goPrevious,
     goToStep,
