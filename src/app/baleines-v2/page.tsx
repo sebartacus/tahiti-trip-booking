@@ -98,9 +98,9 @@ email:""
 
 });
 
-const [participants,setParticipants]=useState<Participant>([
-nouveauParticipant()
-] as any);
+const [participants,setParticipants]=useState<Participant[]>([
+  nouveauParticipant()
+]);
 
 const [miseEauOccupees,setMiseEauOccupees]=useState(0);
 const [obsOccupees,setObsOccupees]=useState(0);
