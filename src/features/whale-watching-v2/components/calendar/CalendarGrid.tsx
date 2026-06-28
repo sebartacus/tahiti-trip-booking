@@ -68,25 +68,25 @@ export function CalendarGrid({
   );
 
   return (
-    <div className="overflow-hidden rounded-[32px] border border-white/70 bg-slate-950 text-white shadow-[0_24px_70px_rgba(15,23,42,0.24)]">
-      <div className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.35),transparent_38%),linear-gradient(135deg,#020617,#0f172a_58%,#083344)] px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
+    <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+      <div className="border-b border-slate-100 bg-gradient-to-br from-white via-sky-50 to-cyan-50 px-4 py-5">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
             aria-label="Mois precedent"
             disabled={monthIndex === 0}
             onClick={() => setMonthIndex((current) => current - 1)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl font-semibold text-white shadow-inner backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-35"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-35"
           >
             {"<"}
           </button>
 
           <div className="min-w-0 text-center">
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-100/80">
-              Saison baleines
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-700">
+              Calendrier
             </p>
 
-            <h3 className="mt-1 truncate text-2xl font-black leading-tight text-white sm:text-3xl">
+            <h3 className="mt-1 truncate text-2xl font-black leading-tight text-slate-950">
               {monthLabel}
             </h3>
           </div>
@@ -96,31 +96,65 @@ export function CalendarGrid({
             aria-label="Mois suivant"
             disabled={monthIndex === MONTHS.length - 1}
             onClick={() => setMonthIndex((current) => current + 1)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl font-semibold text-white shadow-inner backdrop-blur transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-35"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-700 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-35"
           >
             {">"}
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 rounded-3xl border border-white/10 bg-white/10 p-2 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-50 backdrop-blur">
-          <span>6 nageurs max</span>
-          <span>2 observateurs max</span>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-cyan-100 bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              🤿 Nageurs
+            </p>
+            <p className="mt-1 text-lg font-black text-slate-950">
+              6 places max
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              Observateurs
+            </p>
+            <p className="mt-1 text-lg font-black text-slate-950">
+              2 places max
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-4 gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-slate-500">
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Beaucoup
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-orange-400" />
+            Quelques
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-rose-500" />
+            Complet
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-slate-300" />
+            Ferme
+          </span>
         </div>
       </div>
 
-      <div className="bg-slate-50 p-3 sm:p-5">
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+      <div className="bg-white p-3 sm:p-4">
+        <div className="grid grid-cols-7 gap-y-2">
           {WEEK_DAYS.map((dayName, index) => (
             <div
               key={`${dayName}-${index}`}
-              className="flex aspect-square items-center justify-center text-[11px] font-black uppercase text-slate-400 sm:text-xs"
+              className="flex h-8 items-center justify-center text-[11px] font-black uppercase text-slate-400"
             >
               {dayName}
             </div>
           ))}
 
           {Array.from({ length: offset }).map((_, index) => (
-            <div key={`offset-${index}`} className="aspect-square" />
+            <div key={`offset-${index}`} className="h-[54px]" />
           ))}
 
           {calendarDays.map(({ day, value, info, disabled }) => (

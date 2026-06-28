@@ -8,41 +8,66 @@ type Props = {
   onSelect(date: string): void;
 };
 
+const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+
+function formatSelectedDate(date: string) {
+  return dateFormatter.format(new Date(`${date}T12:00:00`));
+}
+
 export function DateStep({
   selectedDate,
   onSelect,
 }: Props) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">
-          📅 Choisissez votre date
+    <div className="space-y-5">
+      <div className="rounded-[30px] border border-cyan-100 bg-gradient-to-br from-white via-cyan-50 to-sky-50 p-5 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-700">
+          Date de sortie
+        </p>
+
+        <h2 className="mt-2 text-3xl font-black leading-tight text-slate-950">
+          Choisissez votre date
         </h2>
 
-        <p className="mt-2 text-slate-300">
-          Saison autorisée du 20 juillet au 20 novembre 2026.
+        <p className="mt-3 text-sm font-semibold leading-relaxed text-slate-600">
+          Saison autorisee du {SEASON.start} au {SEASON.end}.
         </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-cyan-100 bg-white p-4">
+            <p className="text-2xl font-black text-slate-950">6</p>
+            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+              🤿 nageurs max
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+            <p className="text-2xl font-black text-slate-950">2</p>
+            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
+              Observateurs max
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-cyan-500/20 bg-slate-900 p-6">
-        <label className="block text-sm font-medium text-slate-300 mb-3">
-          Date de la sortie
-        </label>
-
-        <CalendarGrid
-  selectedDate={selectedDate}
-  onSelect={onSelect}
-/>
-      </div>
+      <CalendarGrid
+        selectedDate={selectedDate}
+        onSelect={onSelect}
+      />
 
       {selectedDate && (
-        <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/20 p-4">
-          <p className="text-cyan-200 font-medium">
-            Date sélectionnée :
+        <div className="rounded-[26px] border border-cyan-100 bg-white p-5 shadow-sm">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-700">
+            Date selectionnee
           </p>
 
-          <p className="mt-1 text-white">
-            {selectedDate}
+          <p className="mt-2 text-lg font-black capitalize text-slate-950">
+            {formatSelectedDate(selectedDate)}
           </p>
         </div>
       )}
