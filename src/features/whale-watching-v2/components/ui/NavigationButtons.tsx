@@ -14,26 +14,28 @@ export function NavigationButtons({
   disableNext,
 }: Props) {
   return (
-    <div className="mt-10 flex items-center justify-between border-t border-slate-200 pt-8">
+    <div className="absolute inset-x-0 bottom-0 z-20 border-t border-white/10 bg-slate-950/92 px-4 pb-5 pt-3 shadow-[0_-18px_50px_rgba(15,23,42,0.26)] backdrop-blur-xl">
+      <div className="mx-auto mb-3 h-1 w-28 rounded-full bg-white/15" />
 
-      <button
-        type="button"
-        onClick={previous}
-        disabled={disablePrevious}
-        className="rounded-2xl border border-slate-300 bg-white px-8 py-4 font-bold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        ← Précédent
-      </button>
+      <div className="grid grid-cols-[0.78fr_1.22fr] gap-3">
+        <button
+          type="button"
+          onClick={previous}
+          disabled={disablePrevious}
+          className="min-h-14 rounded-[22px] border border-white/10 bg-white/10 px-4 text-base font-black text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          Retour
+        </button>
 
-      <button
-        type="button"
-        onClick={next}
-        disabled={disableNext}
-        className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-10 py-4 font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-30"
-      >
-        Suivant →
-      </button>
-
+        <button
+          type="button"
+          onClick={next}
+          disabled={disableNext}
+          className="min-h-14 rounded-[22px] bg-gradient-to-r from-cyan-300 to-sky-400 px-5 text-base font-black text-slate-950 shadow-[0_16px_40px_rgba(14,165,233,0.35)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_48px_rgba(14,165,233,0.45)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Continuer
+        </button>
+      </div>
     </div>
   );
 }

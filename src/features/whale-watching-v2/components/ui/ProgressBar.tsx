@@ -12,31 +12,34 @@ export function ProgressBar({
   const progress = (current / total) * 100;
 
   return (
-    <div className="mb-8">
-
-      <div className="mb-3 flex items-center justify-between">
-
-        <span className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-600">
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100/70">
           Progression
         </span>
 
-        <span className="text-sm font-bold text-slate-600">
-          {current}/{total}
+        <span className="text-xs font-black text-cyan-50">
+          {Math.round(progress)}%
         </span>
-
       </div>
 
-      <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-sky-500 transition-all duration-500"
-          style={{
-            width: `${progress}%`,
-          }}
+          className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-sky-300 to-emerald-300 shadow-[0_0_24px_rgba(103,232,249,0.55)] transition-all duration-500 ease-out"
+          style={{ width: `${progress}%` }}
         />
-
       </div>
 
+      <div className="mt-3 grid grid-cols-5 gap-1">
+        {Array.from({ length: total }).map((_, index) => (
+          <div
+            key={index}
+            className={`h-1 rounded-full transition-colors duration-300 ${
+              index < current ? "bg-cyan-200" : "bg-white/10"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

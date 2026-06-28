@@ -12,20 +12,20 @@ export function StepLayout({
   children,
 }: Props) {
   return (
-    <section className="rounded-[32px] bg-white p-6 shadow-xl ring-1 ring-slate-200/70 sm:p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <section className="whale-step-enter rounded-[34px] bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.12)] ring-1 ring-slate-200/80 sm:p-5">
+      <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.25em] text-cyan-600">
-            Étape {step} / {totalSteps}
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-600">
+            Etape {step} sur {totalSteps}
           </p>
 
-          <p className="mt-1 text-sm text-slate-500">
-            Assistant de réservation
+          <p className="mt-1 text-sm font-semibold text-slate-500">
+            Reservation guidee
           </p>
         </div>
 
-        <div className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-bold text-cyan-700">
-          🐋 Whale Watching
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">
+          {step}
         </div>
       </div>
 
