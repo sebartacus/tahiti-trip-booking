@@ -341,7 +341,7 @@ export default function PageBaleines() {
             </div>
           </div>
 
-          <div className="rounded-3xl bg-white p-6 shadow">
+          <div className="hidden rounded-3xl bg-white p-6 shadow">
             <h2 className="text-2xl font-bold">2. Responsable</h2>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -376,7 +376,7 @@ export default function PageBaleines() {
 
           <div className="rounded-3xl bg-white p-6 shadow">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-bold">3. Participants</h2>
+              <h2 className="text-2xl font-bold">2. Participants</h2>
 
               <button
                 type="button"
@@ -391,7 +391,10 @@ export default function PageBaleines() {
               {participants.map((p, index) => (
                 <div key={index} className="rounded-2xl border p-5">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-black">Participant {index + 1}</h3>
+                    <h3 className="font-black">
+                      Participant {index + 1}
+                      {index === 0 ? " (Responsable)" : ""}
+                    </h3>
 
                     {participants.length > 1 && (
                       <button
@@ -408,20 +411,50 @@ export default function PageBaleines() {
                     <input
                       placeholder="Prénom"
                       value={p.prenom}
-                      onChange={(e) =>
-                        modifierParticipant(index, "prenom", e.target.value)
-                      }
+                      onChange={(e) => {
+                        modifierParticipant(index, "prenom", e.target.value);
+                        if (index === 0) {
+                          setResponsablePrenom(e.target.value);
+                        }
+                      }}
                       className="rounded-xl border px-4 py-3"
                     />
 
                     <input
                       placeholder="Nom"
                       value={p.nom}
-                      onChange={(e) =>
-                        modifierParticipant(index, "nom", e.target.value)
-                      }
+                      onChange={(e) => {
+                        modifierParticipant(index, "nom", e.target.value);
+                        if (index === 0) {
+                          setResponsableNom(e.target.value);
+                        }
+                      }}
                       className="rounded-xl border px-4 py-3"
                     />
+
+                    {index === 0 && (
+                      <>
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          value={responsableEmail}
+                          onChange={(e) =>
+                            setResponsableEmail(e.target.value)
+                          }
+                          className="rounded-xl border px-4 py-3"
+                        />
+
+                        <input
+                          type="tel"
+                          placeholder="TÃ©lÃ©phone"
+                          value={responsableTelephone}
+                          onChange={(e) =>
+                            setResponsableTelephone(e.target.value)
+                          }
+                          className="rounded-xl border px-4 py-3"
+                        />
+                      </>
+                    )}
 
                     <input
                       type="number"

@@ -21,7 +21,7 @@ export default function BaleinesPage() {
 
           <div className="p-5 md:p-8">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-700">
-              Tahiti Trip Booking
+              Tahiti Trip Fishing
             </p>
 
             <h1 className="mt-2 text-3xl font-black leading-tight text-slate-950 md:text-5xl">
