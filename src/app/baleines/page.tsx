@@ -263,8 +263,42 @@ export default function BaleinesPage() {
       return;
     }
 
+    const reponsePayzen = await fetch("/api/payzen", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        montant: total,
+        email: responsableEmail.trim(),
+      }),
+    });
+
+    const paiement = await reponsePayzen.json();
+
+    if (!reponsePayzen.ok) {
+      console.error(paiement);
+      setErreur("Erreur lors de la preparation du paiement.");
+      setEnvoi(false);
+      return;
+    }
+
     setMessage("Reservation enregistree. Redirection vers PayZen...");
-    window.location.assign(`/api/payzen/baleines?reservationId=${data.id}`);
+
+    const formulaire = document.createElement("form");
+    formulaire.method = "POST";
+    formulaire.action = paiement.url;
+
+    Object.entries(paiement.champs).forEach(([nom, valeur]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = nom;
+      input.value = String(valeur);
+      formulaire.appendChild(input);
+    });
+
+    document.body.appendChild(formulaire);
+    formulaire.submit();
   }
 
   return (
