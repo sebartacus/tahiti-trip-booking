@@ -51,6 +51,11 @@ export async function POST(request: Request) {
   }
 
   const transactionId = Date.now().toString().slice(-6);
+  const baseUrl = "https://tahiti-trip-booking.vercel.app";
+  const retourBoutique =
+    typeof body.returnUrl === "string" && body.returnUrl.startsWith("/")
+      ? `${baseUrl}${body.returnUrl}`
+      : `${baseUrl}/paiement-retour`;
 
   const champs: Record<string, string> = {
     vads_action_mode: "INTERACTIVE",
@@ -73,9 +78,9 @@ vads_cust_email: String(body.email || ""),
 
   return `${annee}${mois}${jour}${heures}${minutes}${secondes}`;
 })(),
-    vads_trans_id: transactionId,
+vads_trans_id: transactionId,
 vads_version: "V2",
-vads_url_return: "https://tahiti-trip-booking.vercel.app/paiement-retour",
+vads_url_return: retourBoutique,
 vads_url_check: "https://tahiti-trip-booking.vercel.app/api/payzen-notification",
 };
 

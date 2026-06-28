@@ -271,6 +271,7 @@ export default function BaleinesPage() {
       body: JSON.stringify({
         montant: total,
         email: responsableEmail.trim(),
+        returnUrl: "/baleines/success",
       }),
     });
 
