@@ -97,6 +97,21 @@ export function SummaryStep({
         </p>
       </div>
 
+      <div className="rounded-[26px] border border-cyan-100 bg-cyan-50 p-4">
+        <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
+          Depart
+        </p>
+        <p className="mt-2 text-lg font-black text-cyan-950">
+          Marina Taina, Punaauia
+        </p>
+        <p className="mt-4 text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
+          Rendez-vous
+        </p>
+        <p className="mt-2 text-base font-bold leading-6 text-slate-700">
+          Quai principal, devant les restaurants Casa Bianca.
+        </p>
+      </div>
+
       {erreur && (
         <p className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
           {erreur}

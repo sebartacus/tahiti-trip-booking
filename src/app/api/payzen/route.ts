@@ -2,21 +2,9 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 
 function signerPayzen(champs: Record<string, string>, cle: string) {
-  const ordre = [
-    "vads_action_mode",
-    "vads_amount",
-    "vads_ctx_mode",
-    "vads_currency",
-"vads_cust_email",
-    "vads_page_action",
-    "vads_payment_config",
-    "vads_site_id",
-    "vads_trans_date",
-    "vads_trans_id",
-"vads_url_check",
-    "vads_url_return",
-    "vads_version",
-  ];
+  const ordre = Object.keys(champs)
+    .filter((key) => key.startsWith("vads_"))
+    .sort();
 
   const chaine = ordre
     .map((key) => champs[key])
@@ -56,13 +44,25 @@ export async function POST(request: Request) {
     typeof body.returnUrl === "string" && body.returnUrl.startsWith("/")
       ? `${baseUrl}${body.returnUrl}`
       : `${baseUrl}/paiement-retour`;
+  const reservationId =
+    typeof body.reservationId === "string" && body.reservationId.trim()
+      ? body.reservationId.trim()
+      : "";
+  const reservationTable =
+    typeof body.reservationTable === "string" && body.reservationTable.trim()
+      ? body.reservationTable.trim()
+      : "";
+  const activity =
+    typeof body.activity === "string" && body.activity.trim()
+      ? body.activity.trim()
+      : "";
 
   const champs: Record<string, string> = {
     vads_action_mode: "INTERACTIVE",
     vads_amount: String(montant),
     vads_ctx_mode: "TEST",
     vads_currency: "953",
-vads_cust_email: String(body.email || ""),
+    vads_cust_email: String(body.email || ""),
     vads_page_action: "PAYMENT",
     vads_payment_config: "SINGLE",
     vads_site_id: siteId,
@@ -78,11 +78,23 @@ vads_cust_email: String(body.email || ""),
 
   return `${annee}${mois}${jour}${heures}${minutes}${secondes}`;
 })(),
-vads_trans_id: transactionId,
-vads_version: "V2",
-vads_url_return: retourBoutique,
-vads_url_check: "https://tahiti-trip-booking.vercel.app/api/payzen-notification",
-};
+    vads_trans_id: transactionId,
+    vads_version: "V2",
+    vads_url_return: retourBoutique,
+    vads_url_check: "https://tahiti-trip-booking.vercel.app/api/payzen-notification",
+  };
+
+  if (reservationId) {
+    champs.vads_order_id = reservationId;
+  }
+
+  if (reservationTable) {
+    champs.vads_ext_info_reservation_table = reservationTable;
+  }
+
+  if (activity) {
+    champs.vads_ext_info_activity = activity;
+  }
 
   const signature = signerPayzen(champs, cleTest);
 

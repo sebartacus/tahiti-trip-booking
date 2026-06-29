@@ -379,6 +379,9 @@ export default function BaleinesPage() {
       body: JSON.stringify({
         montant: total,
         email: responsableEmail.trim(),
+        reservationId: data.id,
+        reservationTable: "reservations_baleines",
+        activity: "baleines",
         returnUrl: "/baleines/success",
       }),
     });
