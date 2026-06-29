@@ -27,6 +27,10 @@ type ReservationDetails = {
   email: string;
   telephone: string;
   payment: string;
+  capacities: {
+    miseEau: number;
+    observateurs: number;
+  };
 };
 
 function formatDisplayDate(date: string | null) {
@@ -210,6 +214,14 @@ function SlotCard({
         <InfoLine
           label="Paiement"
           value={reservation?.payment || "En attente"}
+        />
+        <InfoLine
+          label="Mise a l'eau"
+          value={`${reservation?.capacities.miseEau || 0} / 6`}
+        />
+        <InfoLine
+          label="Observateurs"
+          value={`${reservation?.capacities.observateurs || 0} / 2`}
         />
         <InfoLine label="Reservation" value={slot?.reservation_id || "Aucune"} />
       </div>

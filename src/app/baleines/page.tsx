@@ -27,12 +27,49 @@ type BoatCalendarSlot = {
   date: string;
   slot: BoatSlotName;
   status: BoatSlotStatus;
+  activity: "baleines" | "peche" | "peche_nuit" | null;
 };
+type DepartCapacities = Record<
+  Depart,
+  {
+    miseEau: number;
+    observateurs: number;
+  }
+>;
 
 const departSlots: Record<Depart, BoatSlotName> = {
   "07:00": "morning",
   "13:15": "afternoon",
 };
+const emptyCapacities: DepartCapacities = {
+  "07:00": { miseEau: 0, observateurs: 0 },
+  "13:15": { miseEau: 0, observateurs: 0 },
+};
+
+function compterParticipantsReservation(participants: unknown) {
+  const compteur = { miseEau: 0, observateurs: 0 };
+
+  if (!Array.isArray(participants)) return compteur;
+
+  for (const participant of participants) {
+    if (
+      typeof participant === "object" &&
+      participant !== null &&
+      "role" in participant
+    ) {
+      if (participant.role === "mise_eau") compteur.miseEau++;
+      if (participant.role === "observateur") compteur.observateurs++;
+    }
+  }
+
+  return compteur;
+}
+
+function bateauDisponiblePourBaleines(slot: BoatCalendarSlot | undefined) {
+  if (!slot || slot.status === "available") return true;
+  if (slot.status === "blocked") return false;
+  return slot.activity === "baleines";
+}
 
 export default function BaleinesPage() {
   const [date, setDate] = useState("");
@@ -43,8 +80,8 @@ export default function BaleinesPage() {
   const [participants, setParticipants] = useState<Participant[]>([
     nouveauParticipant(),
   ]);
-  const [placesMiseEauOccupees, setPlacesMiseEauOccupees] = useState(0);
-  const [placesObservateurOccupees, setPlacesObservateurOccupees] = useState(0);
+  const [capacitesDepart, setCapacitesDepart] =
+    useState<DepartCapacities>(emptyCapacities);
   const [boatSlots, setBoatSlots] = useState<
     Partial<Record<BoatSlotName, BoatCalendarSlot>>
   >({});
@@ -55,21 +92,32 @@ export default function BaleinesPage() {
   const [message, setMessage] = useState("");
 
   const demandes = useMemo(() => compterDemandes(participants), [participants]);
-  const placesRestantesMiseEau = MAX_MISE_EAU - placesMiseEauOccupees;
+  const placesRestantesMiseEau =
+    MAX_MISE_EAU - capacitesDepart[depart].miseEau;
   const placesRestantesObservateur =
-    MAX_OBSERVATEURS - placesObservateurOccupees;
+    MAX_OBSERVATEURS - capacitesDepart[depart].observateurs;
   const peutAjouterMiseEau =
     demandes.miseEau < Math.max(0, placesRestantesMiseEau);
   const peutAjouterObservateur =
     demandes.observateurs < Math.max(0, placesRestantesObservateur);
   const peutAjouterParticipant = peutAjouterMiseEau || peutAjouterObservateur;
   const departAvailability = useMemo(() => {
+    const morningHasSpace =
+      capacitesDepart["07:00"].miseEau < MAX_MISE_EAU ||
+      capacitesDepart["07:00"].observateurs < MAX_OBSERVATEURS;
+    const afternoonHasSpace =
+      capacitesDepart["13:15"].miseEau < MAX_MISE_EAU ||
+      capacitesDepart["13:15"].observateurs < MAX_OBSERVATEURS;
+
     return {
-      "07:00": !boatSlots.morning || boatSlots.morning.status === "available",
+      "07:00":
+        bateauDisponiblePourBaleines(boatSlots.morning) &&
+        morningHasSpace,
       "13:15":
-        !boatSlots.afternoon || boatSlots.afternoon.status === "available",
+        bateauDisponiblePourBaleines(boatSlots.afternoon) &&
+        afternoonHasSpace,
     };
-  }, [boatSlots]);
+  }, [boatSlots, capacitesDepart]);
   const total = useMemo(() => {
     return participants.reduce(
       (somme, participant) => somme + prixParticipant(participant),
@@ -130,47 +178,58 @@ export default function BaleinesPage() {
     chargerCalendrierBateau();
   }, [date]);
 
+  async function chargerCapacitesBaleines(selectedDate: string) {
+    const { data, error } = await supabase
+      .from("reservations_baleines")
+      .select("depart, participants, statut_paiement")
+      .eq("date_sortie", selectedDate)
+      .in("statut_paiement", ["pending", "paid", "paye"]);
+
+    if (error) throw error;
+
+    const prochainesCapacites: DepartCapacities = {
+      "07:00": { miseEau: 0, observateurs: 0 },
+      "13:15": { miseEau: 0, observateurs: 0 },
+    };
+
+    for (const reservation of data || []) {
+      if (reservation.depart !== "07:00" && reservation.depart !== "13:15") {
+        continue;
+      }
+
+      const reservationDepart = reservation.depart as Depart;
+      const compteur = compterParticipantsReservation(reservation.participants);
+      prochainesCapacites[reservationDepart].miseEau += compteur.miseEau;
+      prochainesCapacites[reservationDepart].observateurs +=
+        compteur.observateurs;
+    }
+
+    return prochainesCapacites;
+  }
+
   useEffect(() => {
     async function chargerPlaces() {
-      if (!date || !depart) return;
+      if (!date) {
+        setCapacitesDepart(emptyCapacities);
+        return;
+      }
 
       setChargement(true);
       setErreur("");
 
-      const { data, error } = await supabase
-        .from("reservations_baleines")
-        .select("participants, statut_paiement")
-        .eq("date_sortie", date)
-        .eq("depart", depart)
-        .in("statut_paiement", ["pending", "paid", "paye"]);
-
-      if (error) {
+      try {
+        const prochainesCapacites = await chargerCapacitesBaleines(date);
+        setCapacitesDepart(prochainesCapacites);
+      } catch {
         setErreur("Impossible de charger les places disponibles.");
+        setCapacitesDepart(emptyCapacities);
+      } finally {
         setChargement(false);
-        return;
       }
-
-      let miseEau = 0;
-      let observateurs = 0;
-
-      for (const reservation of data || []) {
-        const liste = Array.isArray(reservation.participants)
-          ? reservation.participants
-          : [];
-
-        for (const participant of liste) {
-          if (participant.role === "mise_eau") miseEau++;
-          if (participant.role === "observateur") observateurs++;
-        }
-      }
-
-      setPlacesMiseEauOccupees(miseEau);
-      setPlacesObservateurOccupees(observateurs);
-      setChargement(false);
     }
 
     chargerPlaces();
-  }, [date, depart]);
+  }, [date]);
 
   function getSelectedDate() {
     return dateRef.current || date;
@@ -341,6 +400,28 @@ export default function BaleinesPage() {
 
     const responsable = participants[0];
     const selectedDate = getSelectedDate();
+
+    try {
+      const dernieresCapacites = await chargerCapacitesBaleines(selectedDate);
+      setCapacitesDepart(dernieresCapacites);
+
+      const capaciteDepart = dernieresCapacites[depart];
+
+      if (
+        demandes.miseEau > MAX_MISE_EAU - capaciteDepart.miseEau ||
+        demandes.observateurs >
+          MAX_OBSERVATEURS - capaciteDepart.observateurs
+      ) {
+        setErreur("Ce depart est desormais complet.");
+        setEnvoi(false);
+        return;
+      }
+    } catch {
+      setErreur("Impossible de verifier les places disponibles.");
+      setEnvoi(false);
+      return;
+    }
+
     const reservation = {
       date_sortie: selectedDate,
       depart,
@@ -371,29 +452,37 @@ export default function BaleinesPage() {
       return;
     }
 
-    const reponseHold = await fetch("/api/bateau/hold", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        activity: "baleines",
-        reservationTable: "reservations_baleines",
-        reservationId: data.id,
-        date: selectedDate,
-        slots: [departSlots[depart]],
-      }),
-    });
+    const selectedBoatSlot = boatSlots[departSlots[depart]];
 
-    const hold = await reponseHold.json();
+    if (!selectedBoatSlot || selectedBoatSlot.status === "available") {
+      const reponseHold = await fetch("/api/bateau/hold", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          activity: "baleines",
+          reservationTable: "reservations_baleines",
+          reservationId: data.id,
+          date: selectedDate,
+          slots: [departSlots[depart]],
+        }),
+      });
 
-    if (!reponseHold.ok) {
-      console.error(hold);
-      setErreur(
-        reponseHold.status === 409
-          ? "Ce creneau vient d'etre reserve. Choisissez un autre depart."
-          : "Impossible de bloquer le creneau bateau."
-      );
+      const hold = await reponseHold.json();
+
+      if (!reponseHold.ok) {
+        console.error(hold);
+        setErreur(
+          reponseHold.status === 409
+            ? "Ce creneau vient d'etre reserve. Choisissez un autre depart."
+            : "Impossible de bloquer le creneau bateau."
+        );
+        setEnvoi(false);
+        return;
+      }
+    } else if (!bateauDisponiblePourBaleines(selectedBoatSlot)) {
+      setErreur("Ce creneau vient d'etre reserve. Choisissez un autre depart.");
       setEnvoi(false);
       return;
     }
@@ -459,6 +548,7 @@ export default function BaleinesPage() {
           <DepartureStep
             depart={depart}
             availability={departAvailability}
+            capacities={capacitesDepart}
             onDepartChange={setDepart}
           />
         </section>

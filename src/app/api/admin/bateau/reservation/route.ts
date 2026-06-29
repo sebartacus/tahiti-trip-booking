@@ -19,6 +19,7 @@ type ReservationRecord = {
   statut_paiement?: unknown;
   paye?: unknown;
   paiement_effectue?: unknown;
+  participants?: unknown;
 };
 
 function text(value: unknown) {
@@ -37,6 +38,7 @@ function normalizeReservation(record: ReservationRecord) {
     record.paiement_effectue === true ||
     statutPaiement === "paid" ||
     statutPaiement === "paye";
+  const capacities = countBaleinesParticipants(record.participants);
 
   return {
     clientName: `${prenom} ${nom}`.trim() || "Non disponible",
@@ -44,7 +46,27 @@ function normalizeReservation(record: ReservationRecord) {
     telephone: telephone || "Non disponible",
     payment: paid ? "Paye" : "En attente",
     statutPaiement: statutPaiement || "",
+    capacities,
   };
+}
+
+function countBaleinesParticipants(participants: unknown) {
+  const capacities = { miseEau: 0, observateurs: 0 };
+
+  if (!Array.isArray(participants)) return capacities;
+
+  for (const participant of participants) {
+    if (
+      typeof participant === "object" &&
+      participant !== null &&
+      "role" in participant
+    ) {
+      if (participant.role === "mise_eau") capacities.miseEau++;
+      if (participant.role === "observateur") capacities.observateurs++;
+    }
+  }
+
+  return capacities;
 }
 
 export async function GET(request: Request) {

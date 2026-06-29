@@ -3,6 +3,13 @@ import type { Depart } from "../lib/types";
 type DepartureStepProps = {
   depart: Depart;
   availability: Record<Depart, boolean>;
+  capacities: Record<
+    Depart,
+    {
+      miseEau: number;
+      observateurs: number;
+    }
+  >;
   onDepartChange: (depart: Depart) => void;
 };
 
@@ -14,6 +21,7 @@ const departures: Array<{ value: Depart; title: string; label: string }> = [
 export function DepartureStep({
   depart,
   availability,
+  capacities,
   onDepartChange,
 }: DepartureStepProps) {
   function selectDepart(value: Depart) {
@@ -37,6 +45,7 @@ export function DepartureStep({
           const selected = item.value === depart;
           const available = availability[item.value];
           const active = selected && available;
+          const capacity = capacities[item.value];
 
           return (
             <button
@@ -62,6 +71,7 @@ export function DepartureStep({
                   active ? "text-cyan-50" : "text-cyan-700",
                 ].join(" ")}
               >
+                {item.value === "07:00" ? "🌅 " : "🌇 "}
                 {item.label}
               </span>
               <span
@@ -74,9 +84,21 @@ export function DepartureStep({
                     : "bg-red-50 text-red-700",
                 ].join(" ")}
               >
-                {item.value === "07:00" ? "Matin" : "Apres-midi"}{" "}
-                {available ? "disponible" : "indisponible"}
+                {available ? "Disponible" : "Complet"}
               </span>
+              <div
+                className={[
+                  "mt-3 grid grid-cols-2 gap-2 text-xs font-black",
+                  active ? "text-white" : "text-slate-700",
+                ].join(" ")}
+              >
+                <span className="rounded-xl bg-white/70 px-3 py-2 text-slate-800">
+                  {capacity.miseEau}/6 nageurs
+                </span>
+                <span className="rounded-xl bg-white/70 px-3 py-2 text-slate-800">
+                  {capacity.observateurs}/2 observateurs
+                </span>
+              </div>
             </button>
           );
         })}
