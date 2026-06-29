@@ -3,6 +3,7 @@ import {
   afficherMateriel,
   POINTURES_PALMES,
   TAILLES_COMBI,
+  ageRenseigneMineur,
   formatPrix,
   prixParticipant,
 } from "../lib/rules";
@@ -40,8 +41,11 @@ export function ParticipantForm({
 }: ParticipantFormProps) {
   const isResponsable = index === 0;
   const showEquipment = afficherMateriel(participant);
+  const isUnderWaterTooYoung = ageRenseigneMineur(participant.age);
+  const canChooseMiseEau = canSwitchToMiseEau && !isUnderWaterTooYoung;
 
   function handleRoleChange(value: string) {
+    if (value === "mise_eau" && isUnderWaterTooYoung) return;
     onParticipantChange(index, "role", value as Role);
   }
 
@@ -131,13 +135,19 @@ export function ParticipantForm({
           onBlur={(event) => handleRoleChange(event.currentTarget.value)}
           className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-white px-4 text-base font-semibold outline-none focus:border-cyan-500"
         >
-          <option value="mise_eau" disabled={!canSwitchToMiseEau}>
+          <option value="mise_eau" disabled={!canChooseMiseEau}>
             Mise a l eau
           </option>
           <option value="observateur" disabled={!canSwitchToObservateur}>
             Observateur
           </option>
         </select>
+
+        {isUnderWaterTooYoung && (
+          <p className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-800">
+            La mise a l&apos;eau est autorisee a partir de 12 ans.
+          </p>
+        )}
       </div>
 
       {participant.role === "mise_eau" && (

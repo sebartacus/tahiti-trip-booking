@@ -13,6 +13,7 @@ import {
   SAISON_DEBUT,
   SAISON_FIN,
   compterDemandes,
+  ageRenseigneMineur,
   formatPrix,
   nouveauParticipant,
   prixParticipant,
@@ -194,6 +195,16 @@ export default function BaleinesPage() {
 
           if (
             prochainRole === "mise_eau" &&
+            ageRenseigneMineur(participant.age)
+          ) {
+            return nettoyerParticipant({
+              ...participant,
+              role: "observateur",
+            });
+          }
+
+          if (
+            prochainRole === "mise_eau" &&
             participant.role !== "mise_eau" &&
             !peutAjouterMiseEau
           ) {
@@ -207,6 +218,18 @@ export default function BaleinesPage() {
           ) {
             return participant;
           }
+        }
+
+        if (
+          champ === "age" &&
+          typeof valeur === "string" &&
+          ageRenseigneMineur(valeur)
+        ) {
+          return nettoyerParticipant({
+            ...participant,
+            age: valeur,
+            role: "observateur",
+          });
         }
 
         return nettoyerParticipant({
@@ -279,6 +302,10 @@ export default function BaleinesPage() {
       const age = Number(participant.age);
       if (!Number.isFinite(age) || age <= 0 || age > 100) {
         return `${label} : age invalide.`;
+      }
+
+      if (participant.role === "mise_eau" && age < 12) {
+        return "La mise a l'eau est reservee aux participants de 12 ans et plus.";
       }
 
       if (participant.role === "mise_eau" && !participant.materielPerso) {
