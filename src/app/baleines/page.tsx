@@ -20,6 +20,19 @@ import {
 } from "./lib/rules";
 import type { Depart, Participant, Role } from "./lib/types";
 
+type BoatSlotStatus = "available" | "hold" | "reserved" | "blocked";
+type BoatSlotName = "morning" | "afternoon";
+type BoatCalendarSlot = {
+  date: string;
+  slot: BoatSlotName;
+  status: BoatSlotStatus;
+};
+
+const departSlots: Record<Depart, BoatSlotName> = {
+  "07:00": "morning",
+  "13:15": "afternoon",
+};
+
 export default function BaleinesPage() {
   const [date, setDate] = useState("");
   const dateRef = useRef("");
@@ -31,7 +44,11 @@ export default function BaleinesPage() {
   ]);
   const [placesMiseEauOccupees, setPlacesMiseEauOccupees] = useState(0);
   const [placesObservateurOccupees, setPlacesObservateurOccupees] = useState(0);
+  const [boatSlots, setBoatSlots] = useState<
+    Partial<Record<BoatSlotName, BoatCalendarSlot>>
+  >({});
   const [chargement, setChargement] = useState(false);
+  const [chargementBateau, setChargementBateau] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
@@ -45,6 +62,13 @@ export default function BaleinesPage() {
   const peutAjouterObservateur =
     demandes.observateurs < Math.max(0, placesRestantesObservateur);
   const peutAjouterParticipant = peutAjouterMiseEau || peutAjouterObservateur;
+  const departAvailability = useMemo(() => {
+    return {
+      "07:00": !boatSlots.morning || boatSlots.morning.status === "available",
+      "13:15":
+        !boatSlots.afternoon || boatSlots.afternoon.status === "available",
+    };
+  }, [boatSlots]);
   const total = useMemo(() => {
     return participants.reduce(
       (somme, participant) => somme + prixParticipant(participant),
@@ -54,6 +78,55 @@ export default function BaleinesPage() {
 
   useEffect(() => {
     dateRef.current = date;
+  }, [date]);
+
+  useEffect(() => {
+    async function chargerCalendrierBateau() {
+      if (!date) {
+        setBoatSlots({});
+        return;
+      }
+
+      setChargementBateau(true);
+      setErreur("");
+
+      try {
+        const response = await fetch(
+          `/api/bateau/calendar?from=${date}&to=${date}`
+        );
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setErreur(
+            payload.error || "Impossible de charger le calendrier bateau."
+          );
+          setBoatSlots({});
+          return;
+        }
+
+        const prochainsSlots: Partial<Record<BoatSlotName, BoatCalendarSlot>> =
+          {};
+
+        const apiSlots = Array.isArray(payload.slots)
+          ? (payload.slots as BoatCalendarSlot[])
+          : [];
+
+        for (const slot of apiSlots) {
+          if (slot.slot === "morning" || slot.slot === "afternoon") {
+            prochainsSlots[slot.slot] = slot;
+          }
+        }
+
+        setBoatSlots(prochainsSlots);
+      } catch {
+        setErreur("Impossible de charger le calendrier bateau.");
+        setBoatSlots({});
+      } finally {
+        setChargementBateau(false);
+      }
+    }
+
+    chargerCalendrierBateau();
   }, [date]);
 
   useEffect(() => {
@@ -166,6 +239,14 @@ export default function BaleinesPage() {
       return "Les sorties baleines sont possibles du 20 juillet au 20 novembre 2026.";
     }
 
+    if (!departAvailability["07:00"] && !departAvailability["13:15"]) {
+      return "Aucun depart bateau n'est disponible sur cette date.";
+    }
+
+    if (!departAvailability[depart]) {
+      return "Ce depart bateau est indisponible. Choisis un autre depart.";
+    }
+
     return "";
   }
 
@@ -263,6 +344,33 @@ export default function BaleinesPage() {
       return;
     }
 
+    const reponseHold = await fetch("/api/bateau/hold", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        activity: "baleines",
+        reservationTable: "reservations_baleines",
+        reservationId: data.id,
+        date: selectedDate,
+        slots: [departSlots[depart]],
+      }),
+    });
+
+    const hold = await reponseHold.json();
+
+    if (!reponseHold.ok) {
+      console.error(hold);
+      setErreur(
+        reponseHold.status === 409
+          ? "Ce creneau vient d'etre reserve. Choisissez un autre depart."
+          : "Impossible de bloquer le creneau bateau."
+      );
+      setEnvoi(false);
+      return;
+    }
+
     const reponsePayzen = await fetch("/api/payzen", {
       method: "POST",
       headers: {
@@ -310,7 +418,7 @@ export default function BaleinesPage() {
         <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <DateStep
             date={date}
-            chargement={chargement}
+            chargement={chargement || chargementBateau}
             placesRestantesMiseEau={placesRestantesMiseEau}
             placesRestantesObservateur={placesRestantesObservateur}
             onDateChange={handleDateChange}
@@ -318,7 +426,11 @@ export default function BaleinesPage() {
         </section>
 
         <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-          <DepartureStep depart={depart} onDepartChange={setDepart} />
+          <DepartureStep
+            depart={depart}
+            availability={departAvailability}
+            onDepartChange={setDepart}
+          />
         </section>
 
         <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">

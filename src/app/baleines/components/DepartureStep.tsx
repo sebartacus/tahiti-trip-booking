@@ -2,6 +2,7 @@ import type { Depart } from "../lib/types";
 
 type DepartureStepProps = {
   depart: Depart;
+  availability: Record<Depart, boolean>;
   onDepartChange: (depart: Depart) => void;
 };
 
@@ -10,8 +11,13 @@ const departures: Array<{ value: Depart; title: string; label: string }> = [
   { value: "13:15", title: "13:15", label: "Depart apres-midi" },
 ];
 
-export function DepartureStep({ depart, onDepartChange }: DepartureStepProps) {
+export function DepartureStep({
+  depart,
+  availability,
+  onDepartChange,
+}: DepartureStepProps) {
   function selectDepart(value: Depart) {
+    if (!availability[value]) return;
     onDepartChange(value);
   }
 
@@ -29,6 +35,8 @@ export function DepartureStep({ depart, onDepartChange }: DepartureStepProps) {
       <div className="grid gap-3">
         {departures.map((item) => {
           const selected = item.value === depart;
+          const available = availability[item.value];
+          const active = selected && available;
 
           return (
             <button
@@ -38,21 +46,36 @@ export function DepartureStep({ depart, onDepartChange }: DepartureStepProps) {
               onPointerUp={(event) => {
                 if (event.pointerType !== "mouse") selectDepart(item.value);
               }}
+              disabled={!available}
               className={[
                 "min-h-[112px] w-full rounded-[28px] border px-5 text-left transition-colors",
-                selected
+                active
                   ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_16px_34px_rgba(8,145,178,0.25)]"
                   : "border-cyan-100 bg-white text-slate-950",
+                available ? "" : "opacity-50",
               ].join(" ")}
             >
               <span className="block text-4xl font-black">{item.title}</span>
               <span
                 className={[
                   "mt-2 block text-sm font-black uppercase tracking-[0.14em]",
-                  selected ? "text-cyan-50" : "text-cyan-700",
+                  active ? "text-cyan-50" : "text-cyan-700",
                 ].join(" ")}
               >
                 {item.label}
+              </span>
+              <span
+                className={[
+                  "mt-3 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase",
+                  available
+                    ? active
+                      ? "bg-white/20 text-white"
+                      : "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-700",
+                ].join(" ")}
+              >
+                {item.value === "07:00" ? "Matin" : "Apres-midi"}{" "}
+                {available ? "disponible" : "indisponible"}
               </span>
             </button>
           );
