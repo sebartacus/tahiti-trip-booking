@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type {
   BoatActivity,
   BoatCalendarSlot,
@@ -19,6 +22,13 @@ const slotLabels: Record<BoatSlot, string> = {
   afternoon: "Apres-midi",
 };
 
+type ReservationDetails = {
+  clientName: string;
+  email: string;
+  telephone: string;
+  payment: string;
+};
+
 function formatDisplayDate(date: string | null) {
   if (!date) return "Aucune date";
   const [year, month, day] = date.split("-");
@@ -31,14 +41,6 @@ function statusLabel(slot: BoatCalendarSlot | undefined) {
   if (slot.status === "reserved") return "Reserve";
   if (slot.status === "blocked") return "Bloque manuellement";
   return slot.status;
-}
-
-function paymentLabel(slot: BoatCalendarSlot | undefined) {
-  if (!slot || slot.status === "available") return "-";
-  if (slot.status === "hold") return "En attente";
-  if (slot.status === "reserved") return "Valide";
-  if (slot.status === "blocked") return "-";
-  return "-";
 }
 
 export function AdminBoatSidebar({
@@ -132,6 +134,52 @@ function SlotCard({
   const canBlock = !slot || slot.status === "available" || slot.status === "hold";
   const canUnblock = slot?.status === "blocked";
   const loading = actionLoading === slotName;
+  const [reservation, setReservation] = useState<ReservationDetails | null>(
+    null
+  );
+  const [reservationLoading, setReservationLoading] = useState(false);
+  const [reservationError, setReservationError] = useState("");
+
+  useEffect(() => {
+    async function loadReservation() {
+      if (!slot?.reservation_id || !slot.reservation_table) {
+        setReservation(null);
+        setReservationError("");
+        return;
+      }
+
+      setReservationLoading(true);
+      setReservationError("");
+
+      try {
+        const params = new URLSearchParams({
+          table: slot.reservation_table,
+          id: slot.reservation_id,
+        });
+        const response = await fetch(
+          `/api/admin/bateau/reservation?${params.toString()}`
+        );
+        const payload = await response.json();
+
+        if (!response.ok) {
+          setReservation(null);
+          setReservationError(
+            payload.error || "Reservation client indisponible."
+          );
+          return;
+        }
+
+        setReservation(payload.reservation || null);
+      } catch {
+        setReservation(null);
+        setReservationError("Reservation client indisponible.");
+      } finally {
+        setReservationLoading(false);
+      }
+    }
+
+    void Promise.resolve().then(loadReservation);
+  }, [slot?.reservation_id, slot?.reservation_table]);
 
   return (
     <div className="rounded-[24px] border border-cyan-100 bg-cyan-50 p-4">
@@ -146,10 +194,31 @@ function SlotCard({
 
       <div className="mt-4 grid gap-3">
         <InfoLine label="Activite" value={activityLabel(slot?.activity || null)} />
-        <InfoLine label="Nom client" value="Non disponible" />
-        <InfoLine label="Paiement" value={paymentLabel(slot)} />
+        <InfoLine
+          label="Client"
+          value={
+            reservationLoading
+              ? "Chargement..."
+              : reservation?.clientName || "Non disponible"
+          }
+        />
+        <InfoLine
+          label="Telephone"
+          value={reservation?.telephone || "Non disponible"}
+        />
+        <InfoLine label="Email" value={reservation?.email || "Non disponible"} />
+        <InfoLine
+          label="Paiement"
+          value={reservation?.payment || "En attente"}
+        />
         <InfoLine label="Reservation" value={slot?.reservation_id || "Aucune"} />
       </div>
+
+      {reservationError && (
+        <p className="mt-3 rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-700">
+          {reservationError}
+        </p>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button

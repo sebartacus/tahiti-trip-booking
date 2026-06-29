@@ -1,0 +1,90 @@
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+
+const ALLOWED_TABLES = new Set([
+  "reservations_baleines",
+  "reservations_peche",
+  "reservations_peche_nuit",
+]);
+
+type ReservationRecord = {
+  responsable_prenom?: unknown;
+  responsable_nom?: unknown;
+  responsable_email?: unknown;
+  responsable_telephone?: unknown;
+  prenom?: unknown;
+  nom?: unknown;
+  email?: unknown;
+  telephone?: unknown;
+  statut_paiement?: unknown;
+  paye?: unknown;
+  paiement_effectue?: unknown;
+};
+
+function text(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeReservation(record: ReservationRecord) {
+  const prenom = text(record.responsable_prenom) || text(record.prenom);
+  const nom = text(record.responsable_nom) || text(record.nom);
+  const email = text(record.responsable_email) || text(record.email);
+  const telephone =
+    text(record.responsable_telephone) || text(record.telephone);
+  const statutPaiement = text(record.statut_paiement);
+  const paid =
+    record.paye === true ||
+    record.paiement_effectue === true ||
+    statutPaiement === "paid" ||
+    statutPaiement === "paye";
+
+  return {
+    clientName: `${prenom} ${nom}`.trim() || "Non disponible",
+    email: email || "Non disponible",
+    telephone: telephone || "Non disponible",
+    payment: paid ? "Paye" : "En attente",
+    statutPaiement: statutPaiement || "",
+  };
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const table = searchParams.get("table") || "";
+  const id = searchParams.get("id") || "";
+
+  if (!ALLOWED_TABLES.has(table)) {
+    return NextResponse.json(
+      { error: "Table reservation non autorisee." },
+      { status: 400 }
+    );
+  }
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "reservationId requis." },
+      { status: 400 }
+    );
+  }
+
+  const { data, error } = await supabase
+    .from(table)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Impossible de charger la reservation." },
+      { status: 500 }
+    );
+  }
+
+  if (!data) {
+    return NextResponse.json(
+      { error: "Reservation introuvable." },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ reservation: normalizeReservation(data) });
+}
