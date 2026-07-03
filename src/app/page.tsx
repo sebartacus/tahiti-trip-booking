@@ -121,7 +121,7 @@ export default async function Home({
             aria-label="Baleine sous l'eau à Tahiti"
             style={{
               backgroundImage:
-                "url('/media/baleines/hero/baleine-sous-eau.jpeg')",
+                "url('/images/baleines/baleine-sous-eau.jpeg')",
             }}
           />
         ) : (
