@@ -56,13 +56,13 @@ export function ParticipantsStep({
           Participants
         </h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Participant 1 est le responsable de la reservation.
+          Participant 1 est le responsable de la réservation.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-3xl bg-cyan-50 p-4">
-          <p className="text-sm font-bold text-cyan-900">Mise a l eau</p>
+        <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
+          <p className="text-sm font-bold text-cyan-900">Mise à l&apos;eau</p>
           <p className="mt-1 text-2xl font-black text-cyan-950">
             {demandes.miseEau}/{Math.max(0, placesRestantesMiseEau)}
           </p>
@@ -71,7 +71,7 @@ export function ParticipantsStep({
           </p>
         </div>
 
-        <div className="rounded-3xl bg-blue-50 p-4">
+        <div className="rounded-2xl border border-cyan-100 bg-white p-4">
           <p className="text-sm font-bold text-blue-900">Observateurs</p>
           <p className="mt-1 text-2xl font-black text-blue-950">
             {demandes.observateurs}/{Math.max(0, placesRestantesObservateur)}
@@ -112,7 +112,7 @@ export function ParticipantsStep({
           if (event.pointerType !== "mouse") addParticipant();
         }}
         aria-disabled={!peutAjouterParticipant}
-        className="min-h-14 w-full rounded-2xl bg-cyan-700 px-5 text-base font-black text-white active:bg-cyan-800 aria-disabled:bg-slate-300"
+        className="min-h-14 w-full rounded-2xl bg-cyan-700 px-5 text-base font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] transition active:bg-cyan-800 aria-disabled:bg-slate-300 aria-disabled:shadow-none"
       >
         + Ajouter un participant
       </button>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import UploadDocuments from "@/app/UploadDocuments";
 import { uploadDocument } from "@/lib/uploadDocuments";
+import { permisDocuments } from "@/lib/permisDocuments";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
@@ -47,7 +48,7 @@ function genererExamens() {
   aujourdHui.setHours(0, 0, 0, 0);
 
   const examensDisponibles = [];
-  let date = new Date(aujourdHui);
+  const date = new Date(aujourdHui);
 
   while (examensDisponibles.length < 4) {
     date.setDate(date.getDate() + 1);
@@ -527,7 +528,7 @@ const recap = (
   </p>
 
   <p className="mt-2">
-    ⚠️ Aucun dossier incomplet ne pourra être présenté à l'examen.
+    ⚠️ Aucun dossier incomplet ne pourra être présenté à l&apos;examen.
   </p>
 </div>
 
@@ -593,6 +594,37 @@ const recap = (
     <main className="min-h-screen bg-sky-950 text-white p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">⚓ Permis Côtier</h1>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 text-slate-950 shadow-xl">
+          <p className="text-sm font-bold uppercase tracking-[0.14em] text-cyan-700">
+            Dossier permis
+          </p>
+          <h2 className="mt-2 text-2xl font-bold">Documents à compléter</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+            Téléchargez les documents officiels, complétez-les, puis déposez-les
+            en PDF lors de votre réservation.
+          </p>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {permisDocuments.map((document) => (
+              <a
+                key={document.key}
+                href={document.href}
+                download={document.filename}
+                className="rounded-xl border border-cyan-100 bg-cyan-50 p-4 font-bold text-cyan-950 transition hover:-translate-y-0.5 hover:bg-cyan-100"
+              >
+                <span className="block">
+                  {document.key === "certificat-medical"
+                    ? "Télécharger le certificat médical"
+                    : "Télécharger le formulaire d'inscription"}
+                </span>
+                <span className="mt-1 block text-sm font-semibold text-slate-600">
+                  {document.description}
+                </span>
+              </a>
+            ))}
+          </div>
+        </section>
 
         <div className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs md:text-sm">
           <div className={`rounded-xl p-3 ${formule ? "bg-green-600" : "bg-sky-800"}`}>1. Formule</div>

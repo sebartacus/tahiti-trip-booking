@@ -3,11 +3,16 @@ import { supabase } from "@/lib/supabase";
 
 const ACCEPTED_STATUSES = new Set(["AUTHORISED"]);
 
-async function confirmBoatReservation(request: Request, reservationId: string) {
+async function confirmBoatReservation(
+  request: Request,
+  reservationId: string,
+  reservationTable: string,
+  activity: string
+) {
   const response = await fetch(new URL("/api/bateau/confirm", request.url), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reservationId }),
+    body: JSON.stringify({ reservationId, reservationTable, activity }),
   });
 
   if (!response.ok) {
@@ -68,7 +73,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const confirmError = await confirmBoatReservation(request, reservationId);
+    const confirmError = await confirmBoatReservation(
+      request,
+      reservationId,
+      "reservations_baleines",
+      "baleines"
+    );
 
     if (confirmError) {
       console.error(confirmError);
@@ -78,6 +88,48 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: true,
       message: "Paiement Baleines valide",
+    });
+  }
+
+  if (reservationTable === "reservations_peche") {
+    if (!reservationId) {
+      return NextResponse.json(
+        { error: "reservationId Peche manquant" },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("reservations_peche")
+      .update({
+        statut_paiement: "paid",
+        paye: true,
+      })
+      .eq("id", reservationId);
+
+    if (error) {
+      console.error(error);
+      return NextResponse.json(
+        { error: "Erreur mise a jour reservation Peche" },
+        { status: 500 }
+      );
+    }
+
+    const confirmError = await confirmBoatReservation(
+      request,
+      reservationId,
+      "reservations_peche",
+      "peche"
+    );
+
+    if (confirmError) {
+      console.error(confirmError);
+      return NextResponse.json({ error: confirmError }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      message: "Paiement Peche valide",
     });
   }
 

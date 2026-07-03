@@ -8,6 +8,10 @@ const ALLOWED_TABLES = new Set([
 ]);
 
 type ReservationRecord = {
+  date_sortie?: unknown;
+  formule?: unknown;
+  slots?: unknown;
+  nombre_personnes?: unknown;
   responsable_prenom?: unknown;
   responsable_nom?: unknown;
   responsable_email?: unknown;
@@ -16,6 +20,9 @@ type ReservationRecord = {
   nom?: unknown;
   email?: unknown;
   telephone?: unknown;
+  montant_total?: unknown;
+  montant_paye?: unknown;
+  type_paiement?: unknown;
   statut_paiement?: unknown;
   paye?: unknown;
   paiement_effectue?: unknown;
@@ -39,13 +46,28 @@ function normalizeReservation(record: ReservationRecord) {
     statutPaiement === "paid" ||
     statutPaiement === "paye";
   const capacities = countBaleinesParticipants(record.participants);
+  const slots = Array.isArray(record.slots)
+    ? record.slots.filter((slot): slot is string => typeof slot === "string")
+    : [];
 
   return {
+    date: text(record.date_sortie),
+    formula: text(record.formule),
+    peopleCount:
+      typeof record.nombre_personnes === "number"
+        ? String(record.nombre_personnes)
+        : "",
     clientName: `${prenom} ${nom}`.trim() || "Non disponible",
     email: email || "Non disponible",
     telephone: telephone || "Non disponible",
+    totalAmount:
+      typeof record.montant_total === "number" ? record.montant_total : null,
+    paidAmount:
+      typeof record.montant_paye === "number" ? record.montant_paye : null,
+    paymentType: text(record.type_paiement),
     payment: paid ? "Paye" : "En attente",
     statutPaiement: statutPaiement || "",
+    slots,
     capacities,
   };
 }

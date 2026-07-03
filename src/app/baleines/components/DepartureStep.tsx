@@ -14,8 +14,8 @@ type DepartureStepProps = {
 };
 
 const departures: Array<{ value: Depart; title: string; label: string }> = [
-  { value: "07:00", title: "07:00", label: "Depart matin" },
-  { value: "13:15", title: "13:15", label: "Depart apres-midi" },
+  { value: "07:00", title: "07:00", label: "Départ matin" },
+  { value: "13:15", title: "13:15", label: "Départ après-midi" },
 ];
 
 export function DepartureStep({
@@ -33,10 +33,10 @@ export function DepartureStep({
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-black leading-tight text-slate-950">
-          Choisis ton depart
+          Choisissez votre départ
         </h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Deux horaires, une sortie en petit comite.
+          Deux horaires, une sortie en petit comité.
         </p>
       </div>
 
@@ -57,11 +57,13 @@ export function DepartureStep({
               }}
               disabled={!available}
               className={[
-                "min-h-[112px] w-full rounded-[28px] border px-5 text-left transition-colors",
+                "min-h-[112px] w-full rounded-2xl border px-5 text-left shadow-sm transition duration-300",
                 active
-                  ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_16px_34px_rgba(8,145,178,0.25)]"
-                  : "border-cyan-100 bg-white text-slate-950",
-                available ? "" : "opacity-50",
+                  ? "border-cyan-700 bg-cyan-700 text-white shadow-[0_14px_28px_rgba(8,145,178,0.18)]"
+                  : "border-cyan-100 bg-white text-slate-950 hover:-translate-y-0.5 hover:border-cyan-300",
+                available
+                  ? "cursor-pointer"
+                  : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500 opacity-70",
               ].join(" ")}
             >
               <span className="block text-4xl font-black">{item.title}</span>

@@ -16,6 +16,19 @@ function signerPayzen(champs: Record<string, string>, cle: string) {
   .digest("base64");
 }
 
+function getBaseUrl(request: Request) {
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const host = forwardedHost || request.headers.get("host");
+
+  if (host) {
+    return `${forwardedProto || requestUrl.protocol.replace(":", "")}://${host}`;
+  }
+
+  return requestUrl.origin;
+}
+
 export async function POST(request: Request) {
   const body = await request.json();
 
@@ -39,11 +52,13 @@ export async function POST(request: Request) {
   }
 
   const transactionId = Date.now().toString().slice(-6);
-  const baseUrl = "https://tahiti-trip-booking.vercel.app";
+  const baseUrl = getBaseUrl(request);
   const retourBoutique =
-    typeof body.returnUrl === "string" && body.returnUrl.startsWith("/")
-      ? `${baseUrl}${body.returnUrl}`
-      : `${baseUrl}/paiement-retour`;
+    typeof body.returnUrl === "string" &&
+    body.returnUrl.startsWith("/") &&
+    !body.returnUrl.startsWith("//")
+      ? new URL(body.returnUrl, baseUrl).toString()
+      : new URL("/paiement-retour", baseUrl).toString();
   const reservationId =
     typeof body.reservationId === "string" && body.reservationId.trim()
       ? body.reservationId.trim()

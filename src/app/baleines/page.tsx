@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { BaleinesHero } from "./components/BaleinesHero";
+import { BaleinesGallery } from "./components/BaleinesGallery";
+import { BaleinesInfoCards } from "./components/BaleinesInfoCards";
+import { BaleinesIntro } from "./components/BaleinesIntro";
 import { DateStep } from "./components/DateStep";
 import { DepartureStep } from "./components/DepartureStep";
 import { ParticipantsStep } from "./components/ParticipantsStep";
@@ -316,17 +319,17 @@ export default function BaleinesPage() {
   function verifierDate() {
     const selectedDate = getSelectedDate();
 
-    if (!selectedDate) return "Choisis une date.";
+    if (!selectedDate) return "Choisissez une date.";
     if (selectedDate < SAISON_DEBUT || selectedDate > SAISON_FIN) {
       return "Les sorties baleines sont possibles du 20 juillet au 20 novembre 2026.";
     }
 
     if (!departAvailability["07:00"] && !departAvailability["13:15"]) {
-      return "Aucun depart bateau n'est disponible sur cette date.";
+      return "Aucun départ bateau n'est disponible sur cette date.";
     }
 
     if (!departAvailability[depart]) {
-      return "Ce depart bateau est indisponible. Choisis un autre depart.";
+      return "Ce départ bateau est indisponible. Choisis un autre départ.";
     }
 
     return "";
@@ -335,15 +338,15 @@ export default function BaleinesPage() {
   function verifierParticipants() {
     const responsable = participants[0];
 
-    if (!responsable?.prenom.trim()) return "Indique le prenom du responsable.";
+    if (!responsable?.prenom.trim()) return "Indique le prénom du responsable.";
     if (!responsable.nom.trim()) return "Indique le nom du responsable.";
     if (!responsableEmail.trim()) return "Indique l'email du responsable.";
     if (!responsableTelephone.trim()) {
-      return "Indique le telephone du responsable.";
+      return "Indique le téléphone du responsable.";
     }
 
     if (demandes.miseEau > placesRestantesMiseEau) {
-      return "Il n'y a pas assez de places disponibles pour les mises a l'eau.";
+      return "Il n'y a pas assez de places disponibles pour les mises à l'eau.";
     }
 
     if (demandes.observateurs > placesRestantesObservateur) {
@@ -354,17 +357,17 @@ export default function BaleinesPage() {
       const participant = participants[i];
       const label = `Participant ${i + 1}`;
 
-      if (!participant.prenom.trim()) return `${label} : prenom obligatoire.`;
+      if (!participant.prenom.trim()) return `${label} : prénom obligatoire.`;
       if (!participant.nom.trim()) return `${label} : nom obligatoire.`;
-      if (!participant.age.trim()) return `${label} : age obligatoire.`;
+      if (!participant.age.trim()) return `${label} : âge obligatoire.`;
 
       const age = Number(participant.age);
       if (!Number.isFinite(age) || age <= 0 || age > 100) {
-        return `${label} : age invalide.`;
+        return `${label} : âge invalide.`;
       }
 
       if (participant.role === "mise_eau" && age < 12) {
-        return "La mise a l'eau est reservee aux participants de 12 ans et plus.";
+        return "La mise à l'eau est réservée aux participants de 12 ans et plus.";
       }
 
       if (participant.role === "mise_eau" && !participant.materielPerso) {
@@ -412,12 +415,12 @@ export default function BaleinesPage() {
         demandes.observateurs >
           MAX_OBSERVATEURS - capaciteDepart.observateurs
       ) {
-        setErreur("Ce depart est desormais complet.");
+        setErreur("Ce départ est désormais complet.");
         setEnvoi(false);
         return;
       }
     } catch {
-      setErreur("Impossible de verifier les places disponibles.");
+      setErreur("Impossible de vérifier les places disponibles.");
       setEnvoi(false);
       return;
     }
@@ -447,7 +450,7 @@ export default function BaleinesPage() {
       .single();
 
     if (error || !data?.id) {
-      setErreur(error?.message || "Impossible d'enregistrer la reservation.");
+      setErreur(error?.message || "Impossible d'enregistrer la réservation.");
       setEnvoi(false);
       return;
     }
@@ -475,14 +478,14 @@ export default function BaleinesPage() {
         console.error(hold);
         setErreur(
           reponseHold.status === 409
-            ? "Ce creneau vient d'etre reserve. Choisissez un autre depart."
-            : "Impossible de bloquer le creneau bateau."
+            ? "Ce créneau vient d'être réservé. Choisissez un autre départ."
+            : "Impossible de bloquer le créneau bateau."
         );
         setEnvoi(false);
         return;
       }
     } else if (!bateauDisponiblePourBaleines(selectedBoatSlot)) {
-      setErreur("Ce creneau vient d'etre reserve. Choisissez un autre depart.");
+      setErreur("Ce créneau vient d'être réservé. Choisissez un autre départ.");
       setEnvoi(false);
       return;
     }
@@ -506,12 +509,12 @@ export default function BaleinesPage() {
 
     if (!reponsePayzen.ok) {
       console.error(paiement);
-      setErreur("Erreur lors de la preparation du paiement.");
+      setErreur("Erreur lors de la préparation du paiement.");
       setEnvoi(false);
       return;
     }
 
-    setMessage("Reservation enregistree. Redirection vers PayZen...");
+    setMessage("Réservation enregistrée. Redirection vers PayZen...");
 
     const formulaire = document.createElement("form");
     formulaire.method = "POST";
@@ -533,8 +536,10 @@ export default function BaleinesPage() {
     <main className="min-h-screen bg-white text-slate-950">
       <BaleinesHero />
 
-      <div className="mx-auto max-w-md space-y-5 px-4 py-5 md:max-w-5xl">
-        <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto max-w-md space-y-8 px-4 py-8 md:max-w-5xl md:py-10">
+        <BaleinesIntro />
+
+        <section className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
           <DateStep
             date={date}
             chargement={chargement || chargementBateau}
@@ -544,7 +549,7 @@ export default function BaleinesPage() {
           />
         </section>
 
-        <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
           <DepartureStep
             depart={depart}
             availability={departAvailability}
@@ -553,7 +558,7 @@ export default function BaleinesPage() {
           />
         </section>
 
-        <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
           <ParticipantsStep
             participants={participants}
             demandes={demandes}
@@ -572,7 +577,7 @@ export default function BaleinesPage() {
           />
         </section>
 
-        <section className="rounded-[30px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <section className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
           <SummaryStep
             date={date}
             depart={depart}
@@ -584,6 +589,9 @@ export default function BaleinesPage() {
             onPay={reserver}
           />
         </section>
+
+        <BaleinesGallery />
+        <BaleinesInfoCards />
 
         {erreur && (
           <p className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">

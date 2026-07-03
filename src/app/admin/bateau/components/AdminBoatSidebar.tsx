@@ -23,10 +23,18 @@ const slotLabels: Record<BoatSlot, string> = {
 };
 
 type ReservationDetails = {
+  date: string;
+  formula: string;
+  peopleCount: string;
   clientName: string;
   email: string;
   telephone: string;
+  totalAmount: number | null;
+  paidAmount: number | null;
+  paymentType: string;
   payment: string;
+  statutPaiement: string;
+  slots: string[];
   capacities: {
     miseEau: number;
     observateurs: number;
@@ -45,6 +53,28 @@ function statusLabel(slot: BoatCalendarSlot | undefined) {
   if (slot.status === "reserved") return "Reserve";
   if (slot.status === "blocked") return "Bloque manuellement";
   return slot.status;
+}
+
+function formatAmount(amount: number | null) {
+  if (typeof amount !== "number") return "Non disponible";
+  return `${amount.toLocaleString("fr-FR").replace(/\s/g, " ")} F CFP`;
+}
+
+function paymentTypeLabel(type: string) {
+  if (type === "deposit") return "Acompte";
+  if (type === "full") return "Total";
+  return type || "Non disponible";
+}
+
+function slotListLabel(slots: string[]) {
+  if (slots.length === 0) return "Non disponible";
+  return slots
+    .map((slot) => {
+      if (slot === "morning") return "Matin";
+      if (slot === "afternoon") return "Apres-midi";
+      return slot;
+    })
+    .join(", ");
 }
 
 export function AdminBoatSidebar({
@@ -198,6 +228,15 @@ function SlotCard({
 
       <div className="mt-4 grid gap-3">
         <InfoLine label="Activite" value={activityLabel(slot?.activity || null)} />
+        <InfoLine label="Date" value={reservation?.date || "Non disponible"} />
+        <InfoLine
+          label="Formule"
+          value={reservation?.formula || "Non disponible"}
+        />
+        <InfoLine
+          label="Personnes"
+          value={reservation?.peopleCount || "Non disponible"}
+        />
         <InfoLine
           label="Client"
           value={
@@ -214,6 +253,26 @@ function SlotCard({
         <InfoLine
           label="Paiement"
           value={reservation?.payment || "En attente"}
+        />
+        <InfoLine
+          label="Montant total"
+          value={formatAmount(reservation?.totalAmount ?? null)}
+        />
+        <InfoLine
+          label="Montant paye"
+          value={formatAmount(reservation?.paidAmount ?? null)}
+        />
+        <InfoLine
+          label="Type paiement"
+          value={paymentTypeLabel(reservation?.paymentType || "")}
+        />
+        <InfoLine
+          label="Statut paiement"
+          value={reservation?.statutPaiement || "Non disponible"}
+        />
+        <InfoLine
+          label="Slots bateau"
+          value={slotListLabel(reservation?.slots || [])}
         />
         <InfoLine
           label="Mise a l'eau"
