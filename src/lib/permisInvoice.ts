@@ -35,7 +35,11 @@ function escapePdfText(value: string) {
 }
 
 function money(value: number) {
-  return `${Math.round(value).toLocaleString("fr-FR")} F CFP`;
+  return `${moneyAmount(value)} F CFP`;
+}
+
+function moneyAmount(value: number) {
+  return String(Math.round(value)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 function safeText(value: string | null | undefined, fallback = "-") {
@@ -114,8 +118,8 @@ export function buildPermisInvoicePdf(
     "42 778 54 36 re S",
     boldLine("TTF", 56, 790, 18),
     boldLine("Tahiti Trip Fishing", 112, 800, 20),
-    textLine("Punaauia - Tahiti", 112, 782, 10),
-    textLine("Polynesie francaise", 112, 768, 10),
+    textLine("Marina Taina - PUNAAUIA", 112, 782, 10),
+    textLine("Polynésie française", 112, 768, 10),
     textLine("Telephone : +689 87 32 16 31", 380, 800, 9),
     textLine("Email : contact@tahiti-trip.com", 380, 786, 9),
     textLine("Site : tahiti-trip.com", 380, 772, 9),
@@ -132,24 +136,26 @@ export function buildPermisInvoicePdf(
     filledRect(42, 582, 511, 28),
     "0 0 0 RG",
     rect(42, 528, 511, 82),
-    rect(42, 528, 252, 82),
-    rect(294, 528, 62, 82),
-    rect(356, 528, 80, 82),
-    rect(436, 528, 57, 82),
+    rect(42, 528, 230, 82),
+    rect(272, 528, 55, 82),
+    rect(327, 528, 78, 82),
+    rect(405, 528, 70, 82),
+    rect(475, 528, 78, 82),
     "0 0 0 rg",
     boldLine("Designation", 54, 592, 10),
-    boldLine("Quantite", 306, 592, 10),
-    boldLine("Prix HT", 368, 592, 10),
-    boldLine("TVA 5 %", 446, 592, 10),
-    boldLine("Prix TTC", 502, 592, 10),
+    boldLine("Quantite", 281, 592, 10),
+    boldLine("Prix HT", 346, 592, 10),
+    boldLine("TVA 5 %", 420, 592, 10),
+    boldLine("Prix TTC", 496, 592, 10),
     textLine(designation, 54, 558, 10),
-    textLine("1", 318, 558, 10),
-    textLine(money(amountHt), 368, 558, 10),
-    textLine(money(tva), 446, 558, 10),
-    textLine(money(amountTtc), 502, 558, 10),
+    textLine("1", 296, 558, 10),
+    textLine(moneyAmount(amountHt), 354, 558, 10),
+    textLine(moneyAmount(tva), 443, 558, 10),
+    textLine(moneyAmount(amountTtc), 505, 558, 10),
+    textLine("Tous les montants sont exprimés en F CFP.", 42, 512, 9),
     boldLine(`Type de tarif : ${pricingLabel}`, 42, 492, 11),
-    textLine("Mode de reglement : PayZen", 42, 470, 10),
-    textLine(`Montant paye : ${money(amountTtc)}`, 42, 454, 10),
+    textLine("Mode de règlement : PayZen", 42, 470, 10),
+    textLine(`Montant payé : ${money(amountTtc)}`, 42, 454, 10),
     textLine("Structure acompte : montant total, acompte, solde restant.", 42, 438, 9),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),
