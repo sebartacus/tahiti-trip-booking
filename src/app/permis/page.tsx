@@ -166,12 +166,17 @@ const permisPricing = getPermisPricing({
 
 const examens = genererExamens().filter(
   (examen) =>
-    (!permisPricing.requiresExam && examen.value === "Plus tard") ||
+    examen.value === "Plus tard" ||
     (examen.iso && !datesExamensBloques.includes(examen.iso))
 );
 
+const reservationPermisPricing =
+  session === "Plus tard" && permisPricing.pricingType === "promo_internet"
+    ? getPermisPricing({ promotionReservationsSold: Number.MAX_SAFE_INTEGER })
+    : permisPricing;
+
   const mercredi = isMercredi(dateCours);
-const prixBase = getPermisPriceForFormula(formule, permisPricing);
+const prixBase = getPermisPriceForFormula(formule, reservationPermisPricing);
 const nombreParticipants = typeCours === "commun" ? 2 : 1;
 const prix = prixBase * nombreParticipants;
 const dateAchat = new Date();
@@ -268,7 +273,7 @@ async function verifierAvantPaiement() {
     return;
   }
 
-  if (permisPricing.requiresExam && session === "Plus tard") {
+  if (reservationPermisPricing.requiresExam && session === "Plus tard") {
     setErreur("Veuillez choisir une date d'examen pour bénéficier de l'offre de lancement.");
     setEnregistrementEnCours(false);
     return;
@@ -318,7 +323,7 @@ nom2: typeCours === "commun" ? nom2 : null,
         type_cours: typeCours || null,
         creneau: creneau || null,
 paiement_effectue: false,
-        pricing_type: permisPricing.pricingType,
+        pricing_type: reservationPermisPricing.pricingType,
         pricing_amount: prix,
       },
     ])

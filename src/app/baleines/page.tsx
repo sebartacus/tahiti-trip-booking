@@ -371,7 +371,7 @@ export default function BaleinesPage() {
         return "La mise à l'eau est réservée aux participants de 12 ans et plus.";
       }
 
-      if (participant.role === "mise_eau" && !participant.materielPerso) {
+      if (participant.role === "mise_eau") {
         if (!participant.tailleCombinaison) {
           return `${label} : choisis une taille de combinaison.`;
         }

@@ -1,6 +1,5 @@
 import type { Participant, Role } from "../lib/types";
 import {
-  afficherMateriel,
   POINTURES_PALMES,
   TAILLES_COMBI,
   ageRenseigneMineur,
@@ -40,7 +39,7 @@ export function ParticipantForm({
   onRemove,
 }: ParticipantFormProps) {
   const isResponsable = index === 0;
-  const showEquipment = afficherMateriel(participant);
+  const showEquipment = participant.role === "mise_eau";
   const isUnderWaterTooYoung = ageRenseigneMineur(participant.age);
   const canChooseMiseEau = canSwitchToMiseEau && !isUnderWaterTooYoung;
 

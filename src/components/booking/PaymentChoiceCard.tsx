@@ -31,7 +31,7 @@ export function PaymentChoiceCard({
     <section className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <article
-          className={`rounded-[28px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] ${
+          className={`flex h-full flex-col rounded-[28px] border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] ${
             isPremium ? "transition focus-within:border-cyan-700" : ""
           }`}
         >
@@ -53,14 +53,14 @@ export function PaymentChoiceCard({
           <button
             type="button"
             onClick={onSelectDeposit}
-            className="mt-5 min-h-14 w-full rounded-2xl bg-cyan-700 px-5 text-base font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] outline-none transition focus:border focus:border-cyan-700 active:ring-4 active:ring-cyan-100"
+            className="mt-auto min-h-14 w-full rounded-2xl bg-cyan-700 px-5 text-base font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] outline-none transition focus:border focus:border-cyan-700 active:ring-4 active:ring-cyan-100"
           >
             Réserver avec acompte
           </button>
         </article>
 
         <article
-          className={`rounded-[28px] border p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] ${
+          className={`flex h-full flex-col rounded-[28px] border p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] ${
             isPremium
               ? "border-cyan-100 bg-white text-slate-950 transition focus-within:border-cyan-700"
               : "border-slate-100 bg-slate-950 text-white"
@@ -89,7 +89,7 @@ export function PaymentChoiceCard({
           <button
             type="button"
             onClick={onSelectFullPayment}
-            className={`mt-5 min-h-14 w-full rounded-2xl px-5 text-base font-black outline-none transition active:ring-4 active:ring-cyan-100 ${
+            className={`mt-auto min-h-14 w-full rounded-2xl px-5 text-base font-black outline-none transition active:ring-4 active:ring-cyan-100 ${
               isPremium
                 ? "bg-cyan-700 text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] focus:border focus:border-cyan-700"
                 : "bg-white text-slate-950"

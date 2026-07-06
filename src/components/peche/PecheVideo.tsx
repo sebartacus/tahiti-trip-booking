@@ -1,10 +1,30 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const videoSrc = "/videos/peche/hero.mp4";
+const posterSrc = "/images/peche/marlin.jpg";
 
 export function PecheVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoAvailable, setVideoAvailable] = useState(false);
   const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    fetch(videoSrc, { method: "HEAD" })
+      .then((response) => {
+        if (active && response.ok) setVideoAvailable(true);
+      })
+      .catch(() => {
+        if (active) setVideoAvailable(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function playVideo() {
     const video = videoRef.current;
@@ -27,16 +47,25 @@ export function PecheVideo() {
       </div>
 
       <div className="relative overflow-hidden rounded-3xl border border-cyan-100 bg-cyan-50 shadow-[0_20px_50px_rgba(8,145,178,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_54px_rgba(8,145,178,0.16)]">
-        <video
-          ref={videoRef}
-          className="aspect-video w-full object-cover"
-          playsInline
-          poster="/images/peche/marlin.jpg"
-          preload="metadata"
-          src="/videos/peche/hero.mp4"
-        />
+        {videoAvailable ? (
+          <video
+            ref={videoRef}
+            className="aspect-video w-full object-cover"
+            playsInline
+            poster={posterSrc}
+            preload="metadata"
+            src={videoSrc}
+          />
+        ) : (
+          <div
+            className="aspect-video w-full bg-cover bg-center"
+            role="img"
+            aria-label="Aperçu vidéo pêche"
+            style={{ backgroundImage: `url('${posterSrc}')` }}
+          />
+        )}
 
-        {!playing && (
+        {videoAvailable && !playing && (
           <button
             type="button"
             onClick={playVideo}

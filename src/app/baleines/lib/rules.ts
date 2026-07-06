@@ -100,11 +100,10 @@ export function nettoyerParticipant(participant: Participant): Participant {
     };
   }
 
-  if (participant.role === "observateur" || participant.materielPerso) {
+  if (participant.role === "observateur") {
     return {
       ...participant,
-      materielPerso:
-        participant.role === "observateur" ? false : participant.materielPerso,
+      materielPerso: false,
       tailleCombinaison: "",
       pointurePalmes: "",
     };
