@@ -16,12 +16,36 @@ type HoldBody = {
 };
 
 const SELECT_FIELDS =
-  "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,created_at,updated_at";
+  "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,expires_at,created_at,updated_at";
+
+const HOLD_DURATION_MINUTES = 30;
+
+async function releaseExpiredHolds(nowIso: string) {
+  return supabase
+    .from("boat_calendar_slots")
+    .update({
+      status: "available",
+      activity: null,
+      reservation_id: null,
+      reservation_table: null,
+      blocked_reason: null,
+      blocked_by: null,
+      blocked_at: null,
+      expires_at: null,
+    })
+    .eq("status", "hold")
+    .lte("expires_at", nowIso);
+}
 
 export async function POST(request: Request) {
   const body = (await request.json()) as HoldBody;
   const { date, activity, reservationId, reservationTable } = body;
   const slots = normalizeBoatSlots(body.slots ?? body.slot);
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const expiresAt = new Date(
+    now.getTime() + HOLD_DURATION_MINUTES * 60 * 1000
+  ).toISOString();
 
   if (!isIsoDate(date) || !isBoatActivity(activity) || slots.length === 0) {
     return NextResponse.json(
@@ -41,6 +65,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "reservationTable requis." },
       { status: 400 }
+    );
+  }
+
+  const cleanup = await releaseExpiredHolds(nowIso);
+
+  if (cleanup.error) {
+    return NextResponse.json(
+      { error: "Impossible de liberer les holds expires." },
+      { status: 500 }
     );
   }
 
@@ -87,6 +120,7 @@ export async function POST(request: Request) {
         blocked_reason: null,
         blocked_by: null,
         blocked_at: null,
+        expires_at: expiresAt,
       };
 
       if (!existingSlot) {

@@ -1,28 +1,33 @@
 const galleryImages = [
   {
-    src: "/images/baleines/hero.jpg",
-    title: "Départ",
-    position: "center 62%",
+    src: "/images/baleines/hero-baleine-saut.jpg",
+    title: "Saut",
+    position: "center",
   },
   {
-    src: "/images/baleines/hero.jpg",
-    title: "Navigation",
-    position: "center 48%",
-  },
-  {
-    src: "/images/baleines/hero.jpg",
-    title: "Baleines",
-    position: "center 38%",
-  },
-  {
-    src: "/images/baleines/hero.jpg",
+    src: "/images/baleines/baleine-sous-eau.jpg",
     title: "Mise à l'eau",
-    position: "center 54%",
+    position: "center",
   },
   {
-    src: "/images/baleines/hero.jpg",
-    title: "Clients heureux",
-    position: "center 44%",
+    src: "/images/baleines/galerie-baleine-queue.jpg",
+    title: "Queue",
+    position: "center",
+  },
+  {
+    src: "/images/baleines/navigation.jpg",
+    title: "Baleine et son baleineau",
+    position: "center",
+  },
+  {
+    src: "/images/baleines/tete.jpg",
+    title: "Tête",
+    position: "center",
+  },
+  {
+    src: "/images/baleines/galerie-bateau-drone-2.jpg",
+    title: "Bateau",
+    position: "center",
   },
 ];
 
@@ -41,15 +46,15 @@ export function BaleinesGallery() {
       <div className="grid gap-5 md:grid-cols-2">
         {galleryImages.map((image, index) => (
           <figure
-            key={`${image.title}-${index}`}
+            key={image.src}
             className={`overflow-hidden rounded-3xl border border-cyan-100 bg-white shadow-[0_18px_45px_rgba(8,145,178,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(8,145,178,0.16)] ${
-              index === 0 || index === 2 ? "md:col-span-2" : ""
+              index === 0 || index === 3 ? "md:col-span-2" : ""
             }`}
           >
             <div
               aria-label={image.title}
               className={`bg-cover ${
-                index === 0 || index === 2
+                index === 0 || index === 3
                   ? "min-h-[24rem] md:min-h-[34rem]"
                   : "min-h-72 md:min-h-80"
               }`}

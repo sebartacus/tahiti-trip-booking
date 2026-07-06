@@ -1,9 +1,9 @@
 const species = [
   { name: "Marlin", image: "/images/peche/marlin.jpg" },
   { name: "Thon", image: "/images/peche/thon.jpg" },
-  { name: "Mahi-mahi", image: "/images/peche/mahi-mahi.jpg" },
-  { name: "Wahoo", image: "/images/peche/wahoo.jpg" },
-  { name: "Bonite", image: "/images/peche/bonite.jpg" },
+  { name: "Mahi-mahi", image: "/images/peche/mahi-mahi.jpeg" },
+  { name: "Thazard", image: "/images/peche/thazard.jpeg" },
+  { name: "Bonite", image: "/images/peche/bonite.jpeg" },
 ];
 
 export function PecheSpecies() {

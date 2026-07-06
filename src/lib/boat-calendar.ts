@@ -17,6 +17,7 @@ export type BoatCalendarSlot = {
   blocked_reason: string | null;
   blocked_by: string | null;
   blocked_at: string | null;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FilmHeroBackground } from "@/components/FilmHeroBackground";
 
 const whatsappUrl =
-  "https://wa.me/68987290700?text=Ia%20orana%2C%20je%20souhaite%20r%C3%A9server%20une%20exp%C3%A9rience%20avec%20Tahiti%20Trip%20Fishing.";
+  "https://wa.me/68987321631?text=Ia%20orana%2C%20je%20souhaite%20r%C3%A9server%20une%20exp%C3%A9rience%20avec%20Tahiti%20Trip%20Fishing.";
 
 const experiences = [
   {
@@ -10,7 +10,7 @@ const experiences = [
     title: "Observation des baleines",
     text: "Une sortie en petit comité pour observer les baleines dans les meilleures conditions.",
     href: "/baleines",
-    image: "/images/baleines/baleine-surface.jpg",
+    image: "/images/baleines/hero.jpg",
   },
   {
     icon: "🎣",
@@ -37,13 +37,20 @@ const reasons = [
   ["✔", "Matériel fourni"],
 ];
 
+const trustItems = [
+  ["🐋", "Opérateur autorisé"],
+  ["👥", "Petits groupes"],
+  ["💳", "Paiement sécurisé"],
+  ["⭐", "Expériences authentiques"],
+];
+
 const gallery = [
   { src: "/images/peche/hero.jpg", label: "Pêche au large" },
-  { src: "/images/baleines/baleine-sous-eau.jpeg", label: "Baleines" },
+  { src: "/images/baleines/baleine-sous-eau.jpg", label: "Baleines" },
   { src: "/images/peche/combat.jpg", label: "Combat" },
   { src: "/images/baleines/navigation.jpg", label: "Navigation" },
   { src: "/images/peche/clients.jpg", label: "Clients" },
-  { src: "/images/baleines/depart.jpg", label: "Départ" },
+  { src: "/images/baleines/hero.jpg", label: "Départ" },
 ];
 
 const reviews = [
@@ -121,7 +128,7 @@ export default async function Home({
             aria-label="Baleine sous l'eau à Tahiti"
             style={{
               backgroundImage:
-                "url('/images/baleines/baleine-sous-eau.jpeg')",
+                "url('/images/baleines/baleine-sous-eau.jpg')",
             }}
           />
         ) : (
@@ -185,9 +192,26 @@ export default async function Home({
         </div>
       </section>
 
+      <section className="mx-auto max-w-md px-4 py-10 md:max-w-4xl md:py-14">
+        <div className="peche-reveal text-center">
+          <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
+            Tahiti Trip
+          </p>
+          <h2 className="mt-2 text-3xl font-black text-slate-950 md:text-4xl">
+            Découvrez Tahiti autrement
+          </h2>
+          <p className="mx-auto mt-4 max-w-3xl text-base font-bold leading-8 text-slate-700 md:text-lg md:leading-9">
+            De la pêche au gros à la nage avec les baleines, en passant par les
+            excursions privées, les charters et la formation au permis côtier,
+            Tahiti Trip vous propose des expériences authentiques en Polynésie
+            française.
+          </p>
+        </div>
+      </section>
+
       <section
         id="experiences"
-        className="mx-auto max-w-md space-y-5 px-4 py-10 md:max-w-6xl md:py-14"
+        className="mx-auto max-w-md space-y-5 px-4 pb-10 md:max-w-6xl md:pb-14"
       >
         <div className="peche-reveal">
           <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
@@ -202,15 +226,15 @@ export default async function Home({
           {experiences.map((experience) => (
             <article
               key={experience.title}
-              className="peche-reveal overflow-hidden rounded-3xl border border-cyan-100 bg-white shadow-[0_18px_45px_rgba(8,145,178,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(8,145,178,0.16)]"
+              className="peche-reveal flex h-full min-h-[34rem] flex-col overflow-hidden rounded-3xl border border-cyan-100 bg-white shadow-[0_18px_45px_rgba(8,145,178,0.12)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_rgba(8,145,178,0.16)]"
             >
               <div
-                className="h-72 bg-cyan-100 bg-cover bg-center"
+                className="aspect-[4/3] w-full bg-cyan-100 bg-cover bg-center"
                 role="img"
                 aria-label={experience.title}
                 style={{ backgroundImage: `url('${experience.image}')` }}
               />
-              <div className="p-5">
+              <div className="flex flex-1 flex-col p-5">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-50 text-2xl">
                   {experience.icon}
                 </div>
@@ -220,14 +244,30 @@ export default async function Home({
                 <p className="mt-3 text-sm font-bold leading-6 text-slate-700">
                   {experience.text}
                 </p>
-                <Link
-                  href={experience.href}
-                  className="mt-5 inline-flex min-h-12 w-full items-center justify-center bg-cyan-700 px-5 text-sm font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] transition hover:bg-cyan-600"
-                >
-                  Découvrir
-                </Link>
+                <div className="mt-auto pt-5">
+                  <Link
+                    href={experience.href}
+                    className="inline-flex min-h-12 w-full items-center justify-center bg-cyan-700 px-5 text-sm font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] transition hover:bg-cyan-600"
+                  >
+                    Découvrir
+                  </Link>
+                </div>
               </div>
             </article>
+          ))}
+        </div>
+
+        <div className="peche-reveal grid gap-3 rounded-3xl border border-cyan-100 bg-cyan-50 p-4 shadow-[0_16px_38px_rgba(8,145,178,0.08)] sm:grid-cols-2 lg:grid-cols-4">
+          {trustItems.map(([icon, label]) => (
+            <div
+              key={label}
+              className="flex min-h-16 items-center gap-3 rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 shadow-[0_10px_24px_rgba(8,145,178,0.08)]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cyan-50 text-xl">
+                {icon}
+              </span>
+              <span>{label}</span>
+            </div>
           ))}
         </div>
       </section>
@@ -355,8 +395,8 @@ export default async function Home({
             Une question avant de réserver ?
           </h2>
           <div className="mt-5 grid gap-3 text-sm font-bold leading-6 text-slate-700">
-            <p>Téléphone : +689 87 29 07 00</p>
-            <p>Email : contact@tahititripfishing.com</p>
+            <p>Téléphone : +689 87 32 16 31</p>
+            <p>Email : contact@tahiti-trip.com</p>
             <p>Départ possible depuis Moorea avec supplément carburant.</p>
           </div>
           <a
@@ -368,27 +408,33 @@ export default async function Home({
         </article>
       </section>
 
-      <footer className="bg-slate-950 px-4 py-8 text-white">
-        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[1.2fr_1fr_1fr]">
+      <footer className="bg-slate-950 px-4 py-10 text-white">
+        <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[1.2fr_1fr_1fr]">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100">
-              Tahiti Trip Fishing
+              TAHITI TRIP
             </p>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-300">
               Pêche au gros, observation des baleines et permis côtier à Tahiti.
             </p>
           </div>
           <nav className="grid gap-2 text-sm font-bold text-slate-300">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
+              Activités
+            </p>
             <Link href="/peche">Pêche au gros</Link>
-            <Link href="/baleines">Observation des baleines</Link>
+            <Link href="/baleines">Baleines</Link>
             <Link href="/permis">Permis côtier</Link>
-            <a href="#contact">Contact</a>
           </nav>
           <div className="grid gap-2 text-sm font-bold text-slate-300">
-            <a href="#mentions">Mentions légales</a>
-            <a href="#confidentialite">Politique de confidentialité</a>
-            <a href="#instagram">Instagram</a>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
+              Contact
+            </p>
+            <a href="tel:+68987321631">Téléphone</a>
+            <a href="https://wa.me/68987321631">WhatsApp : +689 87 32 16 31</a>
+            <a href="mailto:contact@tahiti-trip.com">Email</a>
             <a href="#facebook">Facebook</a>
+            <a href="#instagram">Instagram</a>
           </div>
         </div>
       </footer>

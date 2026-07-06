@@ -2,16 +2,72 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getPermisPricing } from "@/lib/permisPricing";
+
+type AdminReservation = {
+  id: number;
+  prenom: string | null;
+  nom: string | null;
+  prenom2: string | null;
+  nom2: string | null;
+  telephone: string | null;
+  email: string | null;
+  formule: string | null;
+  examen: string | null;
+  date_cours: string | null;
+  creneau: string | null;
+  paiement_effectue: boolean | null;
+  pricing_type: string | null;
+  pricing_amount: number | null;
+  facture_numero: string | null;
+  facture_url: string | null;
+  email_sent: boolean | null;
+  email_sent_at: string | null;
+  statut: string | null;
+  certificat_url: string | null;
+  formulaire_url: string | null;
+  photo_url: string | null;
+  identite_url: string | null;
+};
+
+type ExamenBloque = {
+  id: string;
+  date_examen: string;
+  motif: string | null;
+};
+
+const pricingTypeLabels: Record<string, string> = {
+  normal: "Tarif normal",
+  promo_internet: "Promo Internet",
+  salon_tourisme: "Salon du Tourisme",
+};
+
+function formatPricingType(value: string | null) {
+  return pricingTypeLabels[value || "normal"] || pricingTypeLabels.normal;
+}
+
+function formatXpf(value: number | null) {
+  return value ? `${value.toLocaleString("fr-FR")} XPF` : "-";
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
 
 export default function AdminPage() {
-  const [reservations, setReservations] = useState<any[]>([]);
+  const [reservations, setReservations] = useState<AdminReservation[]>([]);
   const [filtreStatut, setFiltreStatut] = useState("Tous");
   const [motDePasse, setMotDePasse] = useState("");
   const [accesAutorise, setAccesAutorise] = useState(false);
 
   const [dateExamenBloquee, setDateExamenBloquee] = useState("");
   const [motifBlocage, setMotifBlocage] = useState("");
-  const [examensBloques, setExamensBloques] = useState<any[]>([]);
+  const [examensBloques, setExamensBloques] = useState<ExamenBloque[]>([]);
 
   useEffect(() => {
     chargerReservations();
@@ -126,6 +182,12 @@ export default function AdminPage() {
   const reservationsFiltrees = reservations.filter((reservation) =>
     filtreStatut === "Tous" ? true : reservation.statut === filtreStatut
   );
+  const reservationsPromoInternet = reservations.filter(
+    (reservation) => reservation.pricing_type === "promo_internet"
+  );
+  const permisPricing = getPermisPricing({
+    promotionReservationsSold: reservationsPromoInternet.length,
+  });
 
   if (!accesAutorise) {
     return (
@@ -239,7 +301,22 @@ export default function AdminPage() {
           Permis obtenus :{" "}
           {reservations.filter((r) => r.statut === "Permis obtenu").length}
         </div>
+
+        <div className="bg-orange-100 text-orange-900 rounded-xl p-4 font-bold">
+          Promo vendus : {permisPricing.promotionReservationsSold}
+        </div>
+
+        <div className="bg-cyan-100 text-cyan-900 rounded-xl p-4 font-bold">
+          Promo restants : {permisPricing.promotionsRemaining}
+        </div>
       </div>
+
+      <section className="mb-6 bg-white rounded-xl p-4 shadow">
+        <h2 className="text-xl font-bold">Tarification permis active</h2>
+        <p className="mt-2 font-semibold">
+          Type de tarif : {permisPricing.pricingType}
+        </p>
+      </section>
 
       <div className="mb-6 bg-white rounded-xl p-4 shadow">
         <label className="mr-3 font-semibold">Filtrer par statut :</label>
@@ -278,6 +355,22 @@ export default function AdminPage() {
             </p>
             <p>
               <strong>Formule :</strong> {reservation.formule}
+            </p>
+            <p>
+              <strong>Tarif :</strong>{" "}
+              {formatPricingType(reservation.pricing_type)} -{" "}
+              {formatXpf(reservation.pricing_amount)}
+            </p>
+            <p>
+              <strong>Facture :</strong>{" "}
+              {reservation.facture_numero || "-"}
+            </p>
+            <p>
+              <strong>Email :</strong>{" "}
+              {reservation.email_sent ? "envoyé" : "non envoyé"}
+              {reservation.email_sent_at
+                ? ` - ${formatDateTime(reservation.email_sent_at)}`
+                : ""}
             </p>
             <p>
               <strong>Examen :</strong> {reservation.examen}
@@ -332,6 +425,12 @@ export default function AdminPage() {
               >
                 Identité
               </button>
+              <button
+                onClick={() => ouvrirDocument(reservation.facture_url)}
+                className="cursor-pointer bg-sky-700 text-white rounded-xl p-2"
+              >
+                Facture
+              </button>
             </div>
           </div>
         ))}
@@ -346,10 +445,13 @@ export default function AdminPage() {
               <th className="p-3 text-left">Téléphone</th>
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Formule</th>
+              <th className="p-3 text-left">Tarif</th>
               <th className="p-3 text-left">Examen</th>
               <th className="p-3 text-left">Cours</th>
               <th className="p-3 text-left">Créneau</th>
               <th className="p-3 text-left">Paiement</th>
+              <th className="p-3 text-left">Facture</th>
+              <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Statut</th>
               <th className="p-3 text-left">Documents</th>
             </tr>
@@ -369,11 +471,35 @@ export default function AdminPage() {
                 <td className="p-3">{reservation.telephone}</td>
                 <td className="p-3">{reservation.email}</td>
                 <td className="p-3">{reservation.formule}</td>
+                <td className="p-3">
+                  <div>{formatPricingType(reservation.pricing_type)}</div>
+                  <div className="text-xs text-slate-500">
+                    {formatXpf(reservation.pricing_amount)}
+                  </div>
+                </td>
                 <td className="p-3">{reservation.examen}</td>
                 <td className="p-3">{reservation.date_cours || "-"}</td>
                 <td className="p-3">{reservation.creneau || "-"}</td>
                 <td className="p-3">
                   {reservation.paiement_effectue ? "Payé" : "Non payé"}
+                </td>
+                <td className="p-3">
+                  {reservation.facture_url ? (
+                    <button
+                      onClick={() => ouvrirDocument(reservation.facture_url)}
+                      className="cursor-pointer bg-sky-700 text-white px-3 py-1 rounded"
+                    >
+                      {reservation.facture_numero || "Facture"}
+                    </button>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+                <td className="p-3">
+                  <div>{reservation.email_sent ? "envoyé" : "non envoyé"}</div>
+                  <div className="text-xs text-slate-500">
+                    {formatDateTime(reservation.email_sent_at)}
+                  </div>
                 </td>
                 <td className="p-3">
                   <select

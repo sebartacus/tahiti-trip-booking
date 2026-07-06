@@ -16,7 +16,7 @@ type ConfirmBody = {
 };
 
 const SELECT_FIELDS =
-  "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,created_at,updated_at";
+  "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,expires_at,created_at,updated_at";
 
 function departToSlot(depart: unknown) {
   if (depart === "07:00") return "morning";
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as ConfirmBody;
   const { date, activity, reservationId, reservationTable } = body;
   const slots = normalizeBoatSlots(body.slots ?? body.slot);
+  const nowIso = new Date().toISOString();
 
   if (typeof reservationId !== "string" || !reservationId.trim()) {
     return NextResponse.json(
@@ -47,9 +48,10 @@ export async function POST(request: Request) {
 
   let query = supabase
     .from("boat_calendar_slots")
-    .update({ status: "reserved" })
+    .update({ status: "reserved", expires_at: null })
     .eq("status", "hold")
-    .eq("reservation_id", reservationId);
+    .eq("reservation_id", reservationId)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
   if (typeof reservationTable === "string" && reservationTable.trim()) {
     query = query.eq("reservation_table", reservationTable.trim());
@@ -80,6 +82,82 @@ export async function POST(request: Request) {
   }
 
   if (!data || data.length === 0) {
+    let expiredQuery = supabase
+      .from("boat_calendar_slots")
+      .select(SELECT_FIELDS)
+      .eq("status", "hold")
+      .eq("reservation_id", reservationId)
+      .lte("expires_at", nowIso);
+
+    if (typeof reservationTable === "string" && reservationTable.trim()) {
+      expiredQuery = expiredQuery.eq("reservation_table", reservationTable.trim());
+    }
+
+    if (isIsoDate(date)) {
+      expiredQuery = expiredQuery.eq("date", date);
+    }
+
+    if (isBoatActivity(activity)) {
+      expiredQuery = expiredQuery.eq("activity", activity);
+    }
+
+    if (slots.length > 0) {
+      expiredQuery = expiredQuery.in("slot", slots);
+    }
+
+    const expired = await expiredQuery;
+
+    if (expired.error) {
+      return NextResponse.json(
+        { error: "Impossible de verifier l'expiration du hold bateau." },
+        { status: 500 }
+      );
+    }
+
+    if (expired.data && expired.data.length > 0) {
+      return NextResponse.json(
+        { error: "Le hold bateau a expire. Le creneau doit etre reserve a nouveau." },
+        { status: 409 }
+      );
+    }
+
+    let reservedQuery = supabase
+      .from("boat_calendar_slots")
+      .select(SELECT_FIELDS)
+      .eq("status", "reserved")
+      .eq("reservation_id", reservationId);
+
+    if (typeof reservationTable === "string" && reservationTable.trim()) {
+      reservedQuery = reservedQuery.eq("reservation_table", reservationTable.trim());
+    }
+
+    if (isIsoDate(date)) {
+      reservedQuery = reservedQuery.eq("date", date);
+    }
+
+    if (isBoatActivity(activity)) {
+      reservedQuery = reservedQuery.eq("activity", activity);
+    }
+
+    if (slots.length > 0) {
+      reservedQuery = reservedQuery.in("slot", slots);
+    }
+
+    const reserved = await reservedQuery
+      .order("date", { ascending: true })
+      .order("slot", { ascending: true });
+
+    if (reserved.error) {
+      return NextResponse.json(
+        { error: "Impossible de verifier le creneau deja confirme." },
+        { status: 500 }
+      );
+    }
+
+    if (reserved.data && reserved.data.length > 0) {
+      return NextResponse.json({ slots: reserved.data });
+    }
+
     const pecheReservation = await supabase
       .from("reservations_peche")
       .select("date_sortie,slots")
@@ -98,11 +176,12 @@ export async function POST(request: Request) {
     if (pecheReservation.data?.date_sortie && pecheSlots.length > 0) {
       const pecheFallback = await supabase
         .from("boat_calendar_slots")
-        .update({ status: "reserved" })
+        .update({ status: "reserved", expires_at: null })
         .eq("date", pecheReservation.data.date_sortie)
         .eq("activity", "peche")
         .in("slot", pecheSlots)
-        .in("status", ["hold", "reserved"])
+        .eq("status", "hold")
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
         .select(SELECT_FIELDS);
 
       if (pecheFallback.error) {
@@ -115,6 +194,11 @@ export async function POST(request: Request) {
       if (pecheFallback.data && pecheFallback.data.length > 0) {
         return NextResponse.json({ slots: pecheFallback.data });
       }
+
+      return NextResponse.json(
+        { error: "Le hold bateau a expire. Le creneau doit etre reserve a nouveau." },
+        { status: 409 }
+      );
     }
 
     const reservation = await supabase
@@ -141,11 +225,12 @@ export async function POST(request: Request) {
 
     const fallback = await supabase
       .from("boat_calendar_slots")
-      .update({ status: "reserved" })
+      .update({ status: "reserved", expires_at: null })
       .eq("date", reservation.data.date_sortie)
       .eq("slot", fallbackSlot)
       .eq("activity", "baleines")
-      .in("status", ["hold", "reserved"])
+      .eq("status", "hold")
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
       .select(SELECT_FIELDS);
 
     if (fallback.error) {
@@ -157,7 +242,7 @@ export async function POST(request: Request) {
 
     if (!fallback.data || fallback.data.length === 0) {
       return NextResponse.json(
-        { error: "Aucun creneau Baleines correspondant a confirmer." },
+        { error: "Le hold bateau a expire. Le creneau doit etre reserve a nouveau." },
         { status: 409 }
       );
     }

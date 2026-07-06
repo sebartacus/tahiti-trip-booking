@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import UploadDocuments from "@/app/UploadDocuments";
-import { uploadDocument } from "@/lib/uploadDocuments";
 import { permisDocuments } from "@/lib/permisDocuments";
+import {
+  formatXpf,
+  getPermisPriceForFormula,
+  getPermisPricing,
+} from "@/lib/permisPricing";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
@@ -118,46 +121,57 @@ const [creneauxReserves, setCreneauxReserves] = useState<string[]>([]);
   const [email, setEmail] = useState("");
 const [prenom2, setPrenom2] = useState("");
 const [nom2, setNom2] = useState("");
-const [documents, setDocuments] = useState({
-  certificat: null as File | null,
-  formulaire: null as File | null,
-  photo: null as File | null,
-  identite: null as File | null,
-});
 const [erreur, setErreur] = useState("");
-const [paiementValide, setPaiementValide] = useState(false);
+const [paiementValide] = useState(false);
 const [enregistrementEnCours, setEnregistrementEnCours] = useState(false);
 const [accepteCgv, setAccepteCgv] = useState(false);
 const [accepteDocuments, setAccepteDocuments] = useState(false);
 const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
+const [reservationsPromotionnellesVendues, setReservationsPromotionnellesVendues] =
+  useState(0);
 
 useEffect(() => {
-  async function chargerExamensBloques() {
-    const { data, error } = await supabase
+  async function chargerDonneesPermis() {
+    const examensBloquesResponse = await supabase
       .from("examens_bloques")
       .select("date_examen");
 
-    if (error) {
-      console.error(error);
+    if (examensBloquesResponse.error) {
+      console.error(examensBloquesResponse.error);
+    } else {
+      setDatesExamensBloques(
+        (examensBloquesResponse.data || []).map((item) => item.date_examen)
+      );
+    }
+
+    const reservationsResponse = await supabase
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("pricing_type", "promo_internet");
+
+    if (reservationsResponse.error) {
+      console.error(reservationsResponse.error);
       return;
     }
 
-    setDatesExamensBloques(
-      (data || []).map((item) => item.date_examen)
-    );
+    setReservationsPromotionnellesVendues(reservationsResponse.count || 0);
   }
 
-  chargerExamensBloques();
+  chargerDonneesPermis();
 }, []);
+
+const permisPricing = getPermisPricing({
+  promotionReservationsSold: reservationsPromotionnellesVendues,
+});
 
 const examens = genererExamens().filter(
   (examen) =>
-    examen.value === "Plus tard" ||
+    (!permisPricing.requiresExam && examen.value === "Plus tard") ||
     (examen.iso && !datesExamensBloques.includes(examen.iso))
 );
 
   const mercredi = isMercredi(dateCours);
-const prixBase = formule === "Sérénité" ? 33000 : 25000;
+const prixBase = getPermisPriceForFormula(formule, permisPricing);
 const nombreParticipants = typeCours === "commun" ? 2 : 1;
 const prix = prixBase * nombreParticipants;
 const dateAchat = new Date();
@@ -254,6 +268,12 @@ async function verifierAvantPaiement() {
     return;
   }
 
+  if (permisPricing.requiresExam && session === "Plus tard") {
+    setErreur("Veuillez choisir une date d'examen pour bénéficier de l'offre de lancement.");
+    setEnregistrementEnCours(false);
+    return;
+  }
+
   if (typeCours === "commun") {
     if (!prenom2.trim()) {
       setErreur("Veuillez renseigner le prénom du participant n°2.");
@@ -282,12 +302,7 @@ async function verifierAvantPaiement() {
 
   setErreur("");
 
-  const certificatUrl = await uploadDocument(documents.certificat, "certificat");
-  const formulaireUrl = await uploadDocument(documents.formulaire, "formulaire");
-  const photoUrl = await uploadDocument(documents.photo, "photo");
-  const identiteUrl = await uploadDocument(documents.identite, "identite");
-
-  const { error } = await supabase
+  const { data: reservationCreee, error } = await supabase
     .from("reservations")
     .insert([
       {
@@ -303,12 +318,12 @@ nom2: typeCours === "commun" ? nom2 : null,
         type_cours: typeCours || null,
         creneau: creneau || null,
 paiement_effectue: false,
-        certificat_url: certificatUrl,
-        formulaire_url: formulaireUrl,
-        photo_url: photoUrl,
-        identite_url: identiteUrl,
+        pricing_type: permisPricing.pricingType,
+        pricing_amount: prix,
       },
-    ]);
+    ])
+    .select("id")
+    .single();
 
   if (error) {
     console.error(error);
@@ -325,6 +340,9 @@ paiement_effectue: false,
   body: JSON.stringify({
   montant: prix,
   email,
+  reservationId: String(reservationCreee.id),
+  reservationTable: "reservations",
+  activity: "permis",
 }),
 });
 
@@ -358,7 +376,7 @@ const recap = (
 
       <p><strong>Formule :</strong> {formule}</p>
 <p>
-  <strong>Prix :</strong> {prix.toLocaleString("fr-FR")} XPF
+  <strong>Prix :</strong> {formatXpf(prix)}
 </p>
 
       <p>
@@ -410,7 +428,7 @@ const recap = (
         </>
       )}
 <div className="mt-4 border-t pt-4 text-xl font-bold">
-  Total à régler : {prix.toLocaleString("fr-FR")} XPF
+  Total à régler : {formatXpf(prix)}
 </div>
     </div>
   );
@@ -470,9 +488,6 @@ const recap = (
   </ul>
 </div>
 
-<UploadDocuments
-  onFilesChange={(files) => setDocuments(files)}
-/>
 <div className="mt-6 space-y-3">
   <label className="flex gap-3 items-start">
     <input
@@ -599,13 +614,18 @@ const recap = (
           <p className="text-sm font-bold uppercase tracking-[0.14em] text-cyan-700">
             Dossier permis
           </p>
-          <h2 className="mt-2 text-2xl font-bold">Documents à compléter</h2>
+          <h2 className="mt-2 text-2xl font-bold">Documents à remplir et à déposer</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
-            Téléchargez les documents officiels, complétez-les, puis déposez-les
-            en PDF lors de votre réservation.
+            Les documents complétés devront être déposés en PDF au minimum
+            8 jours avant la date de votre examen.
+          </p>
+          <p className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-sm font-bold leading-6 text-yellow-950">
+            Attention : sans dépôt complet du dossier au moins 8 jours avant
+            l&apos;examen, votre inscription à l&apos;examen ne pourra pas être
+            garantie.
           </p>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
             {permisDocuments.map((document) => (
               <a
                 key={document.key}
@@ -623,6 +643,15 @@ const recap = (
                 </span>
               </a>
             ))}
+            <a
+              href="/reprendre-reservation"
+              className="rounded-xl border border-yellow-200 bg-yellow-100 p-4 font-bold text-yellow-950 transition hover:-translate-y-0.5 hover:bg-yellow-200"
+            >
+              <span className="block">Déposer mes documents</span>
+              <span className="mt-1 block text-sm font-semibold text-slate-700">
+                Accéder à ma réservation
+              </span>
+            </a>
           </div>
         </section>
 
@@ -632,6 +661,30 @@ const recap = (
           <div className={`rounded-xl p-3 ${reservation ? "bg-green-600" : "bg-sky-800"}`}>3. Cours</div>
           <div className={`rounded-xl p-3 ${creneau || reservation === "plus tard" ? "bg-green-600" : "bg-sky-800"}`}>4. Paiement</div>
         </div>
+
+        {permisPricing.isPromotionActive && (
+          <section className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-100 p-5 text-yellow-950 shadow-xl">
+            <h2 className="text-2xl font-bold">🔥 Offre de lancement</h2>
+            <p className="mt-2 font-semibold">
+              Plus que {permisPricing.promotionsRemaining} permis
+              promotionnels disponibles.
+            </p>
+            <p className="mt-1 text-sm font-semibold">
+              Une date d&apos;examen doit être choisie pour réserver avec ce
+              tarif.
+            </p>
+          </section>
+        )}
+
+        {permisPricing.pricingType === "salon_tourisme" && (
+          <section className="mb-8 rounded-2xl border border-cyan-200 bg-cyan-100 p-5 text-cyan-950 shadow-xl">
+            <h2 className="text-2xl font-bold">Tarifs Salon du Tourisme</h2>
+            <p className="mt-2 font-semibold">
+              Du 4 au 6 septembre 2026 inclus, les prix Internet s&apos;alignent
+              automatiquement sur les tarifs du salon.
+            </p>
+          </section>
+        )}
 
         {formule && (
           <button onClick={retour} className="mb-6 cursor-pointer bg-slate-700 hover:bg-slate-600 px-5 py-3 rounded-xl">
@@ -643,14 +696,18 @@ const recap = (
           <div className="grid md:grid-cols-2 gap-6">
             <button onClick={() => setFormule("Classique")} className="cursor-pointer bg-sky-800 rounded-2xl p-6 text-left hover:bg-sky-700">
               <h2 className="text-2xl font-bold mb-4">Formule Classique</h2>
-              <p className="text-4xl font-bold mb-4">25 000 XPF</p>
+              <p className="text-4xl font-bold mb-4">
+                {formatXpf(permisPricing.prices.Classique)}
+              </p>
               <p>Application de code, cours pratique, dossier, examen.</p>
               <p className="mt-4 text-red-200">Timbres fiscaux à fournir.</p>
             </button>
 
             <button onClick={() => setFormule("Sérénité")} className="cursor-pointer bg-cyan-700 rounded-2xl p-6 text-left hover:bg-cyan-600">
               <h2 className="text-2xl font-bold mb-4">Formule Sérénité</h2>
-              <p className="text-4xl font-bold mb-4">33 000 XPF</p>
+              <p className="text-4xl font-bold mb-4">
+                {formatXpf(permisPricing.prices.Sérénité)}
+              </p>
               <p>Application de code, cours pratique, dossier, examen.</p>
               <p className="mt-4 text-green-200">Tahiti Trip Fishing s&apos;occupe des timbres fiscaux.</p>
             </button>

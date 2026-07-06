@@ -6,6 +6,7 @@ import { BaleinesHero } from "./components/BaleinesHero";
 import { BaleinesGallery } from "./components/BaleinesGallery";
 import { BaleinesInfoCards } from "./components/BaleinesInfoCards";
 import { BaleinesIntro } from "./components/BaleinesIntro";
+import { BaleinesVideo } from "./components/BaleinesVideo";
 import { DateStep } from "./components/DateStep";
 import { DepartureStep } from "./components/DepartureStep";
 import { ParticipantsStep } from "./components/ParticipantsStep";
@@ -538,6 +539,7 @@ export default function BaleinesPage() {
 
       <div className="mx-auto max-w-md space-y-8 px-4 py-8 md:max-w-5xl md:py-10">
         <BaleinesIntro />
+        <BaleinesVideo />
 
         <section className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
           <DateStep

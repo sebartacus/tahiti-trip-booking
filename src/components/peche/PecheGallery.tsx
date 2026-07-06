@@ -16,12 +16,12 @@ const galleryImages = [
     title: "Capture",
   },
   {
-    src: "/images/peche/clients.jpg",
-    title: "Clients",
-  },
-  {
     src: "/images/peche/thon.jpg",
     title: "Retour",
+  },
+  {
+    src: "/images/peche/clients.jpg",
+    title: "Clients",
   },
 ];
 

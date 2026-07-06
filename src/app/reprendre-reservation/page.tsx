@@ -1,14 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import UploadDocuments from "@/app/UploadDocuments";
+import { uploadDocument } from "@/lib/uploadDocuments";
 import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
+type PermisReservation = {
+  id: string | number;
+  prenom: string | null;
+  nom: string | null;
+  formule: string | null;
+  examen: string | null;
+  date_cours: string | null;
+  creneau: string | null;
+  statut: string | null;
+  certificat_url: string | null;
+  formulaire_url: string | null;
+  photo_url: string | null;
+  identite_url: string | null;
+};
+
 export default function ReprendreReservationPage() {
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
-  const [reservation, setReservation] = useState<any>(null);
+  const [reservation, setReservation] = useState<PermisReservation | null>(null);
 const [examen, setExamen] = useState("");
 const [dateCours, setDateCours] = useState<Date | null>(null);
 const [creneau, setCreneau] = useState("");
@@ -17,6 +34,13 @@ const [creneauxReserves, setCreneauxReserves] = useState<string[]>([]);
   const [erreur, setErreur] = useState("");
 const [message, setMessage] = useState("");
 const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
+const [depotEnCours, setDepotEnCours] = useState(false);
+const [documents, setDocuments] = useState({
+  certificat: null as File | null,
+  formulaire: null as File | null,
+  photo: null as File | null,
+  identite: null as File | null,
+});
 
 useEffect(() => {
   async function chargerExamensBloques() {
@@ -74,7 +98,7 @@ function genererExamens() {
   aujourdHui.setHours(0, 0, 0, 0);
 
   const examensDisponibles = [];
-  let date = new Date(aujourdHui);
+  const date = new Date(aujourdHui);
 
   while (examensDisponibles.length < 4) {
     date.setDate(date.getDate() + 1);
@@ -150,23 +174,40 @@ setCreneauxReserves([...bloques]);
 }  
 async function rechercherReservation() {
     setErreur("");
+    setMessage("");
     setReservation(null);
 
-    let requete = supabase
-  .from("reservations")
-  .select("*");
+const emailRecherche = email.trim();
+const telephoneRecherche = telephone.trim();
 
-if (email.trim()) {
-  requete = requete.eq("email", email.trim());
+if (!emailRecherche && !telephoneRecherche) {
+  setErreur("Veuillez renseigner votre email ou votre téléphone.");
+  return;
 }
 
-if (telephone.trim()) {
-  requete = requete.eq("telephone", telephone.trim());
+async function chercherParChamp(champ: "email" | "telephone", valeur: string) {
+  return supabase
+    .from("reservations")
+    .select("*")
+    .eq(champ, valeur)
+    .order("created_at", { ascending: false })
+    .limit(1);
 }
 
-const { data, error } = await requete
-  .order("created_at", { ascending: false })
-  .limit(1);
+let data = null;
+let error = null;
+
+if (emailRecherche) {
+  const resultat = await chercherParChamp("email", emailRecherche);
+  data = resultat.data;
+  error = resultat.error;
+}
+
+if ((!data || data.length === 0) && telephoneRecherche) {
+  const resultat = await chercherParChamp("telephone", telephoneRecherche);
+  data = resultat.data;
+  error = resultat.error;
+}
 
 if (error || !data || data.length === 0) {
   setErreur("Aucune réservation trouvée avec ces informations.");
@@ -177,6 +218,68 @@ setReservation(data[0]);
 setExamen(data[0].examen || "");
 setCreneau(data[0].creneau || "");
   }
+async function deposerDocuments() {
+  if (!reservation || depotEnCours) return;
+
+  setErreur("");
+  setMessage("");
+
+  if (
+    !documents.certificat &&
+    !documents.formulaire &&
+    !documents.photo &&
+    !documents.identite
+  ) {
+    setErreur("Veuillez ajouter au moins un document avant de déposer le dossier.");
+    return;
+  }
+
+  setDepotEnCours(true);
+
+  try {
+    const misesAJour: Record<string, string> = {};
+
+    if (documents.certificat) {
+      const certificatUrl = await uploadDocument(documents.certificat, "certificat");
+      if (certificatUrl) misesAJour.certificat_url = certificatUrl;
+    }
+
+    if (documents.formulaire) {
+      const formulaireUrl = await uploadDocument(documents.formulaire, "formulaire");
+      if (formulaireUrl) misesAJour.formulaire_url = formulaireUrl;
+    }
+
+    if (documents.photo) {
+      const photoUrl = await uploadDocument(documents.photo, "photo");
+      if (photoUrl) misesAJour.photo_url = photoUrl;
+    }
+
+    if (documents.identite) {
+      const identiteUrl = await uploadDocument(documents.identite, "identite");
+      if (identiteUrl) misesAJour.identite_url = identiteUrl;
+    }
+
+    const { error } = await supabase
+      .from("reservations")
+      .update(misesAJour)
+      .eq("id", reservation.id);
+
+    if (error) {
+      throw error;
+    }
+
+    setReservation({
+      ...reservation,
+      ...misesAJour,
+    });
+    setMessage("Documents déposés avec succès.");
+  } catch (error) {
+    console.error(error);
+    setErreur("Erreur lors du dépôt des documents.");
+  } finally {
+    setDepotEnCours(false);
+  }
+}
 async function mettreAJourReservation() {
   if (!reservation) return;
 
@@ -286,7 +389,7 @@ setMessage("Réservation mise à jour avec succès.");
             <p><strong>Formule :</strong> {reservation.formule}</p>
             <div className="mt-4">
   <label className="font-bold block mb-2">
-    Date d'examen
+    Date d&apos;examen
   </label>
 
   <select
@@ -362,6 +465,33 @@ onChange={(e) => setExamen(e.target.value)}
 <p><strong>Cours :</strong> {reservation.date_cours || "à planifier"}</p>
             <p><strong>Créneau :</strong> {reservation.creneau || "à planifier"}</p>
             <p><strong>Statut :</strong> {reservation.statut}</p>
+<div className="mt-6 rounded-2xl bg-white p-4 text-black">
+  <h3 className="text-xl font-bold mb-2">
+    Déposer mes documents
+  </h3>
+
+  <p className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm font-bold leading-6 text-yellow-950">
+    Attention : sans dépôt complet du dossier au moins 8 jours avant
+    l&apos;examen, votre inscription à l&apos;examen ne pourra pas être garantie.
+  </p>
+
+  <div className="mb-4 grid gap-2 text-sm md:grid-cols-2">
+    <p>{reservation.certificat_url ? "Certificat déposé" : "Certificat à déposer"}</p>
+    <p>{reservation.formulaire_url ? "Formulaire déposé" : "Formulaire à déposer"}</p>
+    <p>{reservation.photo_url ? "Photo déposée" : "Photo à déposer"}</p>
+    <p>{reservation.identite_url ? "Pièce d'identité déposée" : "Pièce d'identité à déposer"}</p>
+  </div>
+
+  <UploadDocuments onFilesChange={(files) => setDocuments(files)} />
+
+  <button
+    onClick={deposerDocuments}
+    disabled={depotEnCours}
+    className="mt-6 w-full bg-sky-700 text-white font-bold p-4 rounded-xl hover:bg-sky-600 disabled:opacity-60"
+  >
+    {depotEnCours ? "Dépôt en cours..." : "Déposer mes documents"}
+  </button>
+</div>
 <button
   onClick={mettreAJourReservation}
   className="mt-6 w-full bg-yellow-500 text-black font-bold p-4 rounded-xl"

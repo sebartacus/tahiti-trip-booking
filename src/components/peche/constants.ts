@@ -39,7 +39,7 @@ export const PECHE_FORMULAS: PecheFormula[] = [
 ];
 
 export const WHATSAPP_URL =
-  "https://wa.me/68987290700?text=Ia%20orana%2C%20je%20souhaite%20une%20demande%20peche%20au%20gros%20a%20Tahiti.";
+  "https://wa.me/68987321631?text=Ia%20orana%2C%20je%20souhaite%20une%20demande%20peche%20au%20gros%20a%20Tahiti.";
 
 export function formatPechePrice(amount: number) {
   return `${amount.toLocaleString("fr-FR").replace(/\s/g, " ")} F CFP`;

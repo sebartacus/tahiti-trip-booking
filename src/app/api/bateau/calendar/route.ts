@@ -3,7 +3,24 @@ import { supabase } from "@/lib/supabase";
 import { isIsoDate } from "@/lib/boat-calendar";
 
 const SELECT_FIELDS =
-  "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,created_at,updated_at";
+  "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,expires_at,created_at,updated_at";
+
+async function releaseExpiredHolds(nowIso: string) {
+  return supabase
+    .from("boat_calendar_slots")
+    .update({
+      status: "available",
+      activity: null,
+      reservation_id: null,
+      reservation_table: null,
+      blocked_reason: null,
+      blocked_by: null,
+      blocked_at: null,
+      expires_at: null,
+    })
+    .eq("status", "hold")
+    .lte("expires_at", nowIso);
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -21,6 +38,15 @@ export async function GET(request: Request) {
     return NextResponse.json(
       { error: "La date from doit etre avant la date to." },
       { status: 400 }
+    );
+  }
+
+  const cleanup = await releaseExpiredHolds(new Date().toISOString());
+
+  if (cleanup.error) {
+    return NextResponse.json(
+      { error: "Impossible de liberer les holds expires." },
+      { status: 500 }
     );
   }
 

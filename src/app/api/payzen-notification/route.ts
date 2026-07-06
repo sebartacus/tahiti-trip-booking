@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import {
+  buildPermisInvoicePdf,
+  type PermisInvoiceReservation,
+} from "@/lib/permisInvoice";
+import { sendPermisReservationEmails } from "@/lib/permisEmail";
 
 const ACCEPTED_STATUSES = new Set(["AUTHORISED"]);
 
@@ -21,6 +26,49 @@ async function confirmBoatReservation(
   }
 
   return "";
+}
+
+async function generatePermisInvoice(reservation: PermisInvoiceReservation) {
+  const { invoiceNumber, pdf } = buildPermisInvoicePdf(reservation);
+  const invoicePath = `factures/permis/${invoiceNumber}.pdf`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("documents-permis")
+    .upload(invoicePath, pdf, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+
+  if (uploadError) {
+    return { error: uploadError.message };
+  }
+
+  const { error: updateError } = await supabase
+    .from("reservations")
+    .update({
+      facture_numero: invoiceNumber,
+      facture_url: invoicePath,
+    })
+    .eq("id", reservation.id);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  return { invoiceNumber, invoicePath, pdf };
+}
+
+function getBaseUrl(request: Request) {
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const host = forwardedHost || request.headers.get("host");
+
+  if (host) {
+    return `${forwardedProto || requestUrl.protocol.replace(":", "")}://${host}`;
+  }
+
+  return requestUrl.origin;
 }
 
 export async function POST(request: Request) {
@@ -135,6 +183,128 @@ export async function POST(request: Request) {
 
   if (!email) {
     return NextResponse.json({ error: "Email manquant" }, { status: 400 });
+  }
+
+  if (reservationTable === "reservations" && reservationId) {
+    const reservationResponse = await supabase
+      .from("reservations")
+      .select(
+        "id,prenom,nom,telephone,email,formule,examen,date_cours,pricing_type,pricing_amount,facture_numero,facture_url,email_sent"
+      )
+      .eq("id", reservationId)
+      .single();
+
+    if (reservationResponse.error || !reservationResponse.data) {
+      console.error(reservationResponse.error);
+      return NextResponse.json(
+        { error: "Reservation Permis introuvable" },
+        { status: 404 }
+      );
+    }
+
+    const reservation = reservationResponse.data as PermisInvoiceReservation & {
+      facture_numero: string | null;
+      facture_url: string | null;
+      email_sent: boolean | null;
+      examen: string | null;
+      date_cours: string | null;
+    };
+
+    if (reservation.email_sent) {
+      const { error } = await supabase
+        .from("reservations")
+        .update({
+          paiement_effectue: true,
+        })
+        .eq("id", reservationId);
+
+      if (error) {
+        console.error(error);
+        return NextResponse.json(
+          { error: "Erreur mise a jour reservation" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: "Paiement Permis deja notifie",
+        facture: reservation.facture_numero,
+      });
+    }
+
+    const invoiceResult = await generatePermisInvoice(reservation);
+
+    if (invoiceResult.error) {
+      console.error(invoiceResult.error);
+      return NextResponse.json(
+        { error: "Erreur generation facture Permis" },
+        { status: 500 }
+      );
+    }
+
+    if (!invoiceResult.invoiceNumber || !invoiceResult.invoicePath || !invoiceResult.pdf) {
+      return NextResponse.json(
+        { error: "Facture Permis incomplete" },
+        { status: 500 }
+      );
+    }
+
+    const paidUpdate = await supabase
+      .from("reservations")
+      .update({
+        paiement_effectue: true,
+      })
+      .eq("id", reservationId);
+
+    if (paidUpdate.error) {
+      console.error(paidUpdate.error);
+      return NextResponse.json(
+        { error: "Erreur mise a jour reservation" },
+        { status: 500 }
+      );
+    }
+
+    const emailResult = await sendPermisReservationEmails({
+      reservation: {
+        ...reservation,
+        facture_numero: invoiceResult.invoiceNumber || null,
+        facture_url: invoiceResult.invoicePath || null,
+      },
+      invoicePdf: invoiceResult.pdf,
+      invoiceNumber: invoiceResult.invoiceNumber,
+      baseUrl: getBaseUrl(request),
+    });
+
+    if (emailResult.error) {
+      console.error(emailResult.error);
+    } else if (emailResult.ok) {
+      const emailUpdate = await supabase
+        .from("reservations")
+        .update({
+          email_sent: true,
+          email_sent_at: new Date().toISOString(),
+        })
+        .eq("id", reservationId);
+
+      if (emailUpdate.error) {
+        console.error(emailUpdate.error);
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      message: "Paiement Permis valide",
+      facture: invoiceResult.invoiceNumber,
+      email:
+        emailResult.ok
+          ? "sent"
+          : emailResult.error
+          ? "error"
+          : "reason" in emailResult
+          ? emailResult.reason
+          : "skipped",
+    });
   }
 
   const { error } = await supabase
