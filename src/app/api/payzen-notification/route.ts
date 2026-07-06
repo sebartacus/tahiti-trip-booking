@@ -5,6 +5,14 @@ import {
   type PermisInvoiceReservation,
 } from "@/lib/permisInvoice";
 import { sendPermisReservationEmails } from "@/lib/permisEmail";
+import {
+  sendPecheReservationEmails,
+  type PecheEmailReservation,
+} from "@/lib/pecheEmail";
+import {
+  sendBaleinesReservationEmails,
+  type BaleinesEmailReservation,
+} from "@/lib/baleinesEmail";
 
 const ACCEPTED_STATUSES = new Set(["AUTHORISED"]);
 
@@ -71,6 +79,19 @@ function getBaseUrl(request: Request) {
   return requestUrl.origin;
 }
 
+function emailResultLabel(
+  result: {
+    ok?: boolean;
+    error?: string;
+    skipped?: boolean;
+    reason?: string;
+  }
+) {
+  if ("ok" in result && result.ok) return "sent";
+  if (result.error) return result.error;
+  return result.reason || "skipped";
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
 
@@ -133,9 +154,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: confirmError }, { status: 500 });
     }
 
+    const reservationResponse = await supabase
+      .from("reservations_baleines")
+      .select(
+        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,participants,montant_total,email_sent"
+      )
+      .eq("id", reservationId)
+      .single();
+
+    let emailStatus = "not_sent";
+
+    if (reservationResponse.error || !reservationResponse.data) {
+      console.error(reservationResponse.error);
+    } else {
+      const reservation = reservationResponse.data as BaleinesEmailReservation & {
+        email_sent: boolean | null;
+      };
+
+      if (reservation.email_sent) {
+        emailStatus = "already_sent";
+      } else {
+        const emailResult = await sendBaleinesReservationEmails({
+          reservation,
+        });
+
+        emailStatus = emailResultLabel(emailResult);
+
+        if ("error" in emailResult && emailResult.error) {
+          console.error(emailResult.error);
+        } else if ("ok" in emailResult && emailResult.ok) {
+          const emailUpdate = await supabase
+            .from("reservations_baleines")
+            .update({
+              email_sent: true,
+              email_sent_at: new Date().toISOString(),
+            })
+            .eq("id", reservationId);
+
+          if (emailUpdate.error) {
+            console.error(emailUpdate.error);
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Paiement Baleines valide",
+      email: emailStatus,
     });
   }
 
@@ -175,9 +241,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: confirmError }, { status: 500 });
     }
 
+    const reservationResponse = await supabase
+      .from("reservations_peche")
+      .select(
+        "id,date_sortie,formule,slots,nombre_personnes,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,montant_paye,email_sent"
+      )
+      .eq("id", reservationId)
+      .single();
+
+    let emailStatus = "not_sent";
+
+    if (reservationResponse.error || !reservationResponse.data) {
+      console.error(reservationResponse.error);
+    } else {
+      const reservation = reservationResponse.data as PecheEmailReservation & {
+        email_sent: boolean | null;
+      };
+
+      if (reservation.email_sent) {
+        emailStatus = "already_sent";
+      } else {
+        const emailResult = await sendPecheReservationEmails({
+          reservation,
+        });
+
+        emailStatus = emailResultLabel(emailResult);
+
+        if ("error" in emailResult && emailResult.error) {
+          console.error(emailResult.error);
+        } else if ("ok" in emailResult && emailResult.ok) {
+          const emailUpdate = await supabase
+            .from("reservations_peche")
+            .update({
+              email_sent: true,
+              email_sent_at: new Date().toISOString(),
+            })
+            .eq("id", reservationId);
+
+          if (emailUpdate.error) {
+            console.error(emailUpdate.error);
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Paiement Peche valide",
+      email: emailStatus,
     });
   }
 
