@@ -3,6 +3,12 @@ type SendEmailPayload = {
   to: string[];
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
+};
+
+type EmailAttachment = {
+  filename: string;
+  content: string;
 };
 
 export type PecheEmailReservation = {
@@ -20,6 +26,8 @@ export type PecheEmailReservation = {
 
 type SendPecheEmailsOptions = {
   reservation: PecheEmailReservation;
+  invoicePdf: Buffer;
+  invoiceNumber: string;
   fetchFn?: typeof fetch;
 };
 
@@ -122,6 +130,8 @@ export function buildPecheInternalEmailHtml(reservation: PecheEmailReservation) 
 
 export async function sendPecheReservationEmails({
   reservation,
+  invoicePdf,
+  invoiceNumber,
   fetchFn = fetch,
 }: SendPecheEmailsOptions) {
   const from =
@@ -143,6 +153,12 @@ export async function sendPecheReservationEmails({
       to: [customerEmail],
       subject: "Confirmation de votre réservation – Pêche au gros",
       html: buildPecheClientEmailHtml(reservation),
+      attachments: [
+        {
+          filename: `${invoiceNumber}.pdf`,
+          content: invoicePdf.toString("base64"),
+        },
+      ],
     },
     fetchFn
   );
@@ -157,6 +173,12 @@ export async function sendPecheReservationEmails({
       to: [internalEmail],
       subject: "Nouvelle reservation peche",
       html: buildPecheInternalEmailHtml(reservation),
+      attachments: [
+        {
+          filename: `${invoiceNumber}.pdf`,
+          content: invoicePdf.toString("base64"),
+        },
+      ],
     },
     fetchFn
   );

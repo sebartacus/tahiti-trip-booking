@@ -3,6 +3,12 @@ type SendEmailPayload = {
   to: string[];
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
+};
+
+type EmailAttachment = {
+  filename: string;
+  content: string;
 };
 
 type BaleinesParticipant = {
@@ -26,6 +32,8 @@ export type BaleinesEmailReservation = {
 
 type SendBaleinesEmailsOptions = {
   reservation: BaleinesEmailReservation;
+  invoicePdf: Buffer;
+  invoiceNumber: string;
   fetchFn?: typeof fetch;
 };
 
@@ -116,6 +124,8 @@ export function buildBaleinesInternalEmailHtml(
 
 export async function sendBaleinesReservationEmails({
   reservation,
+  invoicePdf,
+  invoiceNumber,
   fetchFn = fetch,
 }: SendBaleinesEmailsOptions) {
   const from =
@@ -137,6 +147,12 @@ export async function sendBaleinesReservationEmails({
       to: [customerEmail],
       subject: "Confirmation de votre réservation – Observation des baleines",
       html: buildBaleinesClientEmailHtml(reservation),
+      attachments: [
+        {
+          filename: `${invoiceNumber}.pdf`,
+          content: invoicePdf.toString("base64"),
+        },
+      ],
     },
     fetchFn
   );
@@ -151,6 +167,12 @@ export async function sendBaleinesReservationEmails({
       to: [internalEmail],
       subject: "Nouvelle reservation baleines",
       html: buildBaleinesInternalEmailHtml(reservation),
+      attachments: [
+        {
+          filename: `${invoiceNumber}.pdf`,
+          content: invoicePdf.toString("base64"),
+        },
+      ],
     },
     fetchFn
   );

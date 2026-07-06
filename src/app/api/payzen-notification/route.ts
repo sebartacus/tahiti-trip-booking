@@ -4,6 +4,14 @@ import {
   buildPermisInvoicePdf,
   type PermisInvoiceReservation,
 } from "@/lib/permisInvoice";
+import {
+  buildPecheInvoicePdf,
+  type PecheInvoiceReservation,
+} from "@/lib/pecheInvoice";
+import {
+  buildBaleinesInvoicePdf,
+  type BaleinesInvoiceReservation,
+} from "@/lib/baleinesInvoice";
 import { sendPermisReservationEmails } from "@/lib/permisEmail";
 import {
   sendPecheReservationEmails,
@@ -53,6 +61,68 @@ async function generatePermisInvoice(reservation: PermisInvoiceReservation) {
 
   const { error: updateError } = await supabase
     .from("reservations")
+    .update({
+      facture_numero: invoiceNumber,
+      facture_url: invoicePath,
+    })
+    .eq("id", reservation.id);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  return { invoiceNumber, invoicePath, pdf };
+}
+
+async function generatePecheInvoice(reservation: PecheInvoiceReservation) {
+  const { invoiceNumber, pdf } = buildPecheInvoicePdf(reservation);
+  const invoicePath = `factures/peche/${invoiceNumber}.pdf`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("documents-permis")
+    .upload(invoicePath, pdf, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+
+  if (uploadError) {
+    return { error: uploadError.message };
+  }
+
+  const { error: updateError } = await supabase
+    .from("reservations_peche")
+    .update({
+      facture_numero: invoiceNumber,
+      facture_url: invoicePath,
+    })
+    .eq("id", reservation.id);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  return { invoiceNumber, invoicePath, pdf };
+}
+
+async function generateBaleinesInvoice(
+  reservation: BaleinesInvoiceReservation
+) {
+  const { invoiceNumber, pdf } = buildBaleinesInvoicePdf(reservation);
+  const invoicePath = `factures/baleines/${invoiceNumber}.pdf`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("documents-permis")
+    .upload(invoicePath, pdf, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+
+  if (uploadError) {
+    return { error: uploadError.message };
+  }
+
+  const { error: updateError } = await supabase
+    .from("reservations_baleines")
     .update({
       facture_numero: invoiceNumber,
       facture_url: invoicePath,
@@ -157,7 +227,7 @@ export async function POST(request: Request) {
     const reservationResponse = await supabase
       .from("reservations_baleines")
       .select(
-        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,participants,montant_total,email_sent"
+        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,participants,montant_total,email_sent,facture_numero,facture_url"
       )
       .eq("id", reservationId)
       .single();
@@ -169,13 +239,31 @@ export async function POST(request: Request) {
     } else {
       const reservation = reservationResponse.data as BaleinesEmailReservation & {
         email_sent: boolean | null;
+        facture_numero: string | null;
+        facture_url: string | null;
       };
 
       if (reservation.email_sent) {
         emailStatus = "already_sent";
       } else {
+        const invoiceResult = await generateBaleinesInvoice(reservation);
+
+        if (
+          invoiceResult.error ||
+          !invoiceResult.invoiceNumber ||
+          !invoiceResult.pdf
+        ) {
+          console.error(invoiceResult.error || "Facture Baleines incomplete");
+          return NextResponse.json(
+            { error: "Erreur generation facture Baleines" },
+            { status: 500 }
+          );
+        }
+
         const emailResult = await sendBaleinesReservationEmails({
           reservation,
+          invoicePdf: invoiceResult.pdf,
+          invoiceNumber: invoiceResult.invoiceNumber,
         });
 
         emailStatus = emailResultLabel(emailResult);
@@ -244,7 +332,7 @@ export async function POST(request: Request) {
     const reservationResponse = await supabase
       .from("reservations_peche")
       .select(
-        "id,date_sortie,formule,slots,nombre_personnes,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,montant_paye,email_sent"
+        "id,date_sortie,formule,slots,nombre_personnes,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,montant_paye,email_sent,facture_numero,facture_url"
       )
       .eq("id", reservationId)
       .single();
@@ -256,13 +344,31 @@ export async function POST(request: Request) {
     } else {
       const reservation = reservationResponse.data as PecheEmailReservation & {
         email_sent: boolean | null;
+        facture_numero: string | null;
+        facture_url: string | null;
       };
 
       if (reservation.email_sent) {
         emailStatus = "already_sent";
       } else {
+        const invoiceResult = await generatePecheInvoice(reservation);
+
+        if (
+          invoiceResult.error ||
+          !invoiceResult.invoiceNumber ||
+          !invoiceResult.pdf
+        ) {
+          console.error(invoiceResult.error || "Facture Peche incomplete");
+          return NextResponse.json(
+            { error: "Erreur generation facture Peche" },
+            { status: 500 }
+          );
+        }
+
         const emailResult = await sendPecheReservationEmails({
           reservation,
+          invoicePdf: invoiceResult.pdf,
+          invoiceNumber: invoiceResult.invoiceNumber,
         });
 
         emailStatus = emailResultLabel(emailResult);
