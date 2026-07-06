@@ -89,6 +89,10 @@ export function ageRenseigneMineur(ageValue: string) {
   return Number.isFinite(age) && age > 0 && age < AGE_MINIMUM_MISE_EAU;
 }
 
+export function ageRenseigneMineurComplet(ageValue: string) {
+  return ageValue.trim().length >= 2 && ageRenseigneMineur(ageValue);
+}
+
 export function nettoyerParticipant(participant: Participant): Participant {
   if (ageRenseigneMineur(participant.age)) {
     return {

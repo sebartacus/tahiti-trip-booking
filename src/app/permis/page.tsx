@@ -40,6 +40,43 @@ function formatDateFR(date: Date) {
   });
 }
 
+const moisFrancais: Record<string, number> = {
+  janvier: 0,
+  fevrier: 1,
+  février: 1,
+  mars: 2,
+  avril: 3,
+  mai: 4,
+  juin: 5,
+  juillet: 6,
+  aout: 7,
+  août: 7,
+  septembre: 8,
+  octobre: 9,
+  novembre: 10,
+  decembre: 11,
+  décembre: 11,
+};
+
+function getIsoDepuisLibelleExamen(session: string) {
+  const sessionTrimmee = session.trim().toLowerCase();
+  const matchNumerique = sessionTrimmee.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (matchNumerique) {
+    const [, jour, mois, annee] = matchNumerique;
+    return `${annee}-${mois.padStart(2, "0")}-${jour.padStart(2, "0")}`;
+  }
+
+  const matchTexte = sessionTrimmee.match(/^(\d{1,2})\s+([a-zÃ©Ã¨ÃªÃ«Ã Ã¢Ã®Ã¯Ã´Ã»Ã¹Ã¼Ã§]+)\s+(\d{4})$/i);
+  if (!matchTexte) return "";
+
+  const [, jour, mois, annee] = matchTexte;
+  const indexMois = moisFrancais[mois];
+  if (indexMois === undefined) return "";
+
+  return `${annee}-${String(indexMois + 1).padStart(2, "0")}-${jour.padStart(2, "0")}`;
+}
+
 function ajouterJours(date: Date, jours: number) {
   const nouvelleDate = new Date(date);
   nouvelleDate.setDate(nouvelleDate.getDate() + jours);
@@ -175,6 +212,10 @@ const reservationPermisPricing =
     ? getPermisPricing({ promotionReservationsSold: Number.MAX_SAFE_INTEGER })
     : permisPricing;
 
+const examenSelectionne = examens.find((examen) => examen.value === session);
+const dateExamenIsoSelectionnee =
+  examenSelectionne?.iso || getIsoDepuisLibelleExamen(session);
+
   const mercredi = isMercredi(dateCours);
 const prixBase = getPermisPriceForFormula(formule, reservationPermisPricing);
 const nombreParticipants = typeCours === "commun" ? 2 : 1;
@@ -224,6 +265,38 @@ function creneauDisponible(horaire: string) {
     return nouveau.debut < existant.fin && existant.debut < nouveau.fin;
   });
 }
+
+function getErreurDateCours(date: Date | null) {
+  if (session === "Plus tard" || !date || !dateExamenIsoSelectionnee) {
+    return "";
+  }
+
+  return formatDateISO(date) >= dateExamenIsoSelectionnee
+    ? "Le cours pratique doit avoir lieu avant la date d'examen."
+    : "";
+}
+
+function getDateDepuisIso(iso: string) {
+  const [annee, mois, jour] = iso.split("-").map(Number);
+
+  if (!annee || !mois || !jour) return null;
+
+  return new Date(annee, mois - 1, jour);
+}
+
+function getDateMaxCours() {
+  if (session === "Plus tard" || !dateExamenIsoSelectionnee) return undefined;
+
+  const dateExamen = getDateDepuisIso(dateExamenIsoSelectionnee);
+  if (!dateExamen) return undefined;
+
+  const dateMax = new Date(dateExamen);
+  dateMax.setDate(dateMax.getDate() - 1);
+  return dateMax;
+}
+
+const dateMaxCours = getDateMaxCours();
+
 const creneauxDisponibles =
     typeCours === "commun"
       ? mercredi
@@ -275,6 +348,13 @@ async function verifierAvantPaiement() {
 
   if (reservationPermisPricing.requiresExam && session === "Plus tard") {
     setErreur("Veuillez choisir une date d'examen pour bénéficier de l'offre de lancement.");
+    setEnregistrementEnCours(false);
+    return;
+  }
+
+  const erreurDateCours = getErreurDateCours(dateCours);
+  if (erreurDateCours) {
+    setErreur(erreurDateCours);
     setEnregistrementEnCours(false);
     return;
   }
@@ -375,6 +455,7 @@ Object.entries(paiement.champs).forEach(([nom, valeur]) => {
 document.body.appendChild(formulaire);
 formulaire.submit();
 }
+const erreurDateCoursRecap = getErreurDateCours(dateCours);
 const recap = (
     <div className="mt-6 bg-sky-100 text-black rounded-xl p-4">
       <h4 className="text-xl font-bold mb-3">Vérifiez votre réservation</h4>
@@ -418,6 +499,12 @@ const recap = (
             <strong>Date du cours :</strong>{" "}
             {dateCours?.toLocaleDateString("fr-FR")}
           </p>
+
+          {erreurDateCoursRecap && (
+            <div className="mt-4 bg-red-100 text-red-700 p-4 rounded-xl">
+              {erreurDateCoursRecap}
+            </div>
+          )}
 
           <p><strong>Créneau :</strong> {creneau}</p>
         </>
@@ -526,7 +613,7 @@ const recap = (
 
   <button
   onClick={verifierAvantPaiement}
-  disabled={enregistrementEnCours}
+  disabled={enregistrementEnCours || Boolean(erreurDateCoursRecap)}
     className="mt-6 w-full bg-yellow-500 text-black font-bold p-4 rounded-xl"
   >
     {enregistrementEnCours
@@ -779,11 +866,22 @@ const recap = (
               <Calendar
                 onChange={(value) => {
   const date = value as Date;
+  const erreurDateCours = getErreurDateCours(date);
+  if (erreurDateCours) {
+    setErreur(erreurDateCours);
+    setDateCours(null);
+    setTypeCours("");
+    setCreneau("");
+    return;
+  }
+
+  setErreur("");
   setDateCours(date);
   chargerCreneauxReserves(date);
 }}
                 value={dateCours}
                 minDate={new Date()}
+                maxDate={dateMaxCours}
                 locale="fr-FR"
                 className="w-full border-none"
               />

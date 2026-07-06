@@ -62,7 +62,13 @@ export function PecheVideo() {
             role="img"
             aria-label="Aperçu vidéo pêche"
             style={{ backgroundImage: `url('${posterSrc}')` }}
-          />
+          >
+            <div className="flex h-full w-full items-end bg-cyan-950/10 p-5">
+              <span className="rounded-full bg-white/95 px-4 py-2 text-sm font-black text-cyan-800 shadow-[0_12px_30px_rgba(8,145,178,0.18)]">
+                VidÃ©o bientÃ´t disponible
+              </span>
+            </div>
+          </div>
         )}
 
         {videoAvailable && !playing && (

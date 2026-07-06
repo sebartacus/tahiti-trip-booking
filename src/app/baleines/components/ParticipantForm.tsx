@@ -2,7 +2,7 @@ import type { Participant, Role } from "../lib/types";
 import {
   POINTURES_PALMES,
   TAILLES_COMBI,
-  ageRenseigneMineur,
+  ageRenseigneMineurComplet,
   formatPrix,
   prixParticipant,
 } from "../lib/rules";
@@ -20,6 +20,7 @@ type ParticipantFormProps = {
     field: keyof Participant,
     value: string | boolean
   ) => void;
+  onParticipantAgeBlur: (index: number) => void;
   onEmailChange: (value: string) => void;
   onTelephoneChange: (value: string) => void;
   onRemove: (index: number) => void;
@@ -34,13 +35,14 @@ export function ParticipantForm({
   responsableEmail,
   responsableTelephone,
   onParticipantChange,
+  onParticipantAgeBlur,
   onEmailChange,
   onTelephoneChange,
   onRemove,
 }: ParticipantFormProps) {
   const isResponsable = index === 0;
   const showEquipment = participant.role === "mise_eau";
-  const isUnderWaterTooYoung = ageRenseigneMineur(participant.age);
+  const isUnderWaterTooYoung = ageRenseigneMineurComplet(participant.age);
   const canChooseMiseEau = canSwitchToMiseEau && !isUnderWaterTooYoung;
 
   function handleRoleChange(value: string) {
@@ -124,6 +126,7 @@ export function ParticipantForm({
           onChange={(event) =>
             onParticipantChange(index, "age", event.target.value)
           }
+          onBlur={() => onParticipantAgeBlur(index)}
           className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 text-base font-semibold outline-none transition focus:border-cyan-600 focus:bg-white"
         />
 

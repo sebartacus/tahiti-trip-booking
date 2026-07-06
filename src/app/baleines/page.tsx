@@ -18,6 +18,7 @@ import {
   SAISON_FIN,
   compterDemandes,
   ageRenseigneMineur,
+  ageRenseigneMineurComplet,
   formatPrix,
   nouveauParticipant,
   prixParticipant,
@@ -283,22 +284,34 @@ export default function BaleinesPage() {
           }
         }
 
-        if (
-          champ === "age" &&
-          typeof valeur === "string" &&
-          ageRenseigneMineur(valeur)
-        ) {
-          return nettoyerParticipant({
+        if (champ === "age") {
+          return {
             ...participant,
-            age: valeur,
-            role: "observateur",
-          });
+            age: valeur as string,
+          };
         }
 
         return nettoyerParticipant({
           ...participant,
           [champ]: valeur,
         });
+      })
+    );
+  }
+
+  function finaliserAgeParticipant(index: number) {
+    setParticipants((anciens) =>
+      anciens.map((participant, participantIndex) => {
+        if (participantIndex !== index) return participant;
+
+        if (ageRenseigneMineurComplet(participant.age)) {
+          return nettoyerParticipant({
+            ...participant,
+            role: "observateur",
+          });
+        }
+
+        return participant;
       })
     );
   }
@@ -371,7 +384,7 @@ export default function BaleinesPage() {
         return "La mise à l'eau est réservée aux participants de 12 ans et plus.";
       }
 
-      if (participant.role === "mise_eau") {
+      if (participant.role === "mise_eau" && !participant.materielPerso) {
         if (!participant.tailleCombinaison) {
           return `${label} : choisis une taille de combinaison.`;
         }
@@ -573,6 +586,7 @@ export default function BaleinesPage() {
             responsableTelephone={responsableTelephone}
             onAddParticipant={handleAddParticipant}
             onParticipantChange={modifierParticipant}
+            onParticipantAgeBlur={finaliserAgeParticipant}
             onEmailChange={setResponsableEmail}
             onTelephoneChange={setResponsableTelephone}
             onRemoveParticipant={supprimerParticipant}

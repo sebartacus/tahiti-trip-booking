@@ -19,6 +19,7 @@ type ParticipantsStepProps = {
     field: keyof Participant,
     value: string | boolean
   ) => void;
+  onParticipantAgeBlur: (index: number) => void;
   onEmailChange: (value: string) => void;
   onTelephoneChange: (value: string) => void;
   onRemoveParticipant: (index: number) => void;
@@ -36,6 +37,7 @@ export function ParticipantsStep({
   responsableTelephone,
   onAddParticipant,
   onParticipantChange,
+  onParticipantAgeBlur,
   onEmailChange,
   onTelephoneChange,
   onRemoveParticipant,
@@ -98,6 +100,7 @@ export function ParticipantsStep({
             responsableEmail={responsableEmail}
             responsableTelephone={responsableTelephone}
             onParticipantChange={onParticipantChange}
+            onParticipantAgeBlur={onParticipantAgeBlur}
             onEmailChange={onEmailChange}
             onTelephoneChange={onTelephoneChange}
             onRemove={onRemoveParticipant}
