@@ -276,9 +276,9 @@ export async function POST(request: Request) {
       baseUrl: getBaseUrl(request),
     });
 
-    if (emailResult.error) {
+    if ("error" in emailResult && emailResult.error) {
       console.error(emailResult.error);
-    } else if (emailResult.ok) {
+    } else if ("ok" in emailResult && emailResult.ok) {
       const emailUpdate = await supabase
         .from("reservations")
         .update({
@@ -297,9 +297,9 @@ export async function POST(request: Request) {
       message: "Paiement Permis valide",
       facture: invoiceResult.invoiceNumber,
       email:
-        emailResult.ok
+        "ok" in emailResult && emailResult.ok
           ? "sent"
-          : emailResult.error
+          : "error" in emailResult && emailResult.error
           ? "error"
           : "reason" in emailResult
           ? emailResult.reason
