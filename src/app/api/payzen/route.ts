@@ -42,11 +42,18 @@ export async function POST(request: Request) {
   }
 
   const siteId = process.env.NEXT_PUBLIC_PAYZEN_SITE_ID;
-  const cleTest = process.env.PAYZEN_TEST_KEY;
+  const productionKey = process.env.PAYZEN_PRODUCTION_KEY;
 
-  if (!siteId || !cleTest) {
+  if (!siteId) {
     return NextResponse.json(
-      { error: "Configuration PayZen manquante" },
+      { error: "Configuration PayZen manquante: NEXT_PUBLIC_PAYZEN_SITE_ID" },
+      { status: 500 }
+    );
+  }
+
+  if (!productionKey) {
+    return NextResponse.json(
+      { error: "Configuration PayZen manquante: PAYZEN_PRODUCTION_KEY" },
       { status: 500 }
     );
   }
@@ -80,7 +87,7 @@ export async function POST(request: Request) {
   const champs: Record<string, string> = {
     vads_action_mode: "INTERACTIVE",
     vads_amount: String(montant),
-    vads_ctx_mode: "TEST",
+    vads_ctx_mode: "PRODUCTION",
     vads_currency: "953",
     vads_cust_email: String(body.email || ""),
     vads_page_action: "PAYMENT",
@@ -116,7 +123,7 @@ export async function POST(request: Request) {
     champs.vads_ext_info_activity = activity;
   }
 
-  const signature = signerPayzen(champs, cleTest);
+  const signature = signerPayzen(champs, productionKey);
 
   return NextResponse.json({
     url: "https://secure.payzen.eu/vads-payment/",
