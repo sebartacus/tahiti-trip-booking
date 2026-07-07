@@ -36,6 +36,46 @@ type ExamenBloque = {
   motif: string | null;
 };
 
+type AdminPecheReservation = {
+  id: string;
+  date_sortie: string | null;
+  formule: string | null;
+  responsable_prenom: string | null;
+  responsable_nom: string | null;
+  responsable_telephone: string | null;
+  responsable_email: string | null;
+  montant_paye: number | null;
+  statut_paiement: string | null;
+  facture_numero: string | null;
+  facture_url: string | null;
+  email_sent: boolean | null;
+  email_sent_at: string | null;
+};
+
+type BaleinesParticipant = {
+  prenom?: string | null;
+  nom?: string | null;
+  role?: string | null;
+  type?: string | null;
+};
+
+type AdminBaleinesReservation = {
+  id: string;
+  date_sortie: string | null;
+  depart: string | null;
+  responsable_prenom: string | null;
+  responsable_nom: string | null;
+  responsable_telephone: string | null;
+  responsable_email: string | null;
+  participants: BaleinesParticipant[] | null;
+  montant_total: number | null;
+  statut_paiement: string | null;
+  facture_numero: string | null;
+  facture_url: string | null;
+  email_sent: boolean | null;
+  email_sent_at: string | null;
+};
+
 const pricingTypeLabels: Record<string, string> = {
   normal: "Tarif normal",
   promo_internet: "Promo Internet",
@@ -59,8 +99,18 @@ function formatDateTime(value: string | null) {
   });
 }
 
+function countParticipants(participants: BaleinesParticipant[] | null) {
+  return Array.isArray(participants) ? participants.length : 0;
+}
+
 export default function AdminPage() {
   const [reservations, setReservations] = useState<AdminReservation[]>([]);
+  const [reservationsPeche, setReservationsPeche] = useState<
+    AdminPecheReservation[]
+  >([]);
+  const [reservationsBaleines, setReservationsBaleines] = useState<
+    AdminBaleinesReservation[]
+  >([]);
   const [filtreStatut, setFiltreStatut] = useState("Tous");
   const [motDePasse, setMotDePasse] = useState("");
   const [accesAutorise, setAccesAutorise] = useState(false);
@@ -70,9 +120,13 @@ export default function AdminPage() {
   const [examensBloques, setExamensBloques] = useState<ExamenBloque[]>([]);
 
   useEffect(() => {
+    if (!accesAutorise) return;
+
     chargerReservations();
+    chargerReservationsPeche();
+    chargerReservationsBaleines();
     chargerExamensBloques();
-  }, []);
+  }, [accesAutorise]);
 
   async function chargerReservations() {
     const { data, error } = await supabase
@@ -86,6 +140,38 @@ export default function AdminPage() {
     }
 
     setReservations(data || []);
+  }
+
+  async function chargerReservationsPeche() {
+    const { data, error } = await supabase
+      .from("reservations_peche")
+      .select(
+        "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,montant_paye,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at"
+      )
+      .order("date_sortie", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setReservationsPeche((data || []) as AdminPecheReservation[]);
+  }
+
+  async function chargerReservationsBaleines() {
+    const { data, error } = await supabase
+      .from("reservations_baleines")
+      .select(
+        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,participants,montant_total,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at"
+      )
+      .order("date_sortie", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setReservationsBaleines((data || []) as AdminBaleinesReservation[]);
   }
 
   async function chargerExamensBloques() {
@@ -528,6 +614,148 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+
+      <section className="mt-10">
+        <h2 className="mb-4 text-2xl font-bold">Reservations Peche</h2>
+
+        <div className="overflow-x-auto rounded-xl bg-white shadow">
+          <table className="min-w-[1100px] w-full text-sm">
+            <thead className="bg-cyan-800 text-white">
+              <tr>
+                <th className="p-3 text-left">Date</th>
+                <th className="p-3 text-left">Formule</th>
+                <th className="p-3 text-left">Client</th>
+                <th className="p-3 text-left">Telephone</th>
+                <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Montant</th>
+                <th className="p-3 text-left">Statut paiement</th>
+                <th className="p-3 text-left">Facture</th>
+                <th className="p-3 text-left">Email envoye</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {reservationsPeche.map((reservation) => (
+                <tr key={reservation.id} className="border-b hover:bg-slate-50">
+                  <td className="p-3">{reservation.date_sortie || "-"}</td>
+                  <td className="p-3">{reservation.formule || "-"}</td>
+                  <td className="p-3">
+                    {reservation.responsable_prenom}{" "}
+                    {reservation.responsable_nom}
+                  </td>
+                  <td className="p-3">
+                    {reservation.responsable_telephone || "-"}
+                  </td>
+                  <td className="p-3">{reservation.responsable_email || "-"}</td>
+                  <td className="p-3">{formatXpf(reservation.montant_paye)}</td>
+                  <td className="p-3">{reservation.statut_paiement || "-"}</td>
+                  <td className="p-3">
+                    {reservation.facture_url ? (
+                      <button
+                        onClick={() => ouvrirDocument(reservation.facture_url)}
+                        className="cursor-pointer rounded bg-sky-700 px-3 py-1 text-white"
+                      >
+                        {reservation.facture_numero || "Facture"}
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div>
+                      {reservation.email_sent ? "envoye" : "non envoye"}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {formatDateTime(reservation.email_sent_at)}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {reservationsPeche.length === 0 && (
+                <tr>
+                  <td className="p-4 text-slate-500" colSpan={9}>
+                    Aucune reservation peche.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-4 text-2xl font-bold">Reservations Baleines</h2>
+
+        <div className="overflow-x-auto rounded-xl bg-white shadow">
+          <table className="min-w-[1200px] w-full text-sm">
+            <thead className="bg-cyan-800 text-white">
+              <tr>
+                <th className="p-3 text-left">Date</th>
+                <th className="p-3 text-left">Depart</th>
+                <th className="p-3 text-left">Responsable</th>
+                <th className="p-3 text-left">Telephone</th>
+                <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Participants</th>
+                <th className="p-3 text-left">Montant</th>
+                <th className="p-3 text-left">Statut paiement</th>
+                <th className="p-3 text-left">Facture</th>
+                <th className="p-3 text-left">Email envoye</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {reservationsBaleines.map((reservation) => (
+                <tr key={reservation.id} className="border-b hover:bg-slate-50">
+                  <td className="p-3">{reservation.date_sortie || "-"}</td>
+                  <td className="p-3">{reservation.depart || "-"}</td>
+                  <td className="p-3">
+                    {reservation.responsable_prenom}{" "}
+                    {reservation.responsable_nom}
+                  </td>
+                  <td className="p-3">
+                    {reservation.responsable_telephone || "-"}
+                  </td>
+                  <td className="p-3">{reservation.responsable_email || "-"}</td>
+                  <td className="p-3">
+                    {countParticipants(reservation.participants)}
+                  </td>
+                  <td className="p-3">{formatXpf(reservation.montant_total)}</td>
+                  <td className="p-3">{reservation.statut_paiement || "-"}</td>
+                  <td className="p-3">
+                    {reservation.facture_url ? (
+                      <button
+                        onClick={() => ouvrirDocument(reservation.facture_url)}
+                        className="cursor-pointer rounded bg-sky-700 px-3 py-1 text-white"
+                      >
+                        {reservation.facture_numero || "Facture"}
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div>
+                      {reservation.email_sent ? "envoye" : "non envoye"}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {formatDateTime(reservation.email_sent_at)}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+
+              {reservationsBaleines.length === 0 && (
+                <tr>
+                  <td className="p-4 text-slate-500" colSpan={10}>
+                    Aucune reservation baleines.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   );
 }
