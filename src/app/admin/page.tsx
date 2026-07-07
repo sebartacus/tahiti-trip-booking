@@ -24,6 +24,7 @@ type AdminReservation = {
   email_sent: boolean | null;
   email_sent_at: string | null;
   statut: string | null;
+  created_at?: string | null;
   certificat_url: string | null;
   formulaire_url: string | null;
   photo_url: string | null;
@@ -44,6 +45,7 @@ type AdminPecheReservation = {
   responsable_nom: string | null;
   responsable_telephone: string | null;
   responsable_email: string | null;
+  nombre_personnes: number | null;
   montant_paye: number | null;
   statut_paiement: string | null;
   facture_numero: string | null;
@@ -90,6 +92,10 @@ function formatXpf(value: number | null) {
   return value ? `${value.toLocaleString("fr-FR")} XPF` : "-";
 }
 
+function numberXpf(value: number) {
+  return `${value.toLocaleString("fr-FR")} XPF`;
+}
+
 function formatDateTime(value: string | null) {
   if (!value) return "-";
 
@@ -101,6 +107,49 @@ function formatDateTime(value: string | null) {
 
 function countParticipants(participants: BaleinesParticipant[] | null) {
   return Array.isArray(participants) ? participants.length : 0;
+}
+
+function dateKey(value: string | null | undefined) {
+  if (!value) return "";
+
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split("/");
+    return `${year}-${month}-${day}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return parsed.toISOString().slice(0, 10);
+}
+
+function startOfWeek(date: Date) {
+  const copy = new Date(date);
+  const day = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - day);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function isSameDay(value: string | null | undefined, today: string) {
+  return dateKey(value) === today;
+}
+
+function isThisWeek(value: string | null | undefined, start: Date, end: Date) {
+  const key = dateKey(value);
+  if (!key) return false;
+  const date = new Date(`${key}T00:00:00`);
+  return date >= start && date <= end;
+}
+
+function isThisMonth(value: string | null | undefined, monthKey: string) {
+  return dateKey(value).startsWith(monthKey);
+}
+
+function permisStudentCount(reservation: AdminReservation) {
+  return 1 + (reservation.prenom2 || reservation.nom2 ? 1 : 0);
 }
 
 export default function AdminPage() {
@@ -146,7 +195,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from("reservations_peche")
       .select(
-        "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,montant_paye,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at"
+        "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at"
       )
       .order("date_sortie", { ascending: false });
 
@@ -274,6 +323,87 @@ export default function AdminPage() {
   const permisPricing = getPermisPricing({
     promotionReservationsSold: reservationsPromoInternet.length,
   });
+  const now = new Date();
+  const todayKey = dateKey(now.toISOString());
+  const weekStart = startOfWeek(now);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+  const monthKey = todayKey.slice(0, 7);
+  const pecheToday = reservationsPeche.filter((reservation) =>
+    isSameDay(reservation.date_sortie, todayKey)
+  );
+  const baleinesToday = reservationsBaleines.filter((reservation) =>
+    isSameDay(reservation.date_sortie, todayKey)
+  );
+  const permisToday = reservations.filter((reservation) =>
+    isSameDay(reservation.date_cours, todayKey)
+  );
+  const pecheWeek = reservationsPeche.filter((reservation) =>
+    isThisWeek(reservation.date_sortie, weekStart, weekEnd)
+  );
+  const baleinesWeek = reservationsBaleines.filter((reservation) =>
+    isThisWeek(reservation.date_sortie, weekStart, weekEnd)
+  );
+  const permisWeek = reservations.filter((reservation) =>
+    isThisWeek(reservation.created_at, weekStart, weekEnd)
+  );
+  const pecheMonth = reservationsPeche.filter((reservation) =>
+    isThisMonth(reservation.date_sortie, monthKey)
+  );
+  const baleinesMonth = reservationsBaleines.filter((reservation) =>
+    isThisMonth(reservation.date_sortie, monthKey)
+  );
+  const permisMonth = reservations.filter((reservation) =>
+    isThisMonth(reservation.created_at, monthKey)
+  );
+  const caPeche = pecheMonth.reduce(
+    (total, reservation) => total + (reservation.montant_paye || 0),
+    0
+  );
+  const caBaleines = baleinesMonth.reduce(
+    (total, reservation) => total + (reservation.montant_total || 0),
+    0
+  );
+  const caPermis = permisMonth.reduce(
+    (total, reservation) =>
+      total + (reservation.paiement_effectue ? reservation.pricing_amount || 0 : 0),
+    0
+  );
+  const documentsIncomplets = reservations.filter(
+    (reservation) =>
+      !reservation.certificat_url ||
+      !reservation.formulaire_url ||
+      !reservation.photo_url ||
+      !reservation.identite_url
+  ).length;
+  const paiementsEnAttente =
+    reservations.filter((reservation) => !reservation.paiement_effectue).length +
+    reservationsPeche.filter(
+      (reservation) => reservation.statut_paiement !== "paid"
+    ).length +
+    reservationsBaleines.filter(
+      (reservation) => reservation.statut_paiement !== "paid"
+    ).length;
+  const emailsNonEnvoyes =
+    reservations.filter((reservation) => !reservation.email_sent).length +
+    reservationsPeche.filter((reservation) => !reservation.email_sent).length +
+    reservationsBaleines.filter((reservation) => !reservation.email_sent).length;
+  const sortiesCompletes =
+    reservationsPeche.filter(
+      (reservation) => (reservation.nombre_personnes || 0) >= 4
+    ).length +
+    reservationsBaleines.filter(
+      (reservation) => countParticipants(reservation.participants) >= 8
+    ).length;
+  const alerts = [
+    documentsIncomplets
+      ? `${documentsIncomplets} dossier(s) Permis avec documents incomplets`
+      : "",
+    paiementsEnAttente ? `${paiementsEnAttente} paiement(s) en attente` : "",
+    emailsNonEnvoyes ? `${emailsNonEnvoyes} email(s) non envoyes` : "",
+    sortiesCompletes ? `${sortiesCompletes} sortie(s) complete(s)` : "",
+  ].filter(Boolean);
 
   if (!accesAutorise) {
     return (
@@ -311,7 +441,127 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 p-4 md:p-8">
-      <h1 className="text-3xl md:text-4xl font-bold mb-6">
+      <section className="mb-10 overflow-hidden rounded-[2rem] bg-slate-950 p-5 text-white shadow-2xl md:p-8">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-300">
+              Tahiti Trip Fishing
+            </p>
+            <h1 className="mt-2 text-3xl font-black md:text-5xl">
+              Tableau de bord
+            </h1>
+          </div>
+          <p className="text-sm font-semibold text-slate-300">
+            Aujourd&apos;hui : {todayKey.split("-").reverse().join("/")}
+          </p>
+        </div>
+
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          <DashboardCard
+            icon="🎣"
+            title="Pêche aujourd'hui"
+            primary={`${pecheToday.length} sortie(s)`}
+            secondary={`${pecheToday.reduce(
+              (total, reservation) => total + (reservation.nombre_personnes || 0),
+              0
+            )} client(s)`}
+          />
+          <DashboardCard
+            icon="🐋"
+            title="Baleines aujourd'hui"
+            primary={`${baleinesToday.length} sortie(s)`}
+            secondary={`${baleinesToday.reduce(
+              (total, reservation) =>
+                total + countParticipants(reservation.participants),
+              0
+            )} participant(s)`}
+          />
+          <DashboardCard
+            icon="📘"
+            title="Permis aujourd'hui"
+            primary={`${permisToday.length} cours`}
+            secondary={`${permisToday.reduce(
+              (total, reservation) => total + permisStudentCount(reservation),
+              0
+            )} eleve(s)`}
+          />
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+          <section className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/10">
+            <h2 className="text-lg font-black">Cette semaine</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <MiniMetric label="Pêche" value={pecheWeek.length} />
+              <MiniMetric label="Baleines" value={baleinesWeek.length} />
+              <MiniMetric label="Permis" value={permisWeek.length} />
+            </div>
+          </section>
+
+          <section className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/10">
+            <h2 className="text-lg font-black">Ce mois</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <MiniMetric label="CA Pêche" value={numberXpf(caPeche)} />
+              <MiniMetric label="CA Baleines" value={numberXpf(caBaleines)} />
+              <MiniMetric label="CA Permis" value={numberXpf(caPermis)} />
+              <MiniMetric
+                label="Total encaissé"
+                value={numberXpf(caPeche + caBaleines + caPermis)}
+              />
+              <MiniMetric
+                label="Réservations"
+                value={
+                  pecheMonth.length + baleinesMonth.length + permisMonth.length
+                }
+              />
+            </div>
+          </section>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_1fr]">
+          <section className="rounded-3xl bg-white p-5 text-slate-950">
+            <h2 className="text-lg font-black">Alertes</h2>
+            {alerts.length === 0 ? (
+              <p className="mt-4 rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-700">
+                ✅ Aucune alerte.
+              </p>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                {alerts.map((alert) => (
+                  <p
+                    key={alert}
+                    className="rounded-2xl bg-amber-50 p-4 font-bold text-amber-800"
+                  >
+                    ⚠ {alert}
+                  </p>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-3xl bg-white p-5 text-slate-950">
+            <h2 className="text-lg font-black">Raccourcis</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <ShortcutButton href="/admin/bateau" label="Calendrier bateau" />
+              <ShortcutButton
+                href="#reservations-permis"
+                label="Réservations Permis"
+              />
+              <ShortcutButton
+                href="#reservations-peche"
+                label="Réservations Pêche"
+              />
+              <ShortcutButton
+                href="#reservations-baleines"
+                label="Réservations Baleines"
+              />
+            </div>
+          </section>
+        </div>
+      </section>
+      <h1
+        id="reservations-permis"
+        className="text-3xl md:text-4xl font-bold mb-6 scroll-mt-6"
+      >
         Réservations Permis Côtier
       </h1>
 
@@ -615,7 +865,7 @@ export default function AdminPage() {
         </table>
       </div>
 
-      <section className="mt-10">
+      <section id="reservations-peche" className="mt-10 scroll-mt-6">
         <h2 className="mb-4 text-2xl font-bold">Reservations Peche</h2>
 
         <div className="overflow-x-auto rounded-xl bg-white shadow">
@@ -684,7 +934,7 @@ export default function AdminPage() {
         </div>
       </section>
 
-      <section className="mt-10">
+      <section id="reservations-baleines" className="mt-10 scroll-mt-6">
         <h2 className="mb-4 text-2xl font-bold">Reservations Baleines</h2>
 
         <div className="overflow-x-auto rounded-xl bg-white shadow">
@@ -757,5 +1007,62 @@ export default function AdminPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function DashboardCard({
+  icon,
+  title,
+  primary,
+  secondary,
+}: {
+  icon: string;
+  title: string;
+  primary: string;
+  secondary: string;
+}) {
+  return (
+    <article className="rounded-3xl bg-white p-5 text-slate-950 shadow-xl">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+            {title}
+          </p>
+          <p className="mt-3 text-3xl font-black">{primary}</p>
+          <p className="mt-1 text-sm font-bold text-slate-500">{secondary}</p>
+        </div>
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-cyan-50 text-3xl">
+          {icon}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function MiniMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-2xl bg-white/95 p-4 text-slate-950">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-cyan-700">
+        {label}
+      </p>
+      <p className="mt-2 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function ShortcutButton({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-800"
+    >
+      {label}
+    </a>
   );
 }
