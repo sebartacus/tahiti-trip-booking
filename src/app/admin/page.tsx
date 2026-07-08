@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import {
+  MAX_MISE_EAU,
+  MAX_OBSERVATEURS,
+} from "@/app/baleines/lib/rules";
+import type { Depart, Role } from "@/app/baleines/lib/types";
 import { getPermisPricing } from "@/lib/permisPricing";
 
 type AdminReservation = {
@@ -59,6 +64,18 @@ type BaleinesParticipant = {
   nom?: string | null;
   role?: string | null;
   type?: string | null;
+  origine?: string | null;
+  commentaire?: string | null;
+  reservation_manuelle?: boolean | null;
+};
+
+type BoatSlotStatus = "available" | "hold" | "reserved" | "blocked";
+type BoatSlotName = "morning" | "afternoon";
+type BoatCalendarSlot = {
+  date: string;
+  slot: BoatSlotName;
+  status: BoatSlotStatus;
+  activity: "baleines" | "peche" | "peche_nuit" | null;
 };
 
 type AdminBaleinesReservation = {
@@ -76,6 +93,38 @@ type AdminBaleinesReservation = {
   facture_url: string | null;
   email_sent: boolean | null;
   email_sent_at: string | null;
+  source_paiement: string | null;
+};
+
+type ManualBaleinesReservationForm = {
+  dateSortie: string;
+  depart: Depart;
+  origine: string;
+  responsablePrenom: string;
+  responsableNom: string;
+  telephone: string;
+  email: string;
+  nombreMiseEau: string;
+  nombreObservateurs: string;
+  commentaire: string;
+};
+
+const initialManualBaleinesForm: ManualBaleinesReservationForm = {
+  dateSortie: "",
+  depart: "07:00",
+  origine: "",
+  responsablePrenom: "",
+  responsableNom: "",
+  telephone: "",
+  email: "",
+  nombreMiseEau: "0",
+  nombreObservateurs: "0",
+  commentaire: "",
+};
+
+const baleinesDepartSlots: Record<Depart, BoatSlotName> = {
+  "07:00": "morning",
+  "13:15": "afternoon",
 };
 
 const pricingTypeLabels: Record<string, string> = {
@@ -107,6 +156,64 @@ function formatDateTime(value: string | null) {
 
 function countParticipants(participants: BaleinesParticipant[] | null) {
   return Array.isArray(participants) ? participants.length : 0;
+}
+
+function countBaleinesRole(
+  participants: BaleinesParticipant[] | null,
+  role: Role
+) {
+  if (!Array.isArray(participants)) return 0;
+
+  return participants.filter((participant) => participant.role === role).length;
+}
+
+function getBaleinesManualOrigin(participants: BaleinesParticipant[] | null) {
+  if (!Array.isArray(participants)) return "";
+
+  return participants.find((participant) => participant.origine)?.origine || "";
+}
+
+function getBaleinesManualComment(participants: BaleinesParticipant[] | null) {
+  if (!Array.isArray(participants)) return "";
+
+  return (
+    participants.find((participant) => participant.commentaire)?.commentaire || ""
+  );
+}
+
+function isBaleinesBoatSlotAvailable(slot: BoatCalendarSlot | undefined) {
+  if (!slot || slot.status === "available") return true;
+  if (slot.status === "blocked") return false;
+
+  return slot.activity === "baleines";
+}
+
+function makeManualBaleinesParticipants(
+  miseEau: number,
+  observateurs: number,
+  origine: string,
+  commentaire: string
+): BaleinesParticipant[] {
+  const metadata = {
+    origine,
+    commentaire,
+    reservation_manuelle: true,
+  };
+
+  return [
+    ...Array.from({ length: miseEau }, (_, index) => ({
+      prenom: `Mise a l'eau ${index + 1}`,
+      nom: origine,
+      role: "mise_eau",
+      ...metadata,
+    })),
+    ...Array.from({ length: observateurs }, (_, index) => ({
+      prenom: `Observateur ${index + 1}`,
+      nom: origine,
+      role: "observateur",
+      ...metadata,
+    })),
+  ];
 }
 
 function dateKey(value: string | null | undefined) {
@@ -167,6 +274,12 @@ export default function AdminPage() {
   const [dateExamenBloquee, setDateExamenBloquee] = useState("");
   const [motifBlocage, setMotifBlocage] = useState("");
   const [examensBloques, setExamensBloques] = useState<ExamenBloque[]>([]);
+  const [reservationBaleinesManuelle, setReservationBaleinesManuelle] =
+    useState<ManualBaleinesReservationForm>(initialManualBaleinesForm);
+  const [creationBaleinesEnCours, setCreationBaleinesEnCours] =
+    useState(false);
+  const [messageBaleinesManuel, setMessageBaleinesManuel] = useState("");
+  const [erreurBaleinesManuel, setErreurBaleinesManuel] = useState("");
 
   useEffect(() => {
     if (!accesAutorise) return;
@@ -211,7 +324,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from("reservations_baleines")
       .select(
-        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,participants,montant_total,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at"
+        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,participants,montant_total,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at,source_paiement"
       )
       .order("date_sortie", { ascending: false });
 
@@ -312,6 +425,227 @@ export default function AdminPage() {
     }
 
     chargerReservations();
+  }
+
+  function modifierReservationBaleinesManuelle(
+    champ: keyof ManualBaleinesReservationForm,
+    valeur: string
+  ) {
+    setReservationBaleinesManuelle((reservation) => ({
+      ...reservation,
+      [champ]: valeur,
+    }));
+  }
+
+  async function ajouterReservationBaleinesManuelle() {
+    if (creationBaleinesEnCours) return;
+
+    setMessageBaleinesManuel("");
+    setErreurBaleinesManuel("");
+
+    const form = reservationBaleinesManuelle;
+    const miseEau = Number(form.nombreMiseEau);
+    const observateurs = Number(form.nombreObservateurs);
+    const depart = form.depart;
+    const slotName = baleinesDepartSlots[depart];
+
+    if (!form.dateSortie) {
+      setErreurBaleinesManuel("Choisissez une date de sortie.");
+      return;
+    }
+
+    if (!form.origine.trim()) {
+      setErreurBaleinesManuel("Indiquez le nom ou l'origine.");
+      return;
+    }
+
+    if (!form.responsablePrenom.trim() || !form.responsableNom.trim()) {
+      setErreurBaleinesManuel("Indiquez le prenom et le nom du responsable.");
+      return;
+    }
+
+    if (!form.telephone.trim()) {
+      setErreurBaleinesManuel("Indiquez le telephone.");
+      return;
+    }
+
+    if (
+      !Number.isInteger(miseEau) ||
+      !Number.isInteger(observateurs) ||
+      miseEau < 0 ||
+      observateurs < 0 ||
+      miseEau + observateurs <= 0
+    ) {
+      setErreurBaleinesManuel("Indiquez au moins une place a reserver.");
+      return;
+    }
+
+    if (miseEau > MAX_MISE_EAU || observateurs > MAX_OBSERVATEURS) {
+      setErreurBaleinesManuel("La demande depasse la capacite du depart.");
+      return;
+    }
+
+    setCreationBaleinesEnCours(true);
+
+    try {
+      const reservationsExistantes = await supabase
+        .from("reservations_baleines")
+        .select("participants,statut_paiement")
+        .eq("date_sortie", form.dateSortie)
+        .eq("depart", depart)
+        .in("statut_paiement", ["pending", "paid", "paye"]);
+
+      if (reservationsExistantes.error) {
+        setErreurBaleinesManuel("Impossible de verifier les places restantes.");
+        return;
+      }
+
+      const capaciteOccupee = (reservationsExistantes.data || []).reduce(
+        (total, reservation) => {
+          const participants =
+            reservation.participants as BaleinesParticipant[] | null;
+
+          return {
+            miseEau:
+              total.miseEau + countBaleinesRole(participants, "mise_eau"),
+            observateurs:
+              total.observateurs +
+              countBaleinesRole(participants, "observateur"),
+          };
+        },
+        { miseEau: 0, observateurs: 0 }
+      );
+
+      if (
+        capaciteOccupee.miseEau + miseEau > MAX_MISE_EAU ||
+        capaciteOccupee.observateurs + observateurs > MAX_OBSERVATEURS
+      ) {
+        setErreurBaleinesManuel(
+          `Places insuffisantes. Restant : ${
+            MAX_MISE_EAU - capaciteOccupee.miseEau
+          } mise a l'eau, ${
+            MAX_OBSERVATEURS - capaciteOccupee.observateurs
+          } observateur(s).`
+        );
+        return;
+      }
+
+      const calendarResponse = await fetch(
+        `/api/bateau/calendar?from=${form.dateSortie}&to=${form.dateSortie}`
+      );
+      const calendarPayload = await calendarResponse.json();
+
+      if (!calendarResponse.ok) {
+        setErreurBaleinesManuel(
+          calendarPayload.error || "Impossible de verifier le bateau."
+        );
+        return;
+      }
+
+      const boatSlot = Array.isArray(calendarPayload.slots)
+        ? (calendarPayload.slots as BoatCalendarSlot[]).find(
+            (slot) => slot.slot === slotName
+          )
+        : undefined;
+
+      if (!isBaleinesBoatSlotAvailable(boatSlot)) {
+        setErreurBaleinesManuel("Ce depart bateau est indisponible.");
+        return;
+      }
+
+      const reservation = {
+        date_sortie: form.dateSortie,
+        depart,
+        responsable_prenom: form.responsablePrenom.trim(),
+        responsable_nom: form.responsableNom.trim(),
+        responsable_email: form.email.trim() || null,
+        responsable_telephone: form.telephone.trim(),
+        participants: makeManualBaleinesParticipants(
+          miseEau,
+          observateurs,
+          form.origine.trim(),
+          form.commentaire.trim()
+        ),
+        nombre_mise_eau: miseEau,
+        nombre_observateurs: observateurs,
+        montant_total: 0,
+        devise: "XPF",
+        statut_paiement: "pending",
+        paye: false,
+        source_paiement: "paiement_externe_a_facturer",
+        created_at: new Date().toISOString(),
+      };
+
+      const insertion = await supabase
+        .from("reservations_baleines")
+        .insert(reservation)
+        .select("id")
+        .single();
+
+      if (insertion.error || !insertion.data?.id) {
+        setErreurBaleinesManuel(
+          insertion.error?.message || "Impossible de creer la reservation."
+        );
+        return;
+      }
+
+      if (!boatSlot || boatSlot.status === "available") {
+        const holdResponse = await fetch("/api/bateau/hold", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            activity: "baleines",
+            reservationTable: "reservations_baleines",
+            reservationId: insertion.data.id,
+            date: form.dateSortie,
+            slots: [slotName],
+          }),
+        });
+        const holdPayload = await holdResponse.json();
+
+        if (!holdResponse.ok) {
+          console.error(holdPayload);
+          setErreurBaleinesManuel(
+            holdResponse.status === 409
+              ? "Ce depart bateau vient d'etre reserve."
+              : "Reservation creee, mais le bateau n'a pas pu etre bloque."
+          );
+          await chargerReservationsBaleines();
+          return;
+        }
+
+        const confirmResponse = await fetch("/api/bateau/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            activity: "baleines",
+            reservationTable: "reservations_baleines",
+            reservationId: insertion.data.id,
+            date: form.dateSortie,
+            slots: [slotName],
+          }),
+        });
+        const confirmPayload = await confirmResponse.json();
+
+        if (!confirmResponse.ok) {
+          console.error(confirmPayload);
+          setErreurBaleinesManuel(
+            "Reservation creee, mais le bateau n'a pas pu etre confirme."
+          );
+          await chargerReservationsBaleines();
+          return;
+        }
+      }
+
+      setReservationBaleinesManuelle(initialManualBaleinesForm);
+      setMessageBaleinesManuel("Reservation Baleines manuelle creee.");
+      await chargerReservationsBaleines();
+    } catch (error) {
+      console.error(error);
+      setErreurBaleinesManuel("Impossible de creer la reservation manuelle.");
+    } finally {
+      setCreationBaleinesEnCours(false);
+    }
   }
 
   const reservationsFiltrees = reservations.filter((reservation) =>
@@ -937,18 +1271,211 @@ export default function AdminPage() {
       <section id="reservations-baleines" className="mt-10 scroll-mt-6">
         <h2 className="mb-4 text-2xl font-bold">Reservations Baleines</h2>
 
+        <section className="mb-6 rounded-xl bg-white p-4 shadow md:p-6">
+          <h3 className="text-xl font-bold">
+            Ajouter reservation Baleines manuelle
+          </h3>
+          <p className="mt-2 text-sm font-semibold text-slate-600">
+            Paiement externe / a facturer. Aucun PayZen, email ou facture
+            automatique ne sera lance.
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1 text-sm font-bold">
+              Date sortie
+              <input
+                type="date"
+                value={reservationBaleinesManuelle.dateSortie}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "dateSortie",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Depart
+              <select
+                value={reservationBaleinesManuelle.depart}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "depart",
+                    event.target.value
+                  )
+                }
+                className="cursor-pointer rounded-xl border p-3 font-normal"
+              >
+                <option value="07:00">07:00</option>
+                <option value="13:15">13:15</option>
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Nom / origine
+              <input
+                value={reservationBaleinesManuelle.origine}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "origine",
+                    event.target.value
+                  )
+                }
+                placeholder="Hotel, conciergerie, WhatsApp..."
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Responsable prenom
+              <input
+                value={reservationBaleinesManuelle.responsablePrenom}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "responsablePrenom",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Responsable nom
+              <input
+                value={reservationBaleinesManuelle.responsableNom}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "responsableNom",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Telephone
+              <input
+                value={reservationBaleinesManuelle.telephone}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "telephone",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Email optionnel
+              <input
+                type="email"
+                value={reservationBaleinesManuelle.email}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle("email", event.target.value)
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Nombre mise a l&apos;eau
+              <input
+                type="number"
+                min="0"
+                max={MAX_MISE_EAU}
+                value={reservationBaleinesManuelle.nombreMiseEau}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "nombreMiseEau",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Nombre observateurs
+              <input
+                type="number"
+                min="0"
+                max={MAX_OBSERVATEURS}
+                value={reservationBaleinesManuelle.nombreObservateurs}
+                onChange={(event) =>
+                  modifierReservationBaleinesManuelle(
+                    "nombreObservateurs",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+          </div>
+
+          <label className="mt-3 grid gap-1 text-sm font-bold">
+            Commentaire
+            <textarea
+              value={reservationBaleinesManuelle.commentaire}
+              onChange={(event) =>
+                modifierReservationBaleinesManuelle(
+                  "commentaire",
+                  event.target.value
+                )
+              }
+              rows={3}
+              className="rounded-xl border p-3 font-normal"
+            />
+          </label>
+
+          <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+            <button
+              onClick={ajouterReservationBaleinesManuelle}
+              disabled={creationBaleinesEnCours}
+              className="cursor-pointer rounded-xl bg-cyan-800 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creationBaleinesEnCours
+                ? "Creation en cours..."
+                : "Ajouter la reservation"}
+            </button>
+
+            <p className="text-sm font-bold text-slate-600">
+              Statut paiement : paiement externe / a facturer
+            </p>
+          </div>
+
+          {erreurBaleinesManuel && (
+            <p className="mt-4 rounded-xl bg-red-50 p-3 font-bold text-red-700">
+              {erreurBaleinesManuel}
+            </p>
+          )}
+
+          {messageBaleinesManuel && (
+            <p className="mt-4 rounded-xl bg-emerald-50 p-3 font-bold text-emerald-700">
+              {messageBaleinesManuel}
+            </p>
+          )}
+        </section>
+
         <div className="overflow-x-auto rounded-xl bg-white shadow">
-          <table className="min-w-[1200px] w-full text-sm">
+          <table className="min-w-[1400px] w-full text-sm">
             <thead className="bg-cyan-800 text-white">
               <tr>
                 <th className="p-3 text-left">Date</th>
                 <th className="p-3 text-left">Depart</th>
+                <th className="p-3 text-left">Origine</th>
                 <th className="p-3 text-left">Responsable</th>
                 <th className="p-3 text-left">Telephone</th>
                 <th className="p-3 text-left">Email</th>
                 <th className="p-3 text-left">Participants</th>
+                <th className="p-3 text-left">Detail</th>
                 <th className="p-3 text-left">Montant</th>
                 <th className="p-3 text-left">Statut paiement</th>
+                <th className="p-3 text-left">Commentaire</th>
                 <th className="p-3 text-left">Facture</th>
                 <th className="p-3 text-left">Email envoye</th>
               </tr>
@@ -960,6 +1487,9 @@ export default function AdminPage() {
                   <td className="p-3">{reservation.date_sortie || "-"}</td>
                   <td className="p-3">{reservation.depart || "-"}</td>
                   <td className="p-3">
+                    {getBaleinesManualOrigin(reservation.participants) || "-"}
+                  </td>
+                  <td className="p-3">
                     {reservation.responsable_prenom}{" "}
                     {reservation.responsable_nom}
                   </td>
@@ -970,8 +1500,22 @@ export default function AdminPage() {
                   <td className="p-3">
                     {countParticipants(reservation.participants)}
                   </td>
+                  <td className="p-3">
+                    {countBaleinesRole(reservation.participants, "mise_eau")} ME
+                    /{" "}
+                    {countBaleinesRole(reservation.participants, "observateur")}{" "}
+                    obs.
+                  </td>
                   <td className="p-3">{formatXpf(reservation.montant_total)}</td>
-                  <td className="p-3">{reservation.statut_paiement || "-"}</td>
+                  <td className="p-3">
+                    {reservation.source_paiement ===
+                    "paiement_externe_a_facturer"
+                      ? "paiement externe / a facturer"
+                      : reservation.statut_paiement || "-"}
+                  </td>
+                  <td className="p-3">
+                    {getBaleinesManualComment(reservation.participants) || "-"}
+                  </td>
                   <td className="p-3">
                     {reservation.facture_url ? (
                       <button
@@ -997,7 +1541,7 @@ export default function AdminPage() {
 
               {reservationsBaleines.length === 0 && (
                 <tr>
-                  <td className="p-4 text-slate-500" colSpan={10}>
+                  <td className="p-4 text-slate-500" colSpan={13}>
                     Aucune reservation baleines.
                   </td>
                 </tr>
