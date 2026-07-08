@@ -1,3 +1,5 @@
+import { getPermisRequiredDocumentLabels } from "./permisDocuments";
+
 export type PermisInvoicePricingType =
   | "normal"
   | "promo_internet"
@@ -109,6 +111,9 @@ export function buildPermisInvoicePdf(
   const designation = `Permis cotier - Formule ${formula}`;
   const pricingLabel = getPricingLabel(reservation.pricing_type);
   const invoiceDate = paidAt.toLocaleDateString("fr-FR");
+  const documentLines = getPermisRequiredDocumentLabels(reservation.formule).map(
+    (document, index) => textLine(`[x] ${document}`, 42, 304 - index * 16, 10)
+  );
 
   const content = [
     "0.05 0.30 0.40 rg",
@@ -161,16 +166,15 @@ export function buildPermisInvoicePdf(
     filledRect(42, 356, 511, 1),
     "0 0 0 rg",
     boldLine("Documents a completer", 42, 326, 13),
-    textLine("[x] Certificat medical", 42, 304, 10),
-    textLine("[x] Formulaire d'inscription", 42, 288, 10),
+    ...documentLines,
     textLine(
       "Ces documents sont disponibles au telechargement sur votre espace.",
       42,
-      268,
+      216,
       10
     ),
-    boldLine("Merci pour votre confiance.", 42, 208, 13),
-    textLine("Tahiti Trip Fishing", 42, 188, 10),
+    boldLine("Merci pour votre confiance.", 42, 176, 13),
+    textLine("Tahiti Trip Fishing", 42, 156, 10),
   ].join("\n");
 
   const objects = [

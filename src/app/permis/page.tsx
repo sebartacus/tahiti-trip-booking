@@ -569,7 +569,7 @@ const recap = (
   <ul className="list-disc ml-6 space-y-1">
     <li>Pièce d&apos;identité</li>
     <li>Photo d&apos;identité</li>
-    <li>Justificatif de domicile</li>
+    <li>Certificat d&apos;aptitude physique rempli par le médecin</li>
     <li>Formulaire d&apos;inscription complété</li>
 
     {formule === "Classique" ? (

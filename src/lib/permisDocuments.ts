@@ -21,3 +21,15 @@ export const permisDocumentAttachments = permisDocuments.map((document) => ({
   filename: document.filename,
   publicPath: document.publicPath,
 }));
+
+export function getPermisRequiredDocumentLabels(formule?: string | null) {
+  return [
+    "Pièce d'identité",
+    "Photo d'identité",
+    "Certificat d'aptitude physique rempli par le médecin",
+    "Formulaire d'inscription complété",
+    formule === "Classique"
+      ? "Timbres fiscaux à déposer auprès de Tahiti Trip Fishing"
+      : "Timbres fiscaux pris en charge par Tahiti Trip Fishing",
+  ];
+}

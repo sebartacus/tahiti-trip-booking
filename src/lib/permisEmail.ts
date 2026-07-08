@@ -1,6 +1,9 @@
 import { readFile } from "fs/promises";
 import * as path from "path";
-import { permisDocuments } from "./permisDocuments";
+import {
+  getPermisRequiredDocumentLabels,
+  permisDocuments,
+} from "./permisDocuments";
 import type { PermisInvoiceReservation } from "./permisInvoice";
 
 type EmailAttachment = {
@@ -73,6 +76,9 @@ export function buildPermisClientEmailHtml(
 ) {
   const certificateUrl = documentLink(baseUrl, permisDocuments[0].href);
   const formUrl = documentLink(baseUrl, permisDocuments[1].href);
+  const documentsList = getPermisRequiredDocumentLabels(reservation.formule)
+    .map((document) => `<li>${document}</li>`)
+    .join("");
 
   return `
     <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.55">
@@ -93,6 +99,9 @@ export function buildPermisClientEmailHtml(
       </ul>
 
       <h2>Documents a completer</h2>
+      <ul>
+        ${documentsList}
+      </ul>
       <p>Les documents officiels sont joints a cet email.</p>
       <p>
         Certificat medical :

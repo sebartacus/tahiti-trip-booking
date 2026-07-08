@@ -112,12 +112,16 @@ function getDayStatus(
 
   if (!morningAvailable && !afternoonAvailable) return "full";
 
+  const hasUnavailableBoatSlot =
+    (slots.morning && slots.morning.status !== "available") ||
+    (slots.afternoon && slots.afternoon.status !== "available");
+
   const hasExistingBooking =
     capacities["07:00"].miseEau > 0 ||
     capacities["07:00"].observateurs > 0 ||
     capacities["13:15"].miseEau > 0 ||
     capacities["13:15"].observateurs > 0 ||
-    Boolean(slots.morning || slots.afternoon);
+    Boolean(hasUnavailableBoatSlot);
 
   if (!morningAvailable || !afternoonAvailable || hasExistingBooking) {
     return "partial";
