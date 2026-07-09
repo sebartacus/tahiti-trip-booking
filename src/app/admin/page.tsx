@@ -56,6 +56,7 @@ type AdminPecheReservation = {
   montant_paye: number | null;
   type_paiement: string | null;
   statut_paiement: string | null;
+  paye: boolean | null;
   commentaire: string | null;
   facture_numero: string | null;
   facture_url: string | null;
@@ -93,6 +94,7 @@ type AdminBaleinesReservation = {
   participants: BaleinesParticipant[] | null;
   montant_total: number | null;
   statut_paiement: string | null;
+  paye: boolean | null;
   facture_numero: string | null;
   facture_url: string | null;
   email_sent: boolean | null;
@@ -162,10 +164,10 @@ const pecheFormulaLabels: Record<FormulaId, string> = {
 };
 
 const pecheAdminSelect =
-  "id,date_sortie,formule,origine,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,commentaire,facture_numero,facture_url,email_sent,email_sent_at";
+  "id,date_sortie,formule,origine,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,paye,commentaire,facture_numero,facture_url,email_sent,email_sent_at";
 
 const pecheAdminFallbackSelect =
-  "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at";
+  "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,paye,facture_numero,facture_url,email_sent,email_sent_at";
 
 const pricingTypeLabels: Record<string, string> = {
   normal: "Tarif normal",
@@ -197,6 +199,35 @@ function formatPechePayment(
   }
 
   return statutPaiement || "-";
+}
+
+function isPaidReservation(statutPaiement: string | null, paye: boolean | null) {
+  return paye === true || statutPaiement === "paid" || statutPaiement === "paye";
+}
+
+function canCancelPecheReservation(reservation: AdminPecheReservation) {
+  if (reservation.statut_paiement === "cancelled") return false;
+  if (isPaidReservation(reservation.statut_paiement, reservation.paye)) {
+    return false;
+  }
+
+  return (
+    reservation.type_paiement === "external_invoice" ||
+    reservation.statut_paiement === "paiement_externe_a_facturer" ||
+    reservation.statut_paiement === "pending"
+  );
+}
+
+function canCancelBaleinesReservation(reservation: AdminBaleinesReservation) {
+  if (reservation.statut_paiement === "cancelled") return false;
+  if (isPaidReservation(reservation.statut_paiement, reservation.paye)) {
+    return false;
+  }
+
+  return (
+    reservation.source_paiement === "paiement_externe_a_facturer" ||
+    reservation.statut_paiement === "pending"
+  );
 }
 
 function formatXpf(value: number | null) {
@@ -347,6 +378,7 @@ export default function AdminPage() {
     useState(false);
   const [messageBaleinesManuel, setMessageBaleinesManuel] = useState("");
   const [erreurBaleinesManuel, setErreurBaleinesManuel] = useState("");
+  const [annulationEnCours, setAnnulationEnCours] = useState("");
 
   useEffect(() => {
     if (!accesAutorise) return;
@@ -404,7 +436,7 @@ export default function AdminPage() {
     const { data, error } = await supabase
       .from("reservations_baleines")
       .select(
-        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,participants,montant_total,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at,source_paiement"
+        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,participants,montant_total,statut_paiement,paye,facture_numero,facture_url,email_sent,email_sent_at,source_paiement"
       )
       .order("date_sortie", { ascending: false });
 
@@ -483,6 +515,46 @@ export default function AdminPage() {
     }
 
     window.open(data.signedUrl, "_blank");
+  }
+
+  async function annulerReservationBateau(
+    reservationTable: "reservations_peche" | "reservations_baleines",
+    reservationId: string
+  ) {
+    if (!window.confirm("Confirmer l'annulation de cette reservation ?")) {
+      return;
+    }
+
+    const key = `${reservationTable}:${reservationId}`;
+    setAnnulationEnCours(key);
+
+    try {
+      const response = await fetch("/api/admin/reservation/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-password": motDePasse,
+        },
+        body: JSON.stringify({ reservationTable, reservationId }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        alert(payload.error || "Impossible d'annuler la reservation.");
+        return;
+      }
+
+      if (reservationTable === "reservations_peche") {
+        await chargerReservationsPeche();
+      } else {
+        await chargerReservationsBaleines();
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Impossible d'annuler la reservation.");
+    } finally {
+      setAnnulationEnCours("");
+    }
   }
 
   async function modifierStatut(id: number, statut: string) {
@@ -1553,6 +1625,7 @@ export default function AdminPage() {
                 <th className="p-3 text-left">Commentaire</th>
                 <th className="p-3 text-left">Facture</th>
                 <th className="p-3 text-left">Email envoye</th>
+                <th className="p-3 text-left">Action</th>
               </tr>
             </thead>
 
@@ -1601,12 +1674,36 @@ export default function AdminPage() {
                       {formatDateTime(reservation.email_sent_at)}
                     </div>
                   </td>
+                  <td className="p-3">
+                    {canCancelPecheReservation(reservation) ? (
+                      <button
+                        onClick={() =>
+                          annulerReservationBateau(
+                            "reservations_peche",
+                            reservation.id
+                          )
+                        }
+                        disabled={
+                          annulationEnCours ===
+                          `reservations_peche:${reservation.id}`
+                        }
+                        className="cursor-pointer rounded bg-red-700 px-3 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {annulationEnCours ===
+                        `reservations_peche:${reservation.id}`
+                          ? "Annulation..."
+                          : "Annuler"}
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                 </tr>
               ))}
 
               {reservationsPeche.length === 0 && (
                 <tr>
-                  <td className="p-4 text-slate-500" colSpan={12}>
+                  <td className="p-4 text-slate-500" colSpan={13}>
                     Aucune reservation peche.
                   </td>
                 </tr>
@@ -1826,6 +1923,7 @@ export default function AdminPage() {
                 <th className="p-3 text-left">Commentaire</th>
                 <th className="p-3 text-left">Facture</th>
                 <th className="p-3 text-left">Email envoye</th>
+                <th className="p-3 text-left">Action</th>
               </tr>
             </thead>
 
@@ -1884,12 +1982,36 @@ export default function AdminPage() {
                       {formatDateTime(reservation.email_sent_at)}
                     </div>
                   </td>
+                  <td className="p-3">
+                    {canCancelBaleinesReservation(reservation) ? (
+                      <button
+                        onClick={() =>
+                          annulerReservationBateau(
+                            "reservations_baleines",
+                            reservation.id
+                          )
+                        }
+                        disabled={
+                          annulationEnCours ===
+                          `reservations_baleines:${reservation.id}`
+                        }
+                        className="cursor-pointer rounded bg-red-700 px-3 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {annulationEnCours ===
+                        `reservations_baleines:${reservation.id}`
+                          ? "Annulation..."
+                          : "Annuler"}
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                 </tr>
               ))}
 
               {reservationsBaleines.length === 0 && (
                 <tr>
-                  <td className="p-4 text-slate-500" colSpan={13}>
+                  <td className="p-4 text-slate-500" colSpan={14}>
                     Aucune reservation baleines.
                   </td>
                 </tr>
