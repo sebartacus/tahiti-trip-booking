@@ -9,10 +9,10 @@ type PecheVideoItem = {
 
 const pecheVideos: PecheVideoItem[] = [
   {
-    id: "haura-tetiaroa-2025-06",
-    title: "Haura Tetiaroa 06/2025",
-    src: "/videos/peche/Haura%20Tetiaroa%2006_2025.mp4",
-    poster: "/images/peche/marlin.jpg",
+    id: "peche-sorties",
+    title: "Quelques images de nos sorties pêche",
+    src: "/videos/peche/haura-tetiaroa-2025.mp4",
+    poster: "/images/peche/video-cover.jpg",
   },
 ];
 
