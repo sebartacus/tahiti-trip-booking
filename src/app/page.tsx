@@ -1,5 +1,29 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { FilmHeroBackground } from "@/components/FilmHeroBackground";
+
+export const metadata: Metadata = {
+  title: "Tahiti Trip Fishing | Pêche, baleines et permis bateau à Tahiti",
+  description:
+    "Réservez vos sorties pêche au gros, observation des baleines et formations permis bateau avec Tahiti Trip Fishing au départ de Tahiti.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Tahiti Trip Fishing | Expériences en mer à Tahiti",
+    description:
+      "Pêche au gros, observation des baleines, sorties privées et permis bateau à Tahiti.",
+    url: "https://tahiti-trip.com",
+    images: [
+      {
+        url: "/images/peche/hero.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Sortie en mer avec Tahiti Trip Fishing",
+      },
+    ],
+  },
+};
 
 const whatsappUrl =
   "https://wa.me/68987321631?text=Ia%20orana%2C%20je%20souhaite%20r%C3%A9server%20une%20exp%C3%A9rience%20avec%20Tahiti%20Trip%20Fishing.";
@@ -80,7 +104,7 @@ const defaultHero = {
     "Pêche au gros, observation des baleines et permis côtier avec une équipe locale passionnée.",
   primaryHref: "#experiences",
   primaryLabel: "Réserver maintenant",
-  secondaryHref: "#contact",
+  secondaryHref: "/contact",
   secondaryLabel: "Nous contacter",
   quickInfos: [] as string[],
 };
@@ -117,9 +141,30 @@ export default async function Home({
   const theme = firstParam(params.theme);
   const isWhaleTheme = theme === "baleines";
   const hero = isWhaleTheme ? whaleHero : defaultHero;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": ["LocalBusiness", "TouristTrip"],
+    name: "Tahiti Trip Fishing",
+    url: "https://tahiti-trip.com",
+    telephone: "+68987321631",
+    email: "contact@tahiti-trip.com",
+    image: "https://tahiti-trip.com/images/peche/hero.jpg",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Punaauia",
+      addressRegion: "Tahiti",
+      addressCountry: "PF",
+    },
+    areaServed: "Tahiti, Polynésie française",
+    touristType: ["Pêche au gros", "Observation des baleines", "Permis bateau"],
+  };
 
   return (
     <main className="min-h-screen bg-white text-slate-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <section className="relative min-h-screen overflow-hidden bg-cyan-950 text-white">
         {isWhaleTheme ? (
           <div
@@ -148,7 +193,7 @@ export default async function Home({
               <Link href="/peche">Pêche</Link>
               <Link href="/baleines">Baleines</Link>
               <Link href="/permis">Permis</Link>
-              <a href="#contact">Contact</a>
+              <Link href="/contact">Contact</Link>
             </nav>
           </header>
 
