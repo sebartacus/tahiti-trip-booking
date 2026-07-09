@@ -6,6 +6,10 @@ export const metadata: Metadata = {
     "Réservez une sortie d'observation des baleines à Tahiti en petit comité, encadrée par une équipe locale au départ de Marina Taina.",
   alternates: {
     canonical: "/baleines",
+    languages: {
+      fr: "/baleines",
+      en: "/en/whale-watching",
+    },
   },
   openGraph: {
     title: "Observation des baleines à Tahiti | Tahiti Trip Fishing",

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import type { WhaleWatchingTranslations } from "@/lib/i18n";
+import { whaleWatchingTranslations } from "@/lib/i18n";
 import {
   MAX_MISE_EAU,
   MAX_OBSERVATEURS,
@@ -24,17 +26,13 @@ type Capacities = Record<Depart, { miseEau: number; observateurs: number }>;
 type BaleinesAvailabilityCalendarProps = {
   selectedDate: string;
   onDateSelect: (date: string) => void;
+  t?: WhaleWatchingTranslations;
 };
 
 const emptyCapacities: Capacities = {
   "07:00": { miseEau: 0, observateurs: 0 },
   "13:15": { miseEau: 0, observateurs: 0 },
 };
-const monthFormatter = new Intl.DateTimeFormat("fr-FR", {
-  month: "long",
-  year: "numeric",
-});
-const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -153,6 +151,7 @@ function dayClasses(status: DayStatus, selected: boolean) {
 export function BaleinesAvailabilityCalendar({
   selectedDate,
   onDateSelect,
+  t = whaleWatchingTranslations.fr,
 }: BaleinesAvailabilityCalendarProps) {
   const [monthDate, setMonthDate] = useState(() => {
     const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
@@ -166,6 +165,14 @@ export function BaleinesAvailabilityCalendar({
   const [error, setError] = useState("");
   const minDate = todayIso();
   const bounds = useMemo(() => getMonthBounds(monthDate), [monthDate]);
+  const monthFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(t.calendar.locale, {
+        month: "long",
+        year: "numeric",
+      }),
+    [t.calendar.locale]
+  );
 
   const slotsByDate = useMemo(() => {
     const map = new Map<string, Partial<Record<BoatSlotName, BoatCalendarSlot>>>();
@@ -219,13 +226,13 @@ export function BaleinesAvailabilityCalendar({
 
         if (!calendarResponse.ok) {
           setSlots([]);
-          setError(calendarPayload.error || "Disponibilités indisponibles.");
+          setError(calendarPayload.error || t.calendar.error);
           return;
         }
 
         if (reservationsResponse.error) {
           setCapacitiesByDate(new Map());
-          setError("Disponibilités indisponibles.");
+          setError(t.calendar.error);
           return;
         }
 
@@ -254,14 +261,14 @@ export function BaleinesAvailabilityCalendar({
       } catch {
         setSlots([]);
         setCapacitiesByDate(new Map());
-        setError("Disponibilités indisponibles.");
+        setError(t.calendar.error);
       } finally {
         setLoading(false);
       }
     }
 
     loadMonth();
-  }, [bounds.from, bounds.to]);
+  }, [bounds.from, bounds.to, t.calendar.error]);
 
   function changeMonth(offset: number) {
     setMonthDate(
@@ -276,7 +283,7 @@ export function BaleinesAvailabilityCalendar({
           type="button"
           onClick={() => changeMonth(-1)}
           className="min-h-10 rounded-xl border border-cyan-100 bg-white px-4 text-sm font-black text-cyan-900 transition hover:border-cyan-300"
-          aria-label="Mois précédent"
+          aria-label={t.calendar.previousMonth}
         >
           ‹
         </button>
@@ -287,14 +294,14 @@ export function BaleinesAvailabilityCalendar({
           type="button"
           onClick={() => changeMonth(1)}
           className="min-h-10 rounded-xl border border-cyan-100 bg-white px-4 text-sm font-black text-cyan-900 transition hover:border-cyan-300"
-          aria-label="Mois suivant"
+          aria-label={t.calendar.nextMonth}
         >
           ›
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">
-        {dayLabels.map((label, index) => (
+        {t.calendar.dayLabels.map((label, index) => (
           <div key={`${label}-${index}`}>{label}</div>
         ))}
       </div>
@@ -321,17 +328,17 @@ export function BaleinesAvailabilityCalendar({
       </div>
 
       <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600 sm:grid-cols-3">
-        <LegendDot className="bg-white ring-cyan-200" label="Disponible" />
+        <LegendDot className="bg-white ring-cyan-200" label={t.calendar.available} />
         <LegendDot
           className="bg-amber-50 ring-amber-300"
-          label="Partiellement disponible"
+          label={t.calendar.partial}
         />
-        <LegendDot className="bg-rose-50 ring-rose-200" label="Complet" />
+        <LegendDot className="bg-rose-50 ring-rose-200" label={t.calendar.full} />
       </div>
 
       {(loading || error) && (
         <p className="mt-3 text-sm font-bold text-slate-500">
-          {error || "Chargement des disponibilités..."}
+          {error || t.calendar.loading}
         </p>
       )}
     </div>

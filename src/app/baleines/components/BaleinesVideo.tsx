@@ -1,8 +1,10 @@
 "use client";
 
+import type { WhaleWatchingTranslations } from "@/lib/i18n";
+import { whaleWatchingTranslations } from "@/lib/i18n";
+
 type BaleinesVideoItem = {
   id: string;
-  title: string;
   src: string;
   poster: string;
 };
@@ -10,23 +12,28 @@ type BaleinesVideoItem = {
 const baleinesVideos: BaleinesVideoItem[] = [
   {
     id: "rencontres-baleines",
-    title: "Quelques images de nos rencontres avec les baleines",
     src: "/videos/baleines/baleines-rencontre-web.mp4",
     poster: "/images/baleines/video-cover.jpg",
   },
 ];
 
-export function BaleinesVideo() {
+type BaleinesVideoProps = {
+  t?: WhaleWatchingTranslations;
+};
+
+export function BaleinesVideo({
+  t = whaleWatchingTranslations.fr,
+}: BaleinesVideoProps) {
   const video = baleinesVideos[0];
 
   return (
     <section className="peche-reveal mx-auto w-full max-w-5xl px-4 py-8 md:py-10">
       <div className="mb-4">
         <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
-          Video
+          {t.video.eyebrow}
         </p>
         <h2 className="mt-2 text-3xl font-black text-slate-950">
-          {video.title}
+          {t.video.title}
         </h2>
       </div>
 

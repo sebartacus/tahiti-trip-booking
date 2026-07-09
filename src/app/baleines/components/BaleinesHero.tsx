@@ -1,10 +1,19 @@
+import type { WhaleWatchingTranslations } from "@/lib/i18n";
+import { whaleWatchingTranslations } from "@/lib/i18n";
+
 const heroImage = "/images/baleines/hero.jpg";
 
-export function BaleinesHero() {
+type BaleinesHeroProps = {
+  t?: WhaleWatchingTranslations;
+};
+
+export function BaleinesHero({
+  t = whaleWatchingTranslations.fr,
+}: BaleinesHeroProps) {
   return (
     <section className="relative min-h-[86svh] overflow-hidden bg-cyan-50 text-white">
       <div
-        aria-label="Observation des baleines à Tahiti"
+        aria-label={t.hero.imageAlt}
         className="absolute inset-0 bg-cover bg-center"
         role="img"
         style={{ backgroundImage: `url('${heroImage}')` }}
@@ -15,13 +24,13 @@ export function BaleinesHero() {
           Tahiti Trip Fishing
         </p>
         <h1 className="mt-3 max-w-xl text-[2.1rem] font-black leading-[0.98] md:text-5xl">
-          Observation des baleines à Tahiti
+          {t.hero.title}
         </h1>
         <p className="mt-4 max-w-xl text-xl font-bold leading-8 text-cyan-50">
-          Nage avec les baleines en petit comité.
+          {t.hero.subtitle}
         </p>
         <p className="mt-2 max-w-xl text-base font-black uppercase tracking-[0.14em] text-cyan-50">
-          ✓ Sans rotation de groupes
+          {t.hero.note}
         </p>
       </div>
     </section>

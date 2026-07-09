@@ -1,3 +1,5 @@
+import type { WhaleWatchingTranslations } from "@/lib/i18n";
+import { whaleWatchingTranslations } from "@/lib/i18n";
 import type { Participant, Role } from "../lib/types";
 import {
   POINTURES_PALMES,
@@ -24,6 +26,7 @@ type ParticipantFormProps = {
   onEmailChange: (value: string) => void;
   onTelephoneChange: (value: string) => void;
   onRemove: (index: number) => void;
+  t?: WhaleWatchingTranslations;
 };
 
 export function ParticipantForm({
@@ -39,6 +42,7 @@ export function ParticipantForm({
   onEmailChange,
   onTelephoneChange,
   onRemove,
+  t = whaleWatchingTranslations.fr,
 }: ParticipantFormProps) {
   const isResponsable = index === 0;
   const showEquipment = participant.role === "mise_eau";
@@ -59,11 +63,13 @@ export function ParticipantForm({
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-black text-slate-950">
-            Participant {index + 1}
-            {isResponsable ? " (Responsable)" : ""}
+            {t.participantForm.participant} {index + 1}
+            {isResponsable ? ` (${t.participantForm.manager})` : ""}
           </h3>
           <p className="mt-1 text-sm font-semibold text-slate-500">
-            {participant.role === "mise_eau" ? "Mise à l'eau" : "Observateur"}
+            {participant.role === "mise_eau"
+              ? t.participantForm.waterEntry
+              : t.participantForm.observer}
           </p>
         </div>
 
@@ -73,14 +79,14 @@ export function ParticipantForm({
             onClick={() => onRemove(index)}
             className="min-h-11 rounded-2xl border border-red-100 px-4 text-sm font-black text-red-600"
           >
-            Supprimer
+            {t.participantForm.remove}
           </button>
         )}
       </div>
 
       <div className="grid gap-3">
         <input
-          placeholder="Prénom"
+          placeholder={t.participantForm.firstName}
           value={participant.prenom}
           onChange={(event) =>
             onParticipantChange(index, "prenom", event.target.value)
@@ -89,7 +95,7 @@ export function ParticipantForm({
         />
 
         <input
-          placeholder="Nom"
+          placeholder={t.participantForm.lastName}
           value={participant.nom}
           onChange={(event) =>
             onParticipantChange(index, "nom", event.target.value)
@@ -101,7 +107,7 @@ export function ParticipantForm({
           <>
             <input
               type="tel"
-              placeholder="Téléphone"
+              placeholder={t.participantForm.phone}
               value={responsableTelephone}
               onChange={(event) => onTelephoneChange(event.target.value)}
               className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 text-base font-semibold outline-none transition focus:border-cyan-600 focus:bg-white"
@@ -109,7 +115,7 @@ export function ParticipantForm({
 
             <input
               type="email"
-              placeholder="Email"
+              placeholder={t.participantForm.email}
               value={responsableEmail}
               onChange={(event) => onEmailChange(event.target.value)}
               className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 text-base font-semibold outline-none transition focus:border-cyan-600 focus:bg-white"
@@ -121,7 +127,7 @@ export function ParticipantForm({
           type="number"
           min="1"
           max="100"
-          placeholder="Âge"
+          placeholder={t.participantForm.age}
           value={participant.age}
           onChange={(event) =>
             onParticipantChange(index, "age", event.target.value)
@@ -138,16 +144,16 @@ export function ParticipantForm({
           className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 text-base font-semibold outline-none transition focus:border-cyan-600 focus:bg-white"
         >
           <option value="mise_eau" disabled={!canChooseMiseEau}>
-            Mise à l&apos;eau
+            {t.participantForm.waterEntry}
           </option>
           <option value="observateur" disabled={!canSwitchToObservateur}>
-            Observateur
+            {t.participantForm.observer}
           </option>
         </select>
 
         {isUnderWaterTooYoung && (
           <p className="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-semibold text-cyan-800">
-            La mise à l&apos;eau est autorisée à partir de 12 ans.
+            {t.participantForm.minimumAge}
           </p>
         )}
       </div>
@@ -165,7 +171,7 @@ export function ParticipantForm({
               onBlur={(event) => handleMaterialChange(event.currentTarget.checked)}
               className="h-6 w-6 touch-manipulation"
             />
-            Matériel personnel
+            {t.participantForm.personalGear}
           </label>
 
           {showEquipment && (
@@ -181,7 +187,7 @@ export function ParticipantForm({
                 }
                 className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-white px-4 text-base font-semibold outline-none transition focus:border-cyan-600"
               >
-                <option value="">Taille combinaison</option>
+                <option value="">{t.participantForm.wetsuitSize}</option>
                 {TAILLES_COMBI.map((taille) => (
                   <option key={taille} value={taille}>
                     {taille}
@@ -200,7 +206,7 @@ export function ParticipantForm({
                 }
                 className="min-h-14 touch-manipulation rounded-2xl border border-cyan-100 bg-white px-4 text-base font-semibold outline-none transition focus:border-cyan-600"
               >
-                <option value="">Pointure palmes</option>
+                <option value="">{t.participantForm.finSize}</option>
                 {POINTURES_PALMES.map((pointure) => (
                   <option key={pointure} value={pointure}>
                     {pointure}

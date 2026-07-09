@@ -1,3 +1,5 @@
+import type { WhaleWatchingTranslations } from "@/lib/i18n";
+import { whaleWatchingTranslations } from "@/lib/i18n";
 import type { Depart } from "../lib/types";
 
 type DepartureStepProps = {
@@ -11,19 +13,21 @@ type DepartureStepProps = {
     }
   >;
   onDepartChange: (depart: Depart) => void;
+  t?: WhaleWatchingTranslations;
 };
-
-const departures: Array<{ value: Depart; title: string; label: string }> = [
-  { value: "07:00", title: "07:00", label: "Départ matin" },
-  { value: "13:15", title: "13:15", label: "Départ après-midi" },
-];
 
 export function DepartureStep({
   depart,
   availability,
   capacities,
   onDepartChange,
+  t = whaleWatchingTranslations.fr,
 }: DepartureStepProps) {
+  const departures: Array<{ value: Depart; title: string; label: string }> = [
+    { value: "07:00", title: "07:00", label: t.departureStep.morning },
+    { value: "13:15", title: "13:15", label: t.departureStep.afternoon },
+  ];
+
   function selectDepart(value: Depart) {
     if (!availability[value]) return;
     onDepartChange(value);
@@ -33,10 +37,10 @@ export function DepartureStep({
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-black leading-tight text-slate-950">
-          Choisissez votre départ
+          {t.departureStep.title}
         </h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          Deux horaires, une sortie en petit comité.
+          {t.departureStep.text}
         </p>
       </div>
 
@@ -86,7 +90,7 @@ export function DepartureStep({
                     : "bg-red-50 text-red-700",
                 ].join(" ")}
               >
-                {available ? "Disponible" : "Complet"}
+                {available ? t.departureStep.available : t.departureStep.full}
               </span>
               <div
                 className={[
@@ -95,10 +99,10 @@ export function DepartureStep({
                 ].join(" ")}
               >
                 <span className="rounded-xl bg-white/70 px-3 py-2 text-slate-800">
-                  {capacity.miseEau}/6 nageurs
+                  {capacity.miseEau}/6 {t.departureStep.swimmers}
                 </span>
                 <span className="rounded-xl bg-white/70 px-3 py-2 text-slate-800">
-                  {capacity.observateurs}/2 observateurs
+                  {capacity.observateurs}/2 {t.departureStep.observers}
                 </span>
               </div>
             </button>
