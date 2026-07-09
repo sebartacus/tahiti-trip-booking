@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const ALLOWED_TABLES = new Set(["reservations_peche", "reservations_baleines"]);
 
@@ -15,6 +15,24 @@ type ReservationRecord = {
   type_paiement?: string | null;
   source_paiement?: string | null;
 };
+
+function getAdminSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "Configuration Supabase admin manquante: NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY."
+    );
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -50,7 +68,11 @@ function validateAdminPassword(request: Request) {
   return request.headers.get("x-admin-password") === configuredPassword;
 }
 
-async function findReservation(table: string, reservationId: string) {
+async function findReservation(
+  supabase: SupabaseClient,
+  table: string,
+  reservationId: string
+) {
   if (table === "reservations_peche") {
     return supabase
       .from("reservations_peche")
@@ -66,7 +88,11 @@ async function findReservation(table: string, reservationId: string) {
     .maybeSingle();
 }
 
-async function cancelReservation(table: string, reservationId: string) {
+async function cancelReservation(
+  supabase: SupabaseClient,
+  table: string,
+  reservationId: string
+) {
   return supabase
     .from(table)
     .update({
@@ -78,11 +104,19 @@ async function cancelReservation(table: string, reservationId: string) {
     .single();
 }
 
-async function deleteReservation(table: string, reservationId: string) {
+async function deleteReservation(
+  supabase: SupabaseClient,
+  table: string,
+  reservationId: string
+) {
   return supabase.from(table).delete().eq("id", reservationId).select("id");
 }
 
-async function releaseBoatSlots(table: string, reservationId: string) {
+async function releaseBoatSlots(
+  supabase: SupabaseClient,
+  table: string,
+  reservationId: string
+) {
   return supabase
     .from("boat_calendar_slots")
     .update({
@@ -135,7 +169,30 @@ export async function POST(request: Request) {
     );
   }
 
-  const reservation = await findReservation(reservationTable, reservationId);
+  let supabaseAdmin: SupabaseClient;
+
+  try {
+    supabaseAdmin = getAdminSupabaseClient();
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Configuration Supabase admin manquante.";
+
+    console.error("[admin-cancel] admin client config error", {
+      reservationTable,
+      reservationId,
+      error,
+    });
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  const reservation = await findReservation(
+    supabaseAdmin,
+    reservationTable,
+    reservationId
+  );
 
   console.log("[admin-cancel] findReservation result", {
     reservationTable,
@@ -198,7 +255,11 @@ export async function POST(request: Request) {
       reservationId,
     });
 
-    const cancellation = await cancelReservation(reservationTable, reservationId);
+    const cancellation = await cancelReservation(
+      supabaseAdmin,
+      reservationTable,
+      reservationId
+    );
 
     console.log("[admin-cancel] update result", {
       reservationTable,
@@ -225,7 +286,11 @@ export async function POST(request: Request) {
       reservationId,
     });
 
-    const deletion = await deleteReservation(reservationTable, reservationId);
+    const deletion = await deleteReservation(
+      supabaseAdmin,
+      reservationTable,
+      reservationId
+    );
 
     console.log("[admin-cancel] delete result", {
       reservationTable,
@@ -250,7 +315,11 @@ export async function POST(request: Request) {
     action = "deleted";
   }
 
-  const releasedSlots = await releaseBoatSlots(reservationTable, reservationId);
+  const releasedSlots = await releaseBoatSlots(
+    supabaseAdmin,
+    reservationTable,
+    reservationId
+  );
 
   console.log("[admin-cancel] release slots result", {
     reservationTable,
