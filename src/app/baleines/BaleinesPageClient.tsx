@@ -526,7 +526,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
         reservationId: data.id,
         reservationTable: "reservations_baleines",
         activity: "baleines",
-        returnUrl: `/baleines/success?reservationId=${data.id}`,
+        returnUrl: `/baleines/success?reservationId=${data.id}&locale=${locale}`,
       }),
     });
 

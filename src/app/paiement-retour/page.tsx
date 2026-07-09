@@ -17,7 +17,25 @@ type PaiementRetourSearchParams = {
   reservation_id?: string | string[];
   id?: string | string[];
   reservationTable?: string | string[];
+  locale?: string | string[];
 };
+
+const copy = {
+  fr: {
+    title: "Retour de paiement",
+    kicker: "Paiement non confirme.",
+    text: "Le retour boutique ne valide jamais une reservation. Si PayZen confirme le paiement par notification serveur, votre reservation sera confirmee automatiquement.",
+    button: "Retour a l'accueil",
+    href: "/",
+  },
+  en: {
+    title: "Payment return",
+    kicker: "Payment not confirmed",
+    text: "Your booking has not been confirmed because the payment was not completed.",
+    button: "Back to booking",
+    href: "/en",
+  },
+} as const;
 
 function normalizeReservationTable(value: string) {
   if (value === "reservations_peche" || value === "reservations_baleines") {
@@ -27,12 +45,18 @@ function normalizeReservationTable(value: string) {
   return "";
 }
 
+function getLocale(value: string | string[] | undefined) {
+  return firstParam(value) === "en" ? "en" : "fr";
+}
+
 export default async function PaiementRetourPage({
   searchParams,
 }: {
   searchParams?: Promise<PaiementRetourSearchParams>;
 }) {
   const params = searchParams ? await searchParams : {};
+  const locale = getLocale(params.locale);
+  const t = copy[locale];
   const reservationId = getReturnReservationId(params);
   const payzenStatus = getPayzenReturnStatus(params);
   const reservationTable = normalizeReservationTable(
@@ -58,21 +82,17 @@ export default async function PaiementRetourPage({
   return (
     <main className="min-h-screen bg-sky-950 p-6 text-white">
       <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 text-black">
-        <h1 className="mb-4 text-3xl font-bold">Retour de paiement</h1>
+        <h1 className="mb-4 text-3xl font-bold">{t.title}</h1>
 
-        <p className="mb-4">Paiement non confirme.</p>
+        <p className="mb-4">{t.kicker}</p>
 
-        <p>
-          Le retour boutique ne valide jamais une reservation. Si PayZen
-          confirme le paiement par notification serveur, votre reservation sera
-          confirmee automatiquement.
-        </p>
+        <p>{t.text}</p>
 
         <Link
-          href="/"
+          href={t.href}
           className="mt-6 inline-block rounded-xl bg-yellow-500 px-5 py-3 font-bold text-black"
         >
-          Retour a l&apos;accueil
+          {t.button}
         </Link>
       </div>
     </main>

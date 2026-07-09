@@ -223,7 +223,7 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
       return;
     }
 
-    const returnUrl = `/peche/success?formule=${selectedFormula.id}&paiement=${paymentType}&reservationId=${reservation.reservationId}`;
+    const returnUrl = `/peche/success?formule=${selectedFormula.id}&paiement=${paymentType}&reservationId=${reservation.reservationId}&locale=${locale}`;
     const payzenResponse = await fetch("/api/payzen", {
       method: "POST",
       headers: {
