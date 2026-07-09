@@ -216,10 +216,10 @@ export function BaleinesAvailabilityCalendar({
           fetch(`/api/bateau/calendar?from=${bounds.from}&to=${bounds.to}`),
           supabase
             .from("reservations_baleines")
-            .select("date_sortie,depart,participants,statut_paiement")
+            .select("date_sortie,depart,participants,statut_paiement,paye")
             .gte("date_sortie", bounds.from)
             .lte("date_sortie", bounds.to)
-            .in("statut_paiement", ["pending", "paid", "paye"]),
+            .or("paye.eq.true,statut_paiement.in.(paid,paye)"),
         ]);
 
         const calendarPayload = await calendarResponse.json();

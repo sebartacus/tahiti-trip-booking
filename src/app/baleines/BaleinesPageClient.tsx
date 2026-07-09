@@ -194,9 +194,9 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
   async function chargerCapacitesBaleines(selectedDate: string) {
     const { data, error } = await supabase
       .from("reservations_baleines")
-      .select("depart, participants, statut_paiement")
+      .select("depart, participants, statut_paiement, paye")
       .eq("date_sortie", selectedDate)
-      .in("statut_paiement", ["pending", "paid", "paye"]);
+      .or("paye.eq.true,statut_paiement.in.(paid,paye)");
 
     if (error) throw error;
 
@@ -526,7 +526,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
         reservationId: data.id,
         reservationTable: "reservations_baleines",
         activity: "baleines",
-        returnUrl: "/baleines/success",
+        returnUrl: `/baleines/success?reservationId=${data.id}`,
       }),
     });
 

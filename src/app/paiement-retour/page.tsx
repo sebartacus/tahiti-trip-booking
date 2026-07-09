@@ -1,25 +1,75 @@
-export default function PaiementRetourPage() {
-  return (
-    <main className="min-h-screen bg-sky-950 text-white p-6">
-      <div className="max-w-3xl mx-auto bg-white text-black rounded-2xl p-8">
-        <h1 className="text-3xl font-bold mb-4">
-          Retour de paiement
-        </h1>
+import Link from "next/link";
+import {
+  firstParam,
+  getPayzenReturnStatus,
+  getReturnReservationId,
+  isExplicitPayzenFailure,
+  markReservationPaymentFailed,
+  type PaymentReservationTable,
+} from "@/lib/paymentReturn";
 
-        <p className="mb-4">
-          Votre paiement est en cours de vérification.
-        </p>
+type PaiementRetourSearchParams = {
+  vads_order_id?: string | string[];
+  vads_trans_status?: string | string[];
+  vads_ext_info_reservation_table?: string | string[];
+  reservationId?: string | string[];
+  reservation_id?: string | string[];
+  id?: string | string[];
+  reservationTable?: string | string[];
+};
+
+function normalizeReservationTable(value: string) {
+  if (value === "reservations_peche" || value === "reservations_baleines") {
+    return value;
+  }
+
+  return "";
+}
+
+export default async function PaiementRetourPage({
+  searchParams,
+}: {
+  searchParams?: Promise<PaiementRetourSearchParams>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const reservationId = getReturnReservationId(params);
+  const payzenStatus = getPayzenReturnStatus(params);
+  const reservationTable = normalizeReservationTable(
+    firstParam(params.vads_ext_info_reservation_table) ||
+      firstParam(params.reservationTable) ||
+      ""
+  );
+
+  if (
+    reservationId &&
+    reservationTable &&
+    isExplicitPayzenFailure(payzenStatus)
+  ) {
+    await markReservationPaymentFailed(
+      reservationTable as PaymentReservationTable,
+      reservationId
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-sky-950 p-6 text-white">
+      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 text-black">
+        <h1 className="mb-4 text-3xl font-bold">Retour de paiement</h1>
+
+        <p className="mb-4">Paiement non confirme.</p>
 
         <p>
-          Si le paiement a été accepté, votre réservation sera confirmée.
+          Le retour boutique ne valide jamais une reservation. Si PayZen
+          confirme le paiement par notification serveur, votre reservation sera
+          confirmee automatiquement.
         </p>
 
-        <a
-          href="/reprendre-reservation"
-          className="inline-block mt-6 bg-yellow-500 text-black font-bold px-5 py-3 rounded-xl"
+        <Link
+          href="/"
+          className="mt-6 inline-block rounded-xl bg-yellow-500 px-5 py-3 font-bold text-black"
         >
-          Reprendre ma réservation
-        </a>
+          Retour a l&apos;accueil
+        </Link>
       </div>
     </main>
   );

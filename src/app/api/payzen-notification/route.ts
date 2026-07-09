@@ -21,6 +21,10 @@ import {
   sendBaleinesReservationEmails,
   type BaleinesEmailReservation,
 } from "@/lib/baleinesEmail";
+import {
+  markReservationPaymentFailed,
+  type PaymentReservationTable,
+} from "@/lib/paymentReturn";
 
 const ACCEPTED_STATUSES = new Set(["AUTHORISED"]);
 
@@ -182,6 +186,25 @@ export async function POST(request: Request) {
   });
 
   if (!ACCEPTED_STATUSES.has(statutPaiement)) {
+    if (
+      reservationId &&
+      (reservationTable === "reservations_baleines" ||
+        reservationTable === "reservations_peche")
+    ) {
+      const releaseError = await markReservationPaymentFailed(
+        reservationTable as PaymentReservationTable,
+        reservationId
+      );
+
+      if (releaseError) {
+        console.error(releaseError);
+        return NextResponse.json(
+          { error: "Erreur liberation paiement non autorise" },
+          { status: 500 }
+        );
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       message: "Paiement non autorise",
