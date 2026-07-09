@@ -79,7 +79,7 @@ async function cancelReservation(table: string, reservationId: string) {
 }
 
 async function deleteReservation(table: string, reservationId: string) {
-  return supabase.from(table).delete().eq("id", reservationId);
+  return supabase.from(table).delete().eq("id", reservationId).select("id");
 }
 
 async function releaseBoatSlots(table: string, reservationId: string) {
@@ -141,14 +141,19 @@ export async function POST(request: Request) {
     );
   }
 
-  if (reservation.data.statut_paiement === "cancelled") {
+  const manualReservation = isManualReservation(reservationTable, reservation.data);
+
+  if (
+    reservation.data.statut_paiement === "cancelled" &&
+    !manualReservation
+  ) {
     return NextResponse.json(
       { error: "Cette reservation est deja annulee." },
       { status: 409 }
     );
   }
 
-  let cancellationMode: "updated" | "deleted";
+  let action: "cancelled" | "deleted";
 
   if (shouldKeepHistory(reservationTable, reservation.data)) {
     const cancellation = await cancelReservation(reservationTable, reservationId);
@@ -160,18 +165,22 @@ export async function POST(request: Request) {
       );
     }
 
-    cancellationMode = "updated";
+    action = "cancelled";
   } else {
     const deletion = await deleteReservation(reservationTable, reservationId);
 
-    if (deletion.error) {
+    if (deletion.error || !deletion.data || deletion.data.length === 0) {
       return NextResponse.json(
-        { error: "Impossible d'annuler la reservation." },
+        {
+          error: deletion.error
+            ? `Impossible de supprimer la reservation: ${deletion.error.message}`
+            : "Impossible de supprimer la reservation: aucune ligne supprimee.",
+        },
         { status: 500 }
       );
     }
 
-    cancellationMode = "deleted";
+    action = "deleted";
   }
 
   const releasedSlots = await releaseBoatSlots(reservationTable, reservationId);
@@ -187,12 +196,10 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
+    action,
     reservationId,
     reservationTable,
-    cancellationMode,
-    reservationType: isManualReservation(reservationTable, reservation.data)
-      ? "manual"
-      : "payzen",
+    reservationType: manualReservation ? "manual" : "payzen",
     releasedSlots: releasedSlots.data || [],
   });
 }

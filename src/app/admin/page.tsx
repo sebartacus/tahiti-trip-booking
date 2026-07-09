@@ -202,13 +202,13 @@ function formatPechePayment(
 }
 
 function canCancelPecheReservation(reservation: AdminPecheReservation) {
-  if (reservation.statut_paiement === "cancelled") return false;
   if (
     reservation.statut_paiement === "paiement_externe_a_facturer" ||
     reservation.type_paiement === "external_invoice"
   ) {
     return true;
   }
+  if (reservation.statut_paiement === "cancelled") return false;
 
   return (
     reservation.paye !== true &&
@@ -218,10 +218,10 @@ function canCancelPecheReservation(reservation: AdminPecheReservation) {
 }
 
 function canCancelBaleinesReservation(reservation: AdminBaleinesReservation) {
-  if (reservation.statut_paiement === "cancelled") return false;
   if (reservation.source_paiement === "paiement_externe_a_facturer") {
     return true;
   }
+  if (reservation.statut_paiement === "cancelled") return false;
 
   return (
     reservation.paye !== true &&
@@ -379,6 +379,7 @@ export default function AdminPage() {
   const [messageBaleinesManuel, setMessageBaleinesManuel] = useState("");
   const [erreurBaleinesManuel, setErreurBaleinesManuel] = useState("");
   const [annulationEnCours, setAnnulationEnCours] = useState("");
+  const [erreurAnnulation, setErreurAnnulation] = useState("");
 
   useEffect(() => {
     if (!accesAutorise) return;
@@ -526,6 +527,7 @@ export default function AdminPage() {
     }
 
     const key = `${reservationTable}:${reservationId}`;
+    setErreurAnnulation("");
     setAnnulationEnCours(key);
 
     try {
@@ -538,9 +540,18 @@ export default function AdminPage() {
         body: JSON.stringify({ reservationTable, reservationId }),
       });
       const payload = await response.json();
+      console.error("Reponse annulation reservation admin", {
+        ok: response.ok,
+        status: response.status,
+        payload,
+        reservationTable,
+        reservationId,
+      });
 
       if (!response.ok) {
-        alert(payload.error || "Impossible d'annuler la reservation.");
+        setErreurAnnulation(
+          payload.error || "Impossible d'annuler la reservation."
+        );
         return;
       }
 
@@ -551,7 +562,7 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error(error);
-      alert("Impossible d'annuler la reservation.");
+      setErreurAnnulation("Impossible d'annuler la reservation.");
     } finally {
       setAnnulationEnCours("");
     }
@@ -1435,6 +1446,12 @@ export default function AdminPage() {
 
       <section id="reservations-peche" className="mt-10 scroll-mt-6">
         <h2 className="mb-4 text-2xl font-bold">Reservations Peche</h2>
+
+        {erreurAnnulation && (
+          <p className="mb-4 rounded-xl bg-red-50 p-3 font-bold text-red-700">
+            {erreurAnnulation}
+          </p>
+        )}
 
         <section className="mb-6 rounded-xl bg-white p-4 shadow md:p-6">
           <h3 className="text-xl font-bold">
