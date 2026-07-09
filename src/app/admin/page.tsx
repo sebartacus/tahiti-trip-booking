@@ -202,11 +202,32 @@ function formatPechePayment(
 }
 
 function canCancelPecheReservation(reservation: AdminPecheReservation) {
-  return reservation.statut_paiement !== "cancelled";
+  if (reservation.statut_paiement === "cancelled") return false;
+  if (
+    reservation.statut_paiement === "paiement_externe_a_facturer" ||
+    reservation.type_paiement === "external_invoice"
+  ) {
+    return true;
+  }
+
+  return (
+    reservation.paye !== true &&
+    reservation.statut_paiement !== "paid" &&
+    reservation.statut_paiement !== "paye"
+  );
 }
 
 function canCancelBaleinesReservation(reservation: AdminBaleinesReservation) {
-  return reservation.statut_paiement !== "cancelled";
+  if (reservation.statut_paiement === "cancelled") return false;
+  if (reservation.source_paiement === "paiement_externe_a_facturer") {
+    return true;
+  }
+
+  return (
+    reservation.paye !== true &&
+    reservation.statut_paiement !== "paid" &&
+    reservation.statut_paiement !== "paye"
+  );
 }
 
 function formatXpf(value: number | null) {

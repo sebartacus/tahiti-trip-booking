@@ -39,8 +39,8 @@ function isManualReservation(table: string, record: ReservationRecord) {
   return record.source_paiement === "paiement_externe_a_facturer";
 }
 
-function shouldKeepHistory(record: ReservationRecord) {
-  return isPaidReservation(record);
+function shouldKeepHistory(table: string, record: ReservationRecord) {
+  return !isManualReservation(table, record) && isPaidReservation(record);
 }
 
 function validateAdminPassword(request: Request) {
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
 
   let cancellationMode: "updated" | "deleted";
 
-  if (shouldKeepHistory(reservation.data)) {
+  if (shouldKeepHistory(reservationTable, reservation.data)) {
     const cancellation = await cancelReservation(reservationTable, reservationId);
 
     if (cancellation.error) {
