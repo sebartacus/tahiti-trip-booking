@@ -7,6 +7,7 @@ import {
   MAX_OBSERVATEURS,
 } from "@/app/baleines/lib/rules";
 import type { Depart, Role } from "@/app/baleines/lib/types";
+import { PECHE_FORMULAS, type FormulaId } from "@/components/peche/constants";
 import { getPermisPricing } from "@/lib/permisPricing";
 
 type AdminReservation = {
@@ -46,13 +47,16 @@ type AdminPecheReservation = {
   id: string;
   date_sortie: string | null;
   formule: string | null;
+  origine: string | null;
   responsable_prenom: string | null;
   responsable_nom: string | null;
   responsable_telephone: string | null;
   responsable_email: string | null;
   nombre_personnes: number | null;
   montant_paye: number | null;
+  type_paiement: string | null;
   statut_paiement: string | null;
+  commentaire: string | null;
   facture_numero: string | null;
   facture_url: string | null;
   email_sent: boolean | null;
@@ -109,6 +113,30 @@ type ManualBaleinesReservationForm = {
   commentaire: string;
 };
 
+type ManualPecheReservationForm = {
+  dateSortie: string;
+  formule: FormulaId;
+  origine: string;
+  responsablePrenom: string;
+  responsableNom: string;
+  telephone: string;
+  email: string;
+  nombreParticipants: string;
+  commentaire: string;
+};
+
+const initialManualPecheForm: ManualPecheReservationForm = {
+  dateSortie: "",
+  formule: "morning",
+  origine: "",
+  responsablePrenom: "",
+  responsableNom: "",
+  telephone: "",
+  email: "",
+  nombreParticipants: "1",
+  commentaire: "",
+};
+
 const initialManualBaleinesForm: ManualBaleinesReservationForm = {
   dateSortie: "",
   depart: "07:00",
@@ -127,6 +155,18 @@ const baleinesDepartSlots: Record<Depart, BoatSlotName> = {
   "13:15": "afternoon",
 };
 
+const pecheFormulaLabels: Record<FormulaId, string> = {
+  morning: "Demi-journee matin",
+  afternoon: "Demi-journee apres-midi",
+  full_day: "Journee complete",
+};
+
+const pecheAdminSelect =
+  "id,date_sortie,formule,origine,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,commentaire,facture_numero,facture_url,email_sent,email_sent_at";
+
+const pecheAdminFallbackSelect =
+  "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at";
+
 const pricingTypeLabels: Record<string, string> = {
   normal: "Tarif normal",
   promo_internet: "Promo Internet",
@@ -135,6 +175,28 @@ const pricingTypeLabels: Record<string, string> = {
 
 function formatPricingType(value: string | null) {
   return pricingTypeLabels[value || "normal"] || pricingTypeLabels.normal;
+}
+
+function formatPecheFormula(value: string | null) {
+  if (value === "morning" || value === "afternoon" || value === "full_day") {
+    return pecheFormulaLabels[value];
+  }
+
+  return value || "-";
+}
+
+function formatPechePayment(
+  statutPaiement: string | null,
+  typePaiement: string | null
+) {
+  if (
+    statutPaiement === "paiement_externe_a_facturer" ||
+    typePaiement === "external_invoice"
+  ) {
+    return "paiement externe / a facturer";
+  }
+
+  return statutPaiement || "-";
 }
 
 function formatXpf(value: number | null) {
@@ -276,6 +338,11 @@ export default function AdminPage() {
   const [examensBloques, setExamensBloques] = useState<ExamenBloque[]>([]);
   const [reservationBaleinesManuelle, setReservationBaleinesManuelle] =
     useState<ManualBaleinesReservationForm>(initialManualBaleinesForm);
+  const [reservationPecheManuelle, setReservationPecheManuelle] =
+    useState<ManualPecheReservationForm>(initialManualPecheForm);
+  const [creationPecheEnCours, setCreationPecheEnCours] = useState(false);
+  const [messagePecheManuel, setMessagePecheManuel] = useState("");
+  const [erreurPecheManuel, setErreurPecheManuel] = useState("");
   const [creationBaleinesEnCours, setCreationBaleinesEnCours] =
     useState(false);
   const [messageBaleinesManuel, setMessageBaleinesManuel] = useState("");
@@ -305,19 +372,32 @@ export default function AdminPage() {
   }
 
   async function chargerReservationsPeche() {
-    const { data, error } = await supabase
+    const result = await supabase
       .from("reservations_peche")
-      .select(
-        "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,statut_paiement,facture_numero,facture_url,email_sent,email_sent_at"
-      )
+      .select(pecheAdminSelect)
       .order("date_sortie", { ascending: false });
 
-    if (error) {
-      console.error(error);
+    if (result.error?.code === "PGRST204") {
+      const fallback = await supabase
+        .from("reservations_peche")
+        .select(pecheAdminFallbackSelect)
+        .order("date_sortie", { ascending: false });
+
+      if (fallback.error) {
+        console.error(fallback.error);
+        return;
+      }
+
+      setReservationsPeche((fallback.data || []) as AdminPecheReservation[]);
       return;
     }
 
-    setReservationsPeche((data || []) as AdminPecheReservation[]);
+    if (result.error) {
+      console.error(result.error);
+      return;
+    }
+
+    setReservationsPeche((result.data || []) as AdminPecheReservation[]);
   }
 
   async function chargerReservationsBaleines() {
@@ -435,6 +515,88 @@ export default function AdminPage() {
       ...reservation,
       [champ]: valeur,
     }));
+  }
+
+  function modifierReservationPecheManuelle(
+    champ: keyof ManualPecheReservationForm,
+    valeur: string
+  ) {
+    setReservationPecheManuelle((reservation) => ({
+      ...reservation,
+      [champ]: valeur,
+    }));
+  }
+
+  async function ajouterReservationPecheManuelle() {
+    if (creationPecheEnCours) return;
+
+    setMessagePecheManuel("");
+    setErreurPecheManuel("");
+
+    const form = reservationPecheManuelle;
+    const participants = Number(form.nombreParticipants);
+
+    if (!form.dateSortie) {
+      setErreurPecheManuel("Choisissez une date de sortie.");
+      return;
+    }
+
+    if (!form.origine.trim()) {
+      setErreurPecheManuel("Indiquez le nom ou l'origine.");
+      return;
+    }
+
+    if (!form.responsablePrenom.trim() || !form.responsableNom.trim()) {
+      setErreurPecheManuel("Indiquez le prenom et le nom du responsable.");
+      return;
+    }
+
+    if (!form.telephone.trim()) {
+      setErreurPecheManuel("Indiquez le telephone.");
+      return;
+    }
+
+    if (!Number.isInteger(participants) || participants < 1 || participants > 4) {
+      setErreurPecheManuel("Indiquez entre 1 et 4 participants.");
+      return;
+    }
+
+    setCreationPecheEnCours(true);
+
+    try {
+      const response = await fetch("/api/admin/peche/manual-reservation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: form.dateSortie,
+          formulaId: form.formule,
+          origin: form.origine,
+          firstName: form.responsablePrenom,
+          lastName: form.responsableNom,
+          phone: form.telephone,
+          email: form.email,
+          peopleCount: participants,
+          comment: form.commentaire,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setErreurPecheManuel(
+          payload.error || "Impossible de creer la reservation Peche."
+        );
+        return;
+      }
+
+      setReservationPecheManuelle(initialManualPecheForm);
+      setMessagePecheManuel("Reservation Peche manuelle creee.");
+      await chargerReservationsPeche();
+    } catch (error) {
+      console.error(error);
+      setErreurPecheManuel("Impossible de creer la reservation Peche manuelle.");
+    } finally {
+      setCreationPecheEnCours(false);
+    }
   }
 
   async function ajouterReservationBaleinesManuelle() {
@@ -1202,17 +1364,193 @@ export default function AdminPage() {
       <section id="reservations-peche" className="mt-10 scroll-mt-6">
         <h2 className="mb-4 text-2xl font-bold">Reservations Peche</h2>
 
+        <section className="mb-6 rounded-xl bg-white p-4 shadow md:p-6">
+          <h3 className="text-xl font-bold">
+            Ajouter reservation Peche manuelle
+          </h3>
+          <p className="mt-2 text-sm font-semibold text-slate-600">
+            Paiement externe / a facturer. Aucun PayZen, email ou facture
+            automatique ne sera lance.
+          </p>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1 text-sm font-bold">
+              Date sortie
+              <input
+                type="date"
+                value={reservationPecheManuelle.dateSortie}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle(
+                    "dateSortie",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Formule
+              <select
+                value={reservationPecheManuelle.formule}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle(
+                    "formule",
+                    event.target.value
+                  )
+                }
+                className="cursor-pointer rounded-xl border p-3 font-normal"
+              >
+                {PECHE_FORMULAS.map((formula) => (
+                  <option key={formula.id} value={formula.id}>
+                    {pecheFormulaLabels[formula.id]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Nom / origine
+              <input
+                value={reservationPecheManuelle.origine}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle("origine", event.target.value)
+                }
+                placeholder="Hotel, conciergerie, telephone, WhatsApp..."
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Responsable prenom
+              <input
+                value={reservationPecheManuelle.responsablePrenom}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle(
+                    "responsablePrenom",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Responsable nom
+              <input
+                value={reservationPecheManuelle.responsableNom}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle(
+                    "responsableNom",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Telephone
+              <input
+                value={reservationPecheManuelle.telephone}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle(
+                    "telephone",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Email optionnel
+              <input
+                type="email"
+                value={reservationPecheManuelle.email}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle("email", event.target.value)
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+
+            <label className="grid gap-1 text-sm font-bold">
+              Nombre participants
+              <input
+                type="number"
+                min="1"
+                max="4"
+                value={reservationPecheManuelle.nombreParticipants}
+                onChange={(event) =>
+                  modifierReservationPecheManuelle(
+                    "nombreParticipants",
+                    event.target.value
+                  )
+                }
+                className="rounded-xl border p-3 font-normal"
+              />
+            </label>
+          </div>
+
+          <label className="mt-3 grid gap-1 text-sm font-bold">
+            Commentaire
+            <textarea
+              value={reservationPecheManuelle.commentaire}
+              onChange={(event) =>
+                modifierReservationPecheManuelle(
+                  "commentaire",
+                  event.target.value
+                )
+              }
+              rows={3}
+              className="rounded-xl border p-3 font-normal"
+            />
+          </label>
+
+          <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
+            <button
+              onClick={ajouterReservationPecheManuelle}
+              disabled={creationPecheEnCours}
+              className="cursor-pointer rounded-xl bg-cyan-800 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creationPecheEnCours
+                ? "Creation en cours..."
+                : "Ajouter la reservation"}
+            </button>
+
+            <p className="text-sm font-bold text-slate-600">
+              Statut paiement : paiement externe / a facturer
+            </p>
+          </div>
+
+          {erreurPecheManuel && (
+            <p className="mt-4 rounded-xl bg-red-50 p-3 font-bold text-red-700">
+              {erreurPecheManuel}
+            </p>
+          )}
+
+          {messagePecheManuel && (
+            <p className="mt-4 rounded-xl bg-emerald-50 p-3 font-bold text-emerald-700">
+              {messagePecheManuel}
+            </p>
+          )}
+        </section>
+
         <div className="overflow-x-auto rounded-xl bg-white shadow">
-          <table className="min-w-[1100px] w-full text-sm">
+          <table className="min-w-[1300px] w-full text-sm">
             <thead className="bg-cyan-800 text-white">
               <tr>
                 <th className="p-3 text-left">Date</th>
                 <th className="p-3 text-left">Formule</th>
+                <th className="p-3 text-left">Origine</th>
                 <th className="p-3 text-left">Client</th>
                 <th className="p-3 text-left">Telephone</th>
                 <th className="p-3 text-left">Email</th>
+                <th className="p-3 text-left">Participants</th>
                 <th className="p-3 text-left">Montant</th>
                 <th className="p-3 text-left">Statut paiement</th>
+                <th className="p-3 text-left">Commentaire</th>
                 <th className="p-3 text-left">Facture</th>
                 <th className="p-3 text-left">Email envoye</th>
               </tr>
@@ -1222,7 +1560,8 @@ export default function AdminPage() {
               {reservationsPeche.map((reservation) => (
                 <tr key={reservation.id} className="border-b hover:bg-slate-50">
                   <td className="p-3">{reservation.date_sortie || "-"}</td>
-                  <td className="p-3">{reservation.formule || "-"}</td>
+                  <td className="p-3">{formatPecheFormula(reservation.formule)}</td>
+                  <td className="p-3">{reservation.origine || "-"}</td>
                   <td className="p-3">
                     {reservation.responsable_prenom}{" "}
                     {reservation.responsable_nom}
@@ -1231,8 +1570,17 @@ export default function AdminPage() {
                     {reservation.responsable_telephone || "-"}
                   </td>
                   <td className="p-3">{reservation.responsable_email || "-"}</td>
+                  <td className="p-3">
+                    {reservation.nombre_personnes || "-"}
+                  </td>
                   <td className="p-3">{formatXpf(reservation.montant_paye)}</td>
-                  <td className="p-3">{reservation.statut_paiement || "-"}</td>
+                  <td className="p-3">
+                    {formatPechePayment(
+                      reservation.statut_paiement,
+                      reservation.type_paiement
+                    )}
+                  </td>
+                  <td className="p-3">{reservation.commentaire || "-"}</td>
                   <td className="p-3">
                     {reservation.facture_url ? (
                       <button
@@ -1258,7 +1606,7 @@ export default function AdminPage() {
 
               {reservationsPeche.length === 0 && (
                 <tr>
-                  <td className="p-4 text-slate-500" colSpan={9}>
+                  <td className="p-4 text-slate-500" colSpan={12}>
                     Aucune reservation peche.
                   </td>
                 </tr>
