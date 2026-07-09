@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { BaleinesHero } from "./components/BaleinesHero";
 import { BaleinesGallery } from "./components/BaleinesGallery";
@@ -549,6 +550,14 @@ export default function BaleinesPage() {
   return (
     <main className="min-h-screen bg-white text-slate-950">
       <BaleinesHero />
+      <div className="mx-auto w-full max-w-5xl px-4 pt-6">
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center rounded-full border border-cyan-100 bg-cyan-50 px-4 text-sm font-black text-cyan-800 transition hover:bg-cyan-100"
+        >
+          ← Retour à l&apos;accueil
+        </Link>
+      </div>
       <BaleinesVideo />
 
       <div className="mx-auto max-w-md space-y-8 px-4 py-8 md:max-w-5xl md:py-10">

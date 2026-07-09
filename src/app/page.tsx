@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { FilmHeroBackground } from "@/components/FilmHeroBackground";
+import { localeHomePaths, localeLabels } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Tahiti Trip Fishing | Pêche, baleines et permis bateau à Tahiti",
@@ -189,11 +190,27 @@ export default async function Home({
             >
               Tahiti Trip Fishing
             </Link>
+            <div className="flex items-center gap-2 text-xs font-black md:hidden">
+              <Link href={localeHomePaths.fr} className="text-white">
+                {localeLabels.fr}
+              </Link>
+              <Link href={localeHomePaths.en} className="text-cyan-100/75">
+                {localeLabels.en}
+              </Link>
+            </div>
             <nav className="hidden items-center gap-5 text-sm font-bold text-cyan-50 md:flex">
               <Link href="/peche">Pêche</Link>
               <Link href="/baleines">Baleines</Link>
               <Link href="/permis">Permis</Link>
               <Link href="/contact">Contact</Link>
+              <span className="flex items-center gap-2 border-l border-white/30 pl-5 text-xs font-black">
+                <Link href={localeHomePaths.fr} className="text-white">
+                  {localeLabels.fr}
+                </Link>
+                <Link href={localeHomePaths.en} className="text-cyan-100/75">
+                  {localeLabels.en}
+                </Link>
+              </span>
             </nav>
           </header>
 

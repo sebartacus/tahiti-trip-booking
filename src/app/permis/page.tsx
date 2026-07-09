@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { permisDocuments } from "@/lib/permisDocuments";
 import {
@@ -699,6 +700,14 @@ const recap = (
 
   return (
     <main className="min-h-screen bg-sky-950 text-white p-6">
+      <div className="max-w-4xl mx-auto mb-6">
+        <Link
+          href="/"
+          className="inline-flex min-h-11 items-center rounded-full border border-cyan-200/40 bg-white/10 px-4 text-sm font-black text-cyan-50 transition hover:bg-white/15"
+        >
+          ← Retour à l&apos;accueil
+        </Link>
+      </div>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">⚓ Permis Côtier</h1>
 
