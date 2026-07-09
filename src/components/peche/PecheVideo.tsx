@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
 type PecheVideoItem = {
   id: string;
   title: string;
@@ -20,24 +18,6 @@ const pecheVideos: PecheVideoItem[] = [
 
 export function PecheVideo() {
   const video = pecheVideos[0];
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoAvailable, setVideoAvailable] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    fetch(video.src, { method: "HEAD" })
-      .then((response) => {
-        if (active && response.ok) setVideoAvailable(true);
-      })
-      .catch(() => {
-        if (active) setVideoAvailable(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [video.src]);
 
   return (
     <section className="peche-reveal mx-auto w-full max-w-5xl px-4 py-8 md:py-10">
@@ -51,30 +31,14 @@ export function PecheVideo() {
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-cyan-100 bg-cyan-50 shadow-[0_20px_50px_rgba(8,145,178,0.12)]">
-        {videoAvailable ? (
-          <video
-            ref={videoRef}
-            className="aspect-video w-full object-cover"
-            controls
-            playsInline
-            poster={video.poster}
-            preload="metadata"
-            src={video.src}
-          />
-        ) : (
-          <div
-            className="aspect-video w-full bg-cover bg-center"
-            role="img"
-            aria-label="Apercu video peche"
-            style={{ backgroundImage: `url('${video.poster}')` }}
-          >
-            <div className="flex h-full w-full items-end bg-cyan-950/10 p-5">
-              <span className="rounded-full bg-white/95 px-4 py-2 text-sm font-black text-cyan-800 shadow-[0_12px_30px_rgba(8,145,178,0.18)]">
-                Video bientot disponible
-              </span>
-            </div>
-          </div>
-        )}
+        <video
+          className="aspect-video w-full object-cover"
+          controls
+          playsInline
+          poster={video.poster}
+          preload="metadata"
+          src={video.src}
+        />
       </div>
     </section>
   );
