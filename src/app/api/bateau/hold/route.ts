@@ -5,6 +5,11 @@ import {
   isIsoDate,
   normalizeBoatSlots,
 } from "@/lib/boat-calendar";
+import {
+  getPaymentDisplayStatus,
+  releaseBoatHoldsForReservation,
+  type PaymentReservationTable,
+} from "@/lib/paymentReturn";
 
 type HoldBody = {
   date?: unknown;
@@ -19,6 +24,27 @@ const SELECT_FIELDS =
   "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,expires_at,created_at,updated_at";
 
 const HOLD_DURATION_MINUTES = 30;
+
+function isPaymentReservationTable(
+  value: unknown
+): value is PaymentReservationTable {
+  return value === "reservations_peche" || value === "reservations_baleines";
+}
+
+async function isUnpaidReservation(
+  reservationTable: PaymentReservationTable,
+  reservationId: string
+) {
+  const { data, error } = await supabase
+    .from(reservationTable)
+    .select("statut_paiement,paye")
+    .eq("id", reservationId)
+    .maybeSingle();
+
+  if (error || !data) return false;
+
+  return getPaymentDisplayStatus(data) !== "confirmed";
+}
 
 async function releaseExpiredHolds(nowIso: string) {
   return supabase
@@ -90,9 +116,42 @@ export async function POST(request: Request) {
     );
   }
 
-  const conflicts = (existing.data || []).filter(
-    (calendarSlot) => calendarSlot.status !== "available"
+  const releasedHoldIds = new Set<string>();
+
+  await Promise.all(
+    (existing.data || []).map(async (calendarSlot) => {
+      if (
+        calendarSlot.status !== "hold" ||
+        !isPaymentReservationTable(calendarSlot.reservation_table) ||
+        !calendarSlot.reservation_id
+      ) {
+        return;
+      }
+
+      const reservationId = String(calendarSlot.reservation_id);
+      const isUnpaid = await isUnpaidReservation(
+        calendarSlot.reservation_table,
+        reservationId
+      );
+
+      if (!isUnpaid) return;
+
+      const releaseError = await releaseBoatHoldsForReservation(
+        calendarSlot.reservation_table,
+        reservationId
+      );
+
+      if (!releaseError) {
+        releasedHoldIds.add(String(calendarSlot.id));
+      }
+    })
   );
+
+  const conflicts = (existing.data || []).filter((calendarSlot) => {
+    if (releasedHoldIds.has(String(calendarSlot.id))) return false;
+
+    return calendarSlot.status !== "available";
+  });
 
   if (conflicts.length > 0) {
     return NextResponse.json(

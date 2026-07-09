@@ -7,6 +7,7 @@ import {
   getReturnReservationId,
   isExplicitPayzenFailure,
   markReservationPaymentFailed,
+  releaseUnpaidBoatHoldsForReservation,
 } from "@/lib/paymentReturn";
 
 type SuccessSearchParams = {
@@ -55,8 +56,17 @@ async function getReservationStatus(
     };
   }
 
+  const status = getPaymentDisplayStatus(data);
+
+  if (status !== "confirmed") {
+    await releaseUnpaidBoatHoldsForReservation(
+      "reservations_peche",
+      reservationId
+    );
+  }
+
   return {
-    status: getPaymentDisplayStatus(data),
+    status,
     formula: String(data.formule || ""),
     paymentType: String(data.type_paiement || ""),
   };

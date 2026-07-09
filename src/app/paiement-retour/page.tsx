@@ -5,6 +5,7 @@ import {
   getReturnReservationId,
   isExplicitPayzenFailure,
   markReservationPaymentFailed,
+  releaseUnpaidBoatHoldsForReservation,
   type PaymentReservationTable,
 } from "@/lib/paymentReturn";
 
@@ -40,15 +41,18 @@ export default async function PaiementRetourPage({
       ""
   );
 
-  if (
-    reservationId &&
-    reservationTable &&
-    isExplicitPayzenFailure(payzenStatus)
-  ) {
-    await markReservationPaymentFailed(
-      reservationTable as PaymentReservationTable,
-      reservationId
-    );
+  if (reservationId && reservationTable) {
+    if (isExplicitPayzenFailure(payzenStatus)) {
+      await markReservationPaymentFailed(
+        reservationTable as PaymentReservationTable,
+        reservationId
+      );
+    } else {
+      await releaseUnpaidBoatHoldsForReservation(
+        reservationTable as PaymentReservationTable,
+        reservationId
+      );
+    }
   }
 
   return (

@@ -85,6 +85,25 @@ export async function releaseBoatHoldsForReservation(
   return error?.message || "";
 }
 
+export async function releaseUnpaidBoatHoldsForReservation(
+  reservationTable: PaymentReservationTable,
+  reservationId: string
+) {
+  if (!reservationId) return "";
+
+  const current = await supabase
+    .from(reservationTable)
+    .select("statut_paiement,paye")
+    .eq("id", reservationId)
+    .maybeSingle();
+
+  if (current.error) return current.error.message;
+  if (!current.data) return "";
+  if (getPaymentDisplayStatus(current.data) === "confirmed") return "";
+
+  return releaseBoatHoldsForReservation(reservationTable, reservationId);
+}
+
 export async function markReservationPaymentFailed(
   reservationTable: PaymentReservationTable,
   reservationId: string
