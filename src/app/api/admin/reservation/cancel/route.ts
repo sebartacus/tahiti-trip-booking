@@ -118,7 +118,17 @@ export async function POST(request: Request) {
   const reservationTable = text(body.reservationTable);
   const reservationId = text(body.reservationId);
 
+  console.log("[admin-cancel] received", {
+    reservationTable,
+    reservationId,
+  });
+
   if (!ALLOWED_TABLES.has(reservationTable) || !reservationId) {
+    console.error("[admin-cancel] invalid payload", {
+      reservationTable,
+      reservationId,
+    });
+
     return NextResponse.json(
       { error: "Reservation invalide." },
       { status: 400 }
@@ -127,9 +137,19 @@ export async function POST(request: Request) {
 
   const reservation = await findReservation(reservationTable, reservationId);
 
+  console.log("[admin-cancel] findReservation result", {
+    reservationTable,
+    reservationId,
+    data: reservation.data,
+    error: reservation.error,
+  });
+
   if (reservation.error) {
     return NextResponse.json(
-      { error: "Impossible de charger la reservation." },
+      {
+        error: "Impossible de charger la reservation.",
+        supabaseError: reservation.error,
+      },
       { status: 500 }
     );
   }
@@ -142,6 +162,20 @@ export async function POST(request: Request) {
   }
 
   const manualReservation = isManualReservation(reservationTable, reservation.data);
+  const paidReservation = isPaidReservation(reservation.data);
+  const externalInvoice =
+    reservation.data.type_paiement === "external_invoice" ||
+    reservation.data.statut_paiement === "paiement_externe_a_facturer" ||
+    reservation.data.source_paiement === "paiement_externe_a_facturer";
+
+  console.log("[admin-cancel] detected type", {
+    reservationTable,
+    reservationId,
+    manual: manualReservation,
+    external_invoice: externalInvoice,
+    payzen_paid: paidReservation,
+    reservation: reservation.data,
+  });
 
   if (
     reservation.data.statut_paiement === "cancelled" &&
@@ -156,18 +190,47 @@ export async function POST(request: Request) {
   let action: "cancelled" | "deleted";
 
   if (shouldKeepHistory(reservationTable, reservation.data)) {
+    console.log("[admin-cancel] action chosen", {
+      action: "update cancelled",
+      reservationTable,
+      reservationId,
+    });
+
     const cancellation = await cancelReservation(reservationTable, reservationId);
+
+    console.log("[admin-cancel] update result", {
+      reservationTable,
+      reservationId,
+      data: cancellation.data,
+      error: cancellation.error,
+    });
 
     if (cancellation.error) {
       return NextResponse.json(
-        { error: "Impossible d'annuler la reservation." },
+        {
+          error: "Impossible d'annuler la reservation.",
+          supabaseError: cancellation.error,
+        },
         { status: 500 }
       );
     }
 
     action = "cancelled";
   } else {
+    console.log("[admin-cancel] action chosen", {
+      action: "delete",
+      reservationTable,
+      reservationId,
+    });
+
     const deletion = await deleteReservation(reservationTable, reservationId);
+
+    console.log("[admin-cancel] delete result", {
+      reservationTable,
+      reservationId,
+      data: deletion.data,
+      error: deletion.error,
+    });
 
     if (deletion.error || !deletion.data || deletion.data.length === 0) {
       return NextResponse.json(
@@ -175,6 +238,8 @@ export async function POST(request: Request) {
           error: deletion.error
             ? `Impossible de supprimer la reservation: ${deletion.error.message}`
             : "Impossible de supprimer la reservation: aucune ligne supprimee.",
+          supabaseError: deletion.error,
+          supabaseData: deletion.data,
         },
         { status: 500 }
       );
@@ -185,11 +250,19 @@ export async function POST(request: Request) {
 
   const releasedSlots = await releaseBoatSlots(reservationTable, reservationId);
 
+  console.log("[admin-cancel] release slots result", {
+    reservationTable,
+    reservationId,
+    data: releasedSlots.data,
+    error: releasedSlots.error,
+  });
+
   if (releasedSlots.error) {
     return NextResponse.json(
       {
         error:
           "Reservation annulee, mais le calendrier bateau n'a pas pu etre libere.",
+        supabaseError: releasedSlots.error,
       },
       { status: 500 }
     );
