@@ -164,9 +164,11 @@ export async function POST(request: Request) {
   const manualReservation = isManualReservation(reservationTable, reservation.data);
   const paidReservation = isPaidReservation(reservation.data);
   const externalInvoice =
-    reservation.data.type_paiement === "external_invoice" ||
+    ("type_paiement" in reservation.data &&
+      reservation.data.type_paiement === "external_invoice") ||
     reservation.data.statut_paiement === "paiement_externe_a_facturer" ||
-    reservation.data.source_paiement === "paiement_externe_a_facturer";
+    ("source_paiement" in reservation.data &&
+      reservation.data.source_paiement === "paiement_externe_a_facturer");
 
   console.log("[admin-cancel] detected type", {
     reservationTable,
