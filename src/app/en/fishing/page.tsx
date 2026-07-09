@@ -317,7 +317,7 @@ export default function EnglishFishingPage() {
       <div className="mx-auto max-w-md space-y-8 px-4 py-8 md:max-w-5xl md:py-10">
         <EnglishFishingIntro />
         <EnglishFishingHighlights />
-        <PecheBookingForm />
+        <PecheBookingForm locale="en" />
         <EnglishFishingSpecies />
         <EnglishFishingGallery />
         <EnglishFishingInfoCards />

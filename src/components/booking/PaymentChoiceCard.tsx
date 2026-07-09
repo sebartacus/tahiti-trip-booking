@@ -1,3 +1,18 @@
+type PaymentChoiceLabels = {
+  fullPaymentEyebrow: string;
+  depositTitle: string;
+  depositButton: string;
+  depositDescription: string;
+  fullTitle: string;
+  fullButton: string;
+  fullDescription: string;
+  reassuranceTitle: string;
+  weatherIntro: string;
+  freeReschedule: string;
+  refund: string;
+  bankFees: string;
+};
+
 type PaymentChoiceCardProps = {
   totalAmount: number;
   depositPercent: number;
@@ -6,6 +21,23 @@ type PaymentChoiceCardProps = {
   onSelectFullPayment: () => void;
   activityLabel?: string;
   variant?: "default" | "premium";
+  labels?: PaymentChoiceLabels;
+};
+
+const defaultLabels: PaymentChoiceLabels = {
+  fullPaymentEyebrow: "Paiement complet",
+  depositTitle: "Réserver avec un acompte",
+  depositButton: "Réserver avec acompte",
+  depositDescription: "Le solde sera réglé le jour de votre sortie.",
+  fullTitle: "Payer la totalité",
+  fullButton: "Payer la totalité",
+  fullDescription: "Aucun solde à régler le jour de la sortie.",
+  reassuranceTitle: "Réservez en toute sérénité",
+  weatherIntro: "En cas d'annulation liée aux conditions météorologiques :",
+  freeReschedule: "report gratuit de votre sortie",
+  refund: "ou remboursement de votre paiement",
+  bankFees:
+    "Seuls les frais bancaires liés au paiement sécurisé (3 %) restent à la charge du client.",
 };
 
 function formatAmount(amount: number, currencyLabel: string) {
@@ -22,6 +54,7 @@ export function PaymentChoiceCard({
   onSelectFullPayment,
   activityLabel = "votre sortie",
   variant = "default",
+  labels = defaultLabels,
 }: PaymentChoiceCardProps) {
   const normalizedPercent = Math.max(0, Math.min(100, depositPercent));
   const depositAmount = Math.round((totalAmount * normalizedPercent) / 100);
@@ -39,7 +72,7 @@ export function PaymentChoiceCard({
             {activityLabel}
           </p>
           <h3 className="mt-3 text-2xl font-black leading-tight text-slate-950">
-            Réserver avec un acompte
+            {labels.depositTitle}
           </h3>
           <p className="mt-3 text-5xl font-black text-cyan-700">
             {normalizedPercent} %
@@ -48,14 +81,14 @@ export function PaymentChoiceCard({
             {formatAmount(depositAmount, currencyLabel)}
           </p>
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-            Le solde sera réglé le jour de votre sortie.
+            {labels.depositDescription}
           </p>
           <button
             type="button"
             onClick={onSelectDeposit}
             className="mt-auto min-h-14 w-full rounded-2xl bg-cyan-700 px-5 text-base font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] outline-none transition focus:border focus:border-cyan-700 active:ring-4 active:ring-cyan-100"
           >
-            Réserver avec acompte
+            {labels.depositButton}
           </button>
         </article>
 
@@ -71,10 +104,10 @@ export function PaymentChoiceCard({
               isPremium ? "text-cyan-700" : "text-cyan-200"
             }`}
           >
-            Paiement complet
+            {labels.fullPaymentEyebrow}
           </p>
           <h3 className="mt-3 text-2xl font-black leading-tight">
-            Payer la totalité
+            {labels.fullTitle}
           </h3>
           <p className="mt-6 text-4xl font-black">
             {formatAmount(totalAmount, currencyLabel)}
@@ -84,7 +117,7 @@ export function PaymentChoiceCard({
               isPremium ? "text-slate-600" : "text-slate-200"
             }`}
           >
-            Aucun solde à régler le jour de la sortie.
+            {labels.fullDescription}
           </p>
           <button
             type="button"
@@ -95,7 +128,7 @@ export function PaymentChoiceCard({
                 : "bg-white text-slate-950"
             }`}
           >
-            Payer la totalité
+            {labels.fullButton}
           </button>
         </article>
       </div>
@@ -103,18 +136,17 @@ export function PaymentChoiceCard({
       {!isPremium && (
         <aside className="rounded-[28px] border border-emerald-100 bg-emerald-50 p-5">
           <h3 className="text-xl font-black text-emerald-950">
-            Réservez en toute sérénité
+            {labels.reassuranceTitle}
           </h3>
           <p className="mt-3 text-sm font-semibold leading-6 text-emerald-900">
-            En cas d&apos;annulation liée aux conditions météorologiques :
+            {labels.weatherIntro}
           </p>
           <ul className="mt-3 space-y-2 text-sm font-bold leading-6 text-emerald-900">
-            <li>report gratuit de votre sortie</li>
-            <li>ou remboursement de votre paiement</li>
+            <li>{labels.freeReschedule}</li>
+            <li>{labels.refund}</li>
           </ul>
           <p className="mt-4 text-sm font-semibold leading-6 text-slate-700">
-            Seuls les frais bancaires liés au paiement sécurisé (3 %) restent à
-            la charge du client.
+            {labels.bankFees}
           </p>
         </aside>
       )}

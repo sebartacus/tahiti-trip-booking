@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PaymentChoiceCard } from "@/components/booking/PaymentChoiceCard";
+import { pecheBookingTranslations, type Locale } from "@/lib/i18n";
 import {
   formatPechePrice,
   PECHE_FORMULAS,
@@ -19,6 +20,10 @@ type BoatCalendarSlot = {
   slot: BoatSlotName;
   status: BoatSlotStatus;
   activity: "baleines" | "peche" | "peche_nuit" | null;
+};
+
+type PecheBookingFormProps = {
+  locale?: Locale;
 };
 
 function isSlotAvailable(slot: BoatCalendarSlot | undefined) {
@@ -48,7 +53,8 @@ async function readJsonOrText(response: Response) {
   }
 }
 
-export function PecheBookingForm() {
+export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
+  const t = pecheBookingTranslations[locale];
   const [date, setDate] = useState("");
   const [formulaId, setFormulaId] = useState<FormulaId>("morning");
   const [peopleCount, setPeopleCount] = useState(2);
@@ -84,6 +90,7 @@ export function PecheBookingForm() {
       { morning: true, afternoon: true, full_day: true }
     );
   }, [boatSlots]);
+
   const hasUnavailableFormula =
     Boolean(date) &&
     PECHE_FORMULAS.some((formula) => !formulaAvailability[formula.id]);
@@ -109,7 +116,7 @@ export function PecheBookingForm() {
 
         if (!response.ok) {
           setBoatSlots({});
-          setError(payload.error || "Impossible de charger le calendrier bateau.");
+          setError(payload.error || t.errors.loadBoatCalendar);
           return;
         }
 
@@ -127,14 +134,14 @@ export function PecheBookingForm() {
         setBoatSlots(nextSlots);
       } catch {
         setBoatSlots({});
-        setError("Impossible de charger le calendrier bateau.");
+        setError(t.errors.loadBoatCalendar);
       } finally {
         setLoadingCalendar(false);
       }
     }
 
     loadBoatCalendar();
-  }, [date]);
+  }, [date, t.errors.loadBoatCalendar]);
 
   function setCapacity(value: number | "more") {
     if (value === "more") {
@@ -147,31 +154,23 @@ export function PecheBookingForm() {
   }
 
   function validateForm() {
-    if (!date) return "Choisissez une date de sortie.";
-    if (!formulaAvailability[formulaId]) {
-      return "Ce créneau vient d'être réservé. Choisissez une autre date ou formule.";
-    }
-    if (overCapacity || peopleCount > 4) {
-      return "La réservation en ligne est limitée à 4 personnes.";
-    }
-    if (peopleCount < 1) return "Indiquez au moins 1 personne.";
-    if (!firstName.trim()) return "Indiquez le prénom du responsable.";
-    if (!lastName.trim()) return "Indiquez le nom du responsable.";
-    if (!email.trim()) return "Indiquez l'email du responsable.";
-    if (!phone.trim()) return "Indiquez le téléphone du responsable.";
-    if (!childrenOk) {
-      return "Confirmez que les enfants ont au moins 8 ans.";
-    }
+    if (!date) return t.errors.chooseDate;
+    if (!formulaAvailability[formulaId]) return t.errors.slotReserved;
+    if (overCapacity || peopleCount > 4) return t.errors.onlineLimit;
+    if (peopleCount < 1) return t.errors.minimumOne;
+    if (!firstName.trim()) return t.errors.firstName;
+    if (!lastName.trim()) return t.errors.lastName;
+    if (!email.trim()) return t.errors.email;
+    if (!phone.trim()) return t.errors.phone;
+    if (!childrenOk) return t.errors.children;
 
     return "";
   }
 
   function unavailableFormulaMessage(currentFormulaId: FormulaId) {
-    if (currentFormulaId === "full_day") {
-      return "Journée complète indisponible sur cette date";
-    }
+    if (currentFormulaId === "full_day") return t.unavailableFullDay;
 
-    return "Déjà réservé";
+    return t.unavailableFormula;
   }
 
   async function reserve(paymentType: PaymentType) {
@@ -217,8 +216,8 @@ export function PecheBookingForm() {
 
       setError(
         reservationResponse.status === 409
-          ? "Ce créneau vient d'être réservé. Choisissez une autre date ou formule."
-          : reservationError || "Impossible d'enregistrer la réservation."
+          ? t.errors.slotReserved
+          : reservationError || t.errors.saveReservation
       );
       setSending(false);
       return;
@@ -244,14 +243,12 @@ export function PecheBookingForm() {
 
     if (!payzenResponse.ok) {
       console.error(payment);
-      setError(
-        formatApiError(payment) || "Erreur lors de la préparation du paiement."
-      );
+      setError(formatApiError(payment) || t.errors.preparePayment);
       setSending(false);
       return;
     }
 
-    setMessage("Réservation enregistrée. Redirection vers PayZen...");
+    setMessage(t.reservationSaved);
 
     const form = document.createElement("form");
     form.method = "POST";
@@ -275,20 +272,25 @@ export function PecheBookingForm() {
         <div className="space-y-5 rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
-              Réservation
+              {t.bookingEyebrow}
             </p>
             <h2 className="mt-2 text-3xl font-black text-slate-950">
-              Choisissez votre sortie
+              {t.chooseTrip}
             </h2>
           </div>
+
           <label className="block">
             <span className="text-sm font-black uppercase tracking-[0.14em] text-slate-600">
-              <span className="mr-2">📅</span>Date
+              <span className="mr-2" aria-hidden="true">
+                📅
+              </span>
+              {t.date}
             </span>
             <div className="mt-2">
               <PecheAvailabilityCalendar
                 selectedDate={date}
                 onDateSelect={setDate}
+                labels={t.calendar}
               />
             </div>
           </label>
@@ -311,23 +313,23 @@ export function PecheBookingForm() {
                       : formulaId === formula.id
                       ? "border-cyan-700 bg-cyan-700 text-white shadow-[0_14px_28px_rgba(8,145,178,0.18)]"
                       : "border-cyan-100 bg-white text-slate-950 hover:-translate-y-0.5 hover:border-cyan-300"
-                  } ${
-                    unavailable ? "cursor-not-allowed" : "cursor-pointer"
-                  }`}
+                  } ${unavailable ? "cursor-not-allowed" : "cursor-pointer"}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-black">{formula.title}</p>
+                        <p className="text-lg font-black">
+                          {t.formulas[formula.id]}
+                        </p>
                         {unavailable && (
                           <span className="rounded-full bg-slate-200 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-700">
-                            Indisponible
+                            {t.unavailable}
                           </span>
                         )}
                       </div>
                       <p className="mt-1 text-sm font-bold">{formula.time}</p>
                       <p className="text-xs font-bold opacity-80">
-                        Tolérance horaires : {formula.tolerance}
+                        {t.tolerance} : {formula.tolerance}
                       </p>
                     </div>
                     <p className="shrink-0 text-lg font-black">
@@ -343,6 +345,7 @@ export function PecheBookingForm() {
               );
             })}
           </div>
+
           {hasUnavailableFormula && (
             <div
               className={`rounded-2xl border p-4 text-sm font-black leading-6 ${
@@ -351,14 +354,13 @@ export function PecheBookingForm() {
                   : "border-slate-200 bg-slate-50 text-slate-700"
               }`}
             >
-              {allFormulasUnavailable
-                ? "Cette date n’est plus disponible. Merci de choisir une autre date."
-                : "Certaines formules ne sont plus disponibles sur cette date."}
+              {allFormulasUnavailable ? t.dateUnavailable : t.partialUnavailable}
             </div>
           )}
+
           {loadingCalendar && (
             <p className="text-sm font-bold text-slate-500">
-              Vérification du calendrier bateau...
+              {t.checkingBoat}
             </p>
           )}
         </div>
@@ -366,16 +368,16 @@ export function PecheBookingForm() {
         <aside className="space-y-5 rounded-3xl border border-cyan-100 bg-cyan-50 p-5 text-slate-950 shadow-[0_18px_45px_rgba(8,145,178,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(8,145,178,0.12)] md:p-7">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
-              À bord
+              {t.onboardEyebrow}
             </p>
-            <h2 className="mt-2 text-2xl font-black">Tout est prêt</h2>
+            <h2 className="mt-2 text-2xl font-black">{t.allReady}</h2>
           </div>
           <ul className="grid gap-3 text-sm font-bold leading-6 text-slate-700">
             {[
-              ["🧭", "Skipper"],
-              ["🎣", "Matériel de pêche"],
-              ["🥤", "Eau, sodas, bières et chips"],
-              ["🥪", "Déjeuner pour la journée complète"],
+              ["🧭", t.skipper],
+              ["🎣", t.fishingGear],
+              ["🥤", t.drinks],
+              ["🥪", t.fullDayLunch],
             ].map(([icon, label]) => (
               <li
                 key={label}
@@ -387,8 +389,7 @@ export function PecheBookingForm() {
             ))}
           </ul>
           <p className="rounded-2xl border border-cyan-100 bg-white p-4 text-sm font-bold leading-6 text-slate-700">
-            La pêche reste la pêche : aucune capture ne peut être garantie,
-            mais nous mettons tout en œuvre pour maximiser vos chances.
+            {t.fishingDisclaimer}
           </p>
         </aside>
       </div>
@@ -396,11 +397,13 @@ export function PecheBookingForm() {
       <section className="grid gap-4 md:grid-cols-2">
         <article className="rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(8,145,178,0.12)] md:p-7">
           <h2 className="text-2xl font-black">
-            <span className="mr-2">👥</span>Participants
+            <span className="mr-2" aria-hidden="true">
+              👥
+            </span>
+            {t.participants}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            De 1 à 4 personnes incluses. Les enfants comptent comme une
-            personne et sont acceptés à partir de 8 ans.
+            {t.participantsText}
           </p>
           <div className="mt-4 grid grid-cols-5 gap-2">
             {[1, 2, 3, 4].map((value) => (
@@ -431,13 +434,12 @@ export function PecheBookingForm() {
           </div>
 
           {overCapacity && (
-              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm font-black leading-6 text-amber-950">
-                Vous souhaitez être plus de 4 personnes ? Contactez-nous pour
-                une demande spécifique.
+                {t.moreThanFour}
               </p>
               <div className="mt-3">
-                <WhatsAppButton />
+                <WhatsAppButton label={t.whatsappLabel} />
               </div>
             </div>
           )}
@@ -449,37 +451,40 @@ export function PecheBookingForm() {
               onChange={(event) => setChildrenOk(event.target.checked)}
               className="mt-1"
             />
-            Je certifie que tous les participants ont au moins 8 ans.
+            {t.childrenOk}
           </label>
         </article>
 
         <article className="rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(8,145,178,0.12)] md:p-7">
           <h2 className="text-2xl font-black">
-            <span className="mr-2">🧭</span>Responsable
+            <span className="mr-2" aria-hidden="true">
+              🧭
+            </span>
+            {t.manager}
           </h2>
           <div className="mt-4 grid gap-3">
             <input
               className="min-h-12 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 font-bold outline-none transition focus:border-cyan-600 focus:bg-white"
-              placeholder="Prénom"
+              placeholder={t.firstName}
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
             />
             <input
               className="min-h-12 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 font-bold outline-none transition focus:border-cyan-600 focus:bg-white"
-              placeholder="Nom"
+              placeholder={t.lastName}
               value={lastName}
               onChange={(event) => setLastName(event.target.value)}
             />
             <input
               className="min-h-12 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 font-bold outline-none transition focus:border-cyan-600 focus:bg-white"
-              placeholder="Email"
+              placeholder={t.email}
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
             <input
               className="min-h-12 rounded-2xl border border-cyan-100 bg-cyan-50/60 px-4 font-bold outline-none transition focus:border-cyan-600 focus:bg-white"
-              placeholder="Téléphone"
+              placeholder={t.phone}
               type="tel"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
@@ -491,8 +496,9 @@ export function PecheBookingForm() {
       <PaymentChoiceCard
         totalAmount={selectedFormula.price}
         depositPercent={30}
-        activityLabel="Sortie pêche"
+        activityLabel={t.activityLabel}
         variant="premium"
+        labels={t.payment}
         onSelectDeposit={() => reserve("deposit")}
         onSelectFullPayment={() => reserve("full")}
       />
@@ -508,7 +514,7 @@ export function PecheBookingForm() {
       )}
 
       <p className="text-center text-sm font-black text-cyan-800">
-        Total bateau : {formatPechePrice(selectedFormula.price)}
+        {t.totalBoat} : {formatPechePrice(selectedFormula.price)}
       </p>
     </section>
   );

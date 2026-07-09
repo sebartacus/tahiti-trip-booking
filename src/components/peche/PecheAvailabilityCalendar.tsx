@@ -13,17 +13,35 @@ type BoatCalendarSlot = {
 
 type DayStatus = "available" | "partial" | "unavailable" | "past";
 
+type CalendarLabels = {
+  locale: string;
+  previousMonth: string;
+  nextMonth: string;
+  available: string;
+  partial: string;
+  unavailable: string;
+  loading: string;
+  error: string;
+  dayLabels: readonly string[];
+};
+
 type PecheAvailabilityCalendarProps = {
   selectedDate: string;
   onDateSelect: (date: string) => void;
+  labels?: CalendarLabels;
 };
 
-const monthFormatter = new Intl.DateTimeFormat("fr-FR", {
-  month: "long",
-  year: "numeric",
-});
-
-const dayLabels = ["L", "M", "M", "J", "V", "S", "D"];
+const defaultLabels: CalendarLabels = {
+  locale: "fr-FR",
+  previousMonth: "Mois précédent",
+  nextMonth: "Mois suivant",
+  available: "Disponible",
+  partial: "Partiellement disponible",
+  unavailable: "Indisponible",
+  loading: "Chargement des disponibilités...",
+  error: "Disponibilités indisponibles.",
+  dayLabels: ["L", "M", "M", "J", "V", "S", "D"],
+};
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -92,6 +110,7 @@ function dayClasses(status: DayStatus, selected: boolean) {
 export function PecheAvailabilityCalendar({
   selectedDate,
   onDateSelect,
+  labels = defaultLabels,
 }: PecheAvailabilityCalendarProps) {
   const [monthDate, setMonthDate] = useState(() => {
     const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
@@ -102,6 +121,14 @@ export function PecheAvailabilityCalendar({
   const [error, setError] = useState("");
   const minDate = todayIso();
   const bounds = useMemo(() => getMonthBounds(monthDate), [monthDate]);
+  const monthFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(labels.locale, {
+        month: "long",
+        year: "numeric",
+      }),
+    [labels.locale]
+  );
 
   const slotsByDate = useMemo(() => {
     const map = new Map<string, Partial<Record<BoatSlotName, BoatCalendarSlot>>>();
@@ -147,21 +174,21 @@ export function PecheAvailabilityCalendar({
 
         if (!response.ok) {
           setSlots([]);
-          setError(payload.error || "Disponibilités indisponibles.");
+          setError(payload.error || labels.error);
           return;
         }
 
         setSlots(Array.isArray(payload.slots) ? payload.slots : []);
       } catch {
         setSlots([]);
-        setError("Disponibilités indisponibles.");
+        setError(labels.error);
       } finally {
         setLoading(false);
       }
     }
 
     loadMonth();
-  }, [bounds.from, bounds.to]);
+  }, [bounds.from, bounds.to, labels.error]);
 
   function changeMonth(offset: number) {
     setMonthDate(
@@ -176,7 +203,7 @@ export function PecheAvailabilityCalendar({
           type="button"
           onClick={() => changeMonth(-1)}
           className="min-h-10 rounded-xl border border-cyan-100 bg-white px-4 text-sm font-black text-cyan-900 transition hover:border-cyan-300"
-          aria-label="Mois précédent"
+          aria-label={labels.previousMonth}
         >
           ‹
         </button>
@@ -187,14 +214,14 @@ export function PecheAvailabilityCalendar({
           type="button"
           onClick={() => changeMonth(1)}
           className="min-h-10 rounded-xl border border-cyan-100 bg-white px-4 text-sm font-black text-cyan-900 transition hover:border-cyan-300"
-          aria-label="Mois suivant"
+          aria-label={labels.nextMonth}
         >
           ›
         </button>
       </div>
 
       <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">
-        {dayLabels.map((label, index) => (
+        {labels.dayLabels.map((label, index) => (
           <div key={`${label}-${index}`}>{label}</div>
         ))}
       </div>
@@ -221,17 +248,14 @@ export function PecheAvailabilityCalendar({
       </div>
 
       <div className="mt-4 grid gap-2 text-xs font-bold text-slate-600 sm:grid-cols-3">
-        <LegendDot className="bg-white ring-cyan-200" label="Disponible" />
-        <LegendDot
-          className="bg-amber-50 ring-amber-300"
-          label="Partiellement disponible"
-        />
-        <LegendDot className="bg-rose-50 ring-rose-200" label="Indisponible" />
+        <LegendDot className="bg-white ring-cyan-200" label={labels.available} />
+        <LegendDot className="bg-amber-50 ring-amber-300" label={labels.partial} />
+        <LegendDot className="bg-rose-50 ring-rose-200" label={labels.unavailable} />
       </div>
 
       {(loading || error) && (
         <p className="mt-3 text-sm font-bold text-slate-500">
-          {error || "Chargement des disponibilités..."}
+          {error || labels.loading}
         </p>
       )}
     </div>
