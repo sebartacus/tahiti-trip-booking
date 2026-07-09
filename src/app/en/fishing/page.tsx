@@ -3,14 +3,17 @@ import Link from "next/link";
 import { PecheBookingForm } from "@/components/peche/PecheBookingForm";
 
 export const metadata: Metadata = {
-  title: "Sport fishing in Tahiti",
+  title: {
+    absolute: "Tahiti Fishing Charter | Big Game Fishing with Tahiti Trip",
+  },
   description:
     "Book a private sport fishing trip in Tahiti with professional gear, a local crew and departure from Marina Taina.",
   alternates: {
     canonical: "/en/fishing",
     languages: {
-      fr: "/peche",
-      en: "/en/fishing",
+      fr: "https://tahiti-trip.com/peche",
+      en: "https://tahiti-trip.com/en/fishing",
+      "x-default": "https://tahiti-trip.com/",
     },
   },
   openGraph: {

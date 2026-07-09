@@ -15,6 +15,11 @@ export const metadata: Metadata = {
     "Réservez une sortie pêche au gros privée à Tahiti avec matériel professionnel, équipage local et départ Marina Taina.",
   alternates: {
     canonical: "/peche",
+    languages: {
+      fr: "https://tahiti-trip.com/peche",
+      en: "https://tahiti-trip.com/en/fishing",
+      "x-default": "https://tahiti-trip.com/",
+    },
   },
   openGraph: {
     title: "Pêche au gros à Tahiti | Tahiti Trip Fishing",

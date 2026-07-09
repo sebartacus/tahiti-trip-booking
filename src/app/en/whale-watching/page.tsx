@@ -5,13 +5,16 @@ import { whaleWatchingTranslations } from "@/lib/i18n";
 const t = whaleWatchingTranslations.en;
 
 export const metadata: Metadata = {
-  title: t.metadata.title,
+  title: {
+    absolute: "Whale Watching Tahiti | Swim with Humpback Whales",
+  },
   description: t.metadata.description,
   alternates: {
     canonical: "/en/whale-watching",
     languages: {
-      fr: "/baleines",
-      en: "/en/whale-watching",
+      fr: "https://tahiti-trip.com/baleines",
+      en: "https://tahiti-trip.com/en/whale-watching",
+      "x-default": "https://tahiti-trip.com/",
     },
   },
   openGraph: {

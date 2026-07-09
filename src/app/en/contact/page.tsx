@@ -2,14 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Contact Tahiti Trip Fishing",
+  title: {
+    absolute: "Contact Tahiti Trip",
+  },
   description:
     "Contact Tahiti Trip Fishing for sport fishing, whale watching or a private sea request in Tahiti.",
   alternates: {
     canonical: "/en/contact",
     languages: {
-      fr: "/contact",
-      en: "/en/contact",
+      fr: "https://tahiti-trip.com/contact",
+      en: "https://tahiti-trip.com/en/contact",
+      "x-default": "https://tahiti-trip.com/",
     },
   },
   openGraph: {

@@ -9,14 +9,17 @@ import {
 } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Tahiti Trip Fishing | Fishing and whale watching in Tahiti",
+  title: {
+    absolute: "Tahiti Trip | Fishing Charter & Whale Watching in Tahiti",
+  },
   description:
-    "Book private sport fishing, whale watching and ocean experiences with Tahiti Trip Fishing in Tahiti.",
+    "Private fishing charters, whale watching tours and unforgettable experiences in French Polynesia.",
   alternates: {
     canonical: "/en",
     languages: {
-      fr: "/",
-      en: "/en",
+      fr: "https://tahiti-trip.com/",
+      en: "https://tahiti-trip.com/en",
+      "x-default": "https://tahiti-trip.com/",
     },
   },
   openGraph: {

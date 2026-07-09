@@ -3,7 +3,17 @@ import type { MetadataRoute } from "next";
 const siteUrl = "https://tahiti-trip.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ["", "/peche", "/baleines", "/permis", "/contact"];
+  const routes = [
+    "",
+    "/en",
+    "/peche",
+    "/en/fishing",
+    "/baleines",
+    "/en/whale-watching",
+    "/permis",
+    "/contact",
+    "/en/contact",
+  ];
 
   return routes.map((route) => ({
     url: `${siteUrl}${route}`,

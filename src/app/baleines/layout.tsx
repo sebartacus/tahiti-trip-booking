@@ -7,8 +7,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/baleines",
     languages: {
-      fr: "/baleines",
-      en: "/en/whale-watching",
+      fr: "https://tahiti-trip.com/baleines",
+      en: "https://tahiti-trip.com/en/whale-watching",
+      "x-default": "https://tahiti-trip.com/",
     },
   },
   openGraph: {

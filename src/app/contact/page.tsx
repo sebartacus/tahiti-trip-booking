@@ -7,6 +7,11 @@ export const metadata: Metadata = {
     "Contactez Tahiti Trip Fishing pour une sortie pêche, baleines ou une formation permis bateau à Tahiti.",
   alternates: {
     canonical: "/contact",
+    languages: {
+      fr: "https://tahiti-trip.com/contact",
+      en: "https://tahiti-trip.com/en/contact",
+      "x-default": "https://tahiti-trip.com/",
+    },
   },
   openGraph: {
     title: "Contact | Tahiti Trip Fishing",

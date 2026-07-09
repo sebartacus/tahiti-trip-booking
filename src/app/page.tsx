@@ -9,6 +9,11 @@ export const metadata: Metadata = {
     "Réservez vos sorties pêche au gros, observation des baleines et formations permis bateau avec Tahiti Trip Fishing au départ de Tahiti.",
   alternates: {
     canonical: "/",
+    languages: {
+      fr: "https://tahiti-trip.com/",
+      en: "https://tahiti-trip.com/en",
+      "x-default": "https://tahiti-trip.com/",
+    },
   },
   openGraph: {
     title: "Tahiti Trip Fishing | Expériences en mer à Tahiti",
