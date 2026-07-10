@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PecheBookingForm } from "@/components/peche/PecheBookingForm";
+import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 
 export const metadata: Metadata = {
   title: {
@@ -314,6 +315,9 @@ export default function EnglishFishingPage() {
         >
           ← Back to home
         </Link>
+      </div>
+      <div className="pt-6">
+        <WhatsAppChannelCard locale="en" />
       </div>
       <EnglishFishingVideo />
 

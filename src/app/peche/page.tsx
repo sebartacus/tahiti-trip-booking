@@ -8,6 +8,7 @@ import { PecheInfoCards } from "@/components/peche/PecheInfoCards";
 import { PecheIntro } from "@/components/peche/PecheIntro";
 import { PecheSpecies } from "@/components/peche/PecheSpecies";
 import { PecheVideo } from "@/components/peche/PecheVideo";
+import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 
 export const metadata: Metadata = {
   title: "Pêche au gros à Tahiti",
@@ -48,6 +49,9 @@ export default function PechePage() {
         >
           ← Retour à l&apos;accueil
         </Link>
+      </div>
+      <div className="pt-6">
+        <WhatsAppChannelCard locale="fr" />
       </div>
       <PecheVideo />
 

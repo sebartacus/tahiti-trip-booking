@@ -7,6 +7,7 @@ import {
   type WhaleWatchingLocale,
   whaleWatchingTranslations,
 } from "@/lib/i18n";
+import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 import { BaleinesHero } from "./components/BaleinesHero";
 import { BaleinesGallery } from "./components/BaleinesGallery";
 import { BaleinesInfoCards } from "./components/BaleinesInfoCards";
@@ -581,6 +582,9 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
             EN
           </Link>
         </nav>
+      </div>
+      <div className="pt-6">
+        <WhatsAppChannelCard locale={locale} />
       </div>
       <BaleinesVideo t={t} />
 

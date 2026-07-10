@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { FilmHeroBackground } from "@/components/FilmHeroBackground";
+import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 import { localeHomePaths, localeLabels } from "@/lib/i18n";
 
 export const metadata: Metadata = {
@@ -258,6 +259,10 @@ export default async function Home({
           </div>
         </div>
       </section>
+
+      <div className="pt-6">
+        <WhatsAppChannelCard locale="fr" />
+      </div>
 
       <section className="mx-auto max-w-md px-4 py-10 md:max-w-4xl md:py-14">
         <div className="peche-reveal text-center">
