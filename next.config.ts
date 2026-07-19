@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/en/boat-licence",
+        destination: "/permis",
+        permanent: true,
+      },
+      {
         source: "/en/deep-sea-fishing",
         destination: "/en/fishing",
         permanent: true,
