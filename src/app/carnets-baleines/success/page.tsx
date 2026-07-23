@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function CarnetBaleinesSuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams();
 
   const code = searchParams.get("code") || "";
@@ -50,14 +51,12 @@ export default function CarnetBaleinesSuccessPage() {
 
               {credits && (
                 <p className="mt-4 text-slate-700">
-                  Crédits disponibles :{" "}
-                  <strong>{credits}</strong>
+                  Crédits disponibles : <strong>{credits}</strong>
                 </p>
               )}
 
               <p className="mt-2 text-slate-700">
-                Valable jusqu’au{" "}
-                <strong>20 novembre 2026</strong>.
+                Valable jusqu’au <strong>20 novembre 2026</strong>.
               </p>
             </div>
           )}
@@ -91,5 +90,25 @@ export default function CarnetBaleinesSuccessPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CarnetBaleinesSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900">
+          <div className="mx-auto max-w-2xl">
+            <div className="rounded-3xl bg-white p-7 text-center shadow-sm sm:p-10">
+              <p className="text-lg font-semibold">
+                Chargement de votre confirmation...
+              </p>
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
   );
 }
