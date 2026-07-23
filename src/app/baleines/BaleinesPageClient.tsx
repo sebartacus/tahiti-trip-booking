@@ -16,7 +16,10 @@ import { BaleinesVideo } from "./components/BaleinesVideo";
 import { DateStep } from "./components/DateStep";
 import { DepartureStep } from "./components/DepartureStep";
 import { ParticipantsStep } from "./components/ParticipantsStep";
-import { SummaryStep } from "./components/SummaryStep";
+import {
+  SummaryStep,
+  type BaleinesPaymentMode,
+} from "./components/SummaryStep";
 import {
   MAX_MISE_EAU,
   MAX_OBSERVATEURS,
@@ -106,6 +109,11 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState("");
   const [message, setMessage] = useState("");
+  const [modePaiement, setModePaiement] =
+    useState<BaleinesPaymentMode>("payzen");
+  const [codeCarnet, setCodeCarnet] = useState("");
+  const [soldeCarnet, setSoldeCarnet] = useState<number | null>(null);
+  const [verificationCarnet, setVerificationCarnet] = useState(false);
 
   const demandes = useMemo(() => compterDemandes(participants), [participants]);
   const placesRestantesMiseEau =
@@ -414,6 +422,79 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
     return verifierDate() || verifierParticipants();
   }
 
+  function modifierModePaiement(mode: BaleinesPaymentMode) {
+    setModePaiement(mode);
+    setErreur("");
+    setMessage("");
+  }
+
+  function modifierCodeCarnet(code: string) {
+    setCodeCarnet(code);
+    setSoldeCarnet(null);
+    setErreur("");
+    setMessage("");
+  }
+
+  async function verifierCarnet() {
+    const code = codeCarnet.trim();
+
+    setErreur("");
+    setMessage("");
+    setSoldeCarnet(null);
+
+    if (!code) {
+      setErreur(
+        locale === "fr"
+          ? "Veuillez saisir un code carnet."
+          : "Please enter a pass code."
+      );
+      return;
+    }
+
+    setVerificationCarnet(true);
+
+    try {
+      const response = await fetch("/api/carnets-baleines/verifier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const resultat = await response.json();
+
+      if (!response.ok || !resultat.ok) {
+        setErreur(
+          resultat.error ||
+            (locale === "fr"
+              ? "Impossible de vérifier le carnet."
+              : "Unable to check the pass.")
+        );
+        return;
+      }
+
+      const creditsRestants = Number(resultat.carnet?.credits_restants);
+
+      if (!Number.isFinite(creditsRestants)) {
+        setErreur(
+          locale === "fr"
+            ? "Impossible de vérifier le solde du carnet."
+            : "Unable to check the pass balance."
+        );
+        return;
+      }
+
+      setCodeCarnet(String(resultat.carnet.code || code));
+      setSoldeCarnet(creditsRestants);
+    } catch {
+      setErreur(
+        locale === "fr"
+          ? "Impossible de vérifier le carnet."
+          : "Unable to check the pass."
+      );
+    } finally {
+      setVerificationCarnet(false);
+    }
+  }
+
   async function reserver() {
     setErreur("");
     setMessage("");
@@ -423,6 +504,26 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
     if (probleme) {
       setErreur(probleme);
       return;
+    }
+
+    if (modePaiement === "carnet") {
+      if (soldeCarnet === null) {
+        setErreur(
+          locale === "fr"
+            ? "Vérifiez votre carnet avant de valider la réservation."
+            : "Check your pass before confirming the booking."
+        );
+        return;
+      }
+
+      if (soldeCarnet < participants.length) {
+        setErreur(
+          locale === "fr"
+            ? `Crédits insuffisants. ${participants.length} crédit(s) nécessaire(s), solde disponible : ${soldeCarnet}.`
+            : `Insufficient credits. ${participants.length} required, ${soldeCarnet} available.`
+        );
+        return;
+      }
     }
 
     setEnvoi(true);
@@ -461,11 +562,12 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
       participants,
       nombre_mise_eau: demandes.miseEau,
       nombre_observateurs: demandes.observateurs,
-      montant_total: total,
+      montant_total: modePaiement === "carnet" ? 0 : total,
       devise: "XPF",
       statut_paiement: "pending",
       paye: false,
-      source_paiement: "payzen_baleines",
+      source_paiement:
+        modePaiement === "carnet" ? "carnet_baleines" : "payzen_baleines",
       created_at: new Date().toISOString(),
     };
 
@@ -482,8 +584,10 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
     }
 
     const selectedBoatSlot = boatSlots[departSlots[depart]];
+    const doitConfirmerCreneau =
+      !selectedBoatSlot || selectedBoatSlot.status === "available";
 
-    if (!selectedBoatSlot || selectedBoatSlot.status === "available") {
+    if (doitConfirmerCreneau) {
       const reponseHold = await fetch("/api/bateau/hold", {
         method: "POST",
         headers: {
@@ -514,6 +618,95 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
       setErreur(t.errors.slotReserved);
       setEnvoi(false);
       return;
+    }
+
+    if (modePaiement === "carnet") {
+      try {
+        const reponseCarnet = await fetch("/api/carnets-baleines/utiliser", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: codeCarnet.trim(),
+            nombre_credits: participants.length,
+            reservation_id: data.id,
+          }),
+        });
+        const utilisation = await reponseCarnet.json();
+
+        if (!reponseCarnet.ok || !utilisation.ok) {
+          setErreur(
+            utilisation.error ||
+              (locale === "fr"
+                ? "Impossible de débiter le carnet."
+                : "Unable to debit the pass.")
+          );
+          setEnvoi(false);
+          return;
+        }
+
+        const { error: erreurPaiementCarnet } = await supabase
+          .from("reservations_baleines")
+          .update({
+            statut_paiement: "paid",
+            paye: true,
+            montant_total: 0,
+            devise: "XPF",
+            source_paiement: "carnet_baleines",
+          })
+          .eq("id", data.id);
+
+        if (erreurPaiementCarnet) {
+          setErreur(
+            locale === "fr"
+              ? "Le carnet a été débité, mais la réservation n’a pas pu être confirmée."
+              : "The pass was debited, but the booking could not be confirmed."
+          );
+          setEnvoi(false);
+          return;
+        }
+
+        if (doitConfirmerCreneau) {
+          const reponseConfirmation = await fetch("/api/bateau/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              activity: "baleines",
+              reservationTable: "reservations_baleines",
+              reservationId: data.id,
+              date: selectedDate,
+              slots: [departSlots[depart]],
+            }),
+          });
+
+          if (!reponseConfirmation.ok) {
+            setErreur(
+              locale === "fr"
+                ? "La réservation est payée, mais le créneau bateau n’a pas pu être confirmé."
+                : "The booking is paid, but the boat slot could not be confirmed."
+            );
+            setEnvoi(false);
+            return;
+          }
+        }
+
+        const nouveauSolde = Number(utilisation.carnet.credits_restants);
+        setSoldeCarnet(nouveauSolde);
+        setMessage(
+          locale === "fr"
+            ? `Réservation confirmée avec votre carnet. ${participants.length} crédit(s) utilisé(s). Solde restant : ${nouveauSolde}.`
+            : `Booking confirmed with your pass. ${participants.length} credit(s) used. Remaining balance: ${nouveauSolde}.`
+        );
+        setEnvoi(false);
+        return;
+      } catch {
+        setErreur(
+          locale === "fr"
+            ? "Impossible de finaliser la réservation avec le carnet."
+            : "Unable to complete the booking with the pass."
+        );
+        setEnvoi(false);
+        return;
+      }
     }
 
     const reponsePayzen = await fetch("/api/payzen", {
@@ -642,6 +835,13 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
             envoi={envoi}
             erreur={erreur}
             message={message}
+            modePaiement={modePaiement}
+            codeCarnet={codeCarnet}
+            soldeCarnet={soldeCarnet}
+            verificationCarnet={verificationCarnet}
+            onModePaiementChange={modifierModePaiement}
+            onCodeCarnetChange={modifierCodeCarnet}
+            onVerifyCarnet={verifierCarnet}
             onPay={reserver}
             t={t}
           />

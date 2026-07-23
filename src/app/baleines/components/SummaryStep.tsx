@@ -9,6 +9,8 @@ import {
   prixParticipant,
 } from "../lib/rules";
 
+export type BaleinesPaymentMode = "payzen" | "carnet";
+
 type SummaryStepProps = {
   date: string;
   depart: Depart;
@@ -17,6 +19,13 @@ type SummaryStepProps = {
   envoi: boolean;
   erreur: string;
   message: string;
+  modePaiement: BaleinesPaymentMode;
+  codeCarnet: string;
+  soldeCarnet: number | null;
+  verificationCarnet: boolean;
+  onModePaiementChange: (mode: BaleinesPaymentMode) => void;
+  onCodeCarnetChange: (code: string) => void;
+  onVerifyCarnet: () => void;
   onPay: () => void;
   t?: WhaleWatchingTranslations;
 };
@@ -29,6 +38,13 @@ export function SummaryStep({
   envoi,
   erreur,
   message,
+  modePaiement,
+  codeCarnet,
+  soldeCarnet,
+  verificationCarnet,
+  onModePaiementChange,
+  onCodeCarnetChange,
+  onVerifyCarnet,
   onPay,
   t = whaleWatchingTranslations.fr,
 }: SummaryStepProps) {
@@ -38,6 +54,7 @@ export function SummaryStep({
   const observateurs = participants.filter(
     (participant) => participant.role === "observateur"
   ).length;
+  const isFrench = t === whaleWatchingTranslations.fr;
 
   return (
     <div className="space-y-5">
@@ -118,6 +135,80 @@ export function SummaryStep({
         </p>
       </div>
 
+      <fieldset className="rounded-2xl border border-cyan-100 bg-white p-4">
+        <legend className="px-1 text-sm font-black text-cyan-950">
+          {isFrench ? "Mode de paiement" : "Payment method"}
+        </legend>
+
+        <div className="mt-2 space-y-3">
+          <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-slate-700">
+            <input
+              type="radio"
+              name="baleines-payment-mode"
+              checked={modePaiement === "payzen"}
+              onChange={() => onModePaiementChange("payzen")}
+              disabled={envoi}
+              className="h-5 w-5"
+            />
+            {isFrench
+              ? "Payer normalement avec PayZen"
+              : "Pay normally with PayZen"}
+          </label>
+
+          <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-cyan-50 px-4 text-sm font-bold text-slate-700">
+            <input
+              type="radio"
+              name="baleines-payment-mode"
+              checked={modePaiement === "carnet"}
+              onChange={() => onModePaiementChange("carnet")}
+              disabled={envoi}
+              className="h-5 w-5"
+            />
+            {isFrench
+              ? "Utiliser un carnet Baleines"
+              : "Use a Whale Watching pass"}
+          </label>
+        </div>
+
+        {modePaiement === "carnet" && (
+          <div className="mt-4 rounded-2xl bg-cyan-50 p-4">
+            <label className="block text-sm font-black text-cyan-950">
+              {isFrench ? "Code du carnet" : "Pass code"}
+              <input
+                type="text"
+                value={codeCarnet}
+                onChange={(event) => onCodeCarnetChange(event.target.value)}
+                disabled={envoi || verificationCarnet}
+                className="mt-2 min-h-12 w-full rounded-2xl border border-cyan-100 bg-white px-4 text-base font-semibold uppercase outline-none transition focus:border-cyan-700 disabled:bg-slate-100"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={onVerifyCarnet}
+              disabled={envoi || verificationCarnet}
+              className="mt-3 min-h-12 w-full rounded-2xl bg-cyan-900 px-4 text-sm font-black text-white transition disabled:bg-slate-300"
+            >
+              {verificationCarnet
+                ? isFrench
+                  ? "Vérification..."
+                  : "Checking..."
+                : isFrench
+                  ? "Vérifier mon carnet"
+                  : "Check my pass"}
+            </button>
+
+            {soldeCarnet !== null && (
+              <p className="mt-3 rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">
+                {isFrench
+                  ? `Carnet valide : ${soldeCarnet} crédit(s) restant(s).`
+                  : `Valid pass: ${soldeCarnet} credit(s) remaining.`}
+              </p>
+            )}
+          </div>
+        )}
+      </fieldset>
+
       {erreur && (
         <p className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
           {erreur}
@@ -138,7 +229,7 @@ export function SummaryStep({
           {t.summary.confirm}
         </h3>
         <p className="mt-6 text-4xl font-black text-cyan-700">
-          {formatPrix(total)}
+          {modePaiement === "carnet" ? formatPrix(0) : formatPrix(total)}
         </p>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
           {t.summary.securePayment}
@@ -146,10 +237,20 @@ export function SummaryStep({
         <button
           type="button"
           onClick={onPay}
-          disabled={envoi}
+          disabled={envoi || verificationCarnet}
           className="mt-5 min-h-14 w-full rounded-2xl bg-cyan-700 px-5 text-base font-black text-white shadow-[0_14px_28px_rgba(8,145,178,0.22)] outline-none transition active:ring-4 active:ring-cyan-100 disabled:bg-slate-300 disabled:shadow-none"
         >
-          {envoi ? t.summary.redirecting : t.summary.pay}
+          {envoi
+            ? modePaiement === "carnet"
+              ? isFrench
+                ? "Confirmation..."
+                : "Confirming..."
+              : t.summary.redirecting
+            : modePaiement === "carnet"
+              ? isFrench
+                ? "Réserver avec mon carnet"
+                : "Book with my pass"
+              : t.summary.pay}
         </button>
       </article>
     </div>
