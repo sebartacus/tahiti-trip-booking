@@ -67,7 +67,11 @@ type AdminPecheReservation = {
 type BaleinesParticipant = {
   prenom?: string | null;
   nom?: string | null;
+  age?: string | null;
   role?: string | null;
+  materielPerso?: boolean | null;
+  tailleCombinaison?: string | null;
+  pointurePalmes?: string | null;
   type?: string | null;
   origine?: string | null;
   commentaire?: string | null;
@@ -360,6 +364,8 @@ export default function AdminPage() {
   const [reservationsBaleines, setReservationsBaleines] = useState<
     AdminBaleinesReservation[]
   >([]);
+  const [reservationBaleinesDetail, setReservationBaleinesDetail] =
+    useState<AdminBaleinesReservation | null>(null);
   const [filtreStatut, setFiltreStatut] = useState("Tous");
   const [motDePasse, setMotDePasse] = useState("");
   const [accesAutorise, setAccesAutorise] = useState(false);
@@ -1961,7 +1967,14 @@ export default function AdminPage() {
                   </td>
                   <td className="p-3">{reservation.responsable_email || "-"}</td>
                   <td className="p-3">
-                    {countParticipants(reservation.participants)}
+                    <div>{countParticipants(reservation.participants)}</div>
+                    <button
+                      type="button"
+                      onClick={() => setReservationBaleinesDetail(reservation)}
+                      className="mt-2 cursor-pointer whitespace-nowrap rounded-lg bg-cyan-700 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-cyan-800"
+                    >
+                      Voir détails
+                    </button>
                   </td>
                   <td className="p-3">
                     {countBaleinesRole(reservation.participants, "mise_eau")} ME
@@ -2037,7 +2050,176 @@ export default function AdminPage() {
           </table>
         </div>
       </section>
+
+      {reservationBaleinesDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setReservationBaleinesDetail(null);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="baleines-detail-title"
+            className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-slate-100 shadow-2xl sm:max-w-4xl sm:rounded-3xl"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-700">
+                  Réservation Baleines
+                </p>
+                <h2
+                  id="baleines-detail-title"
+                  className="mt-1 text-xl font-black text-slate-950 sm:text-2xl"
+                >
+                  Détail des participants
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReservationBaleinesDetail(null)}
+                className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2 font-bold text-white hover:bg-slate-700"
+              >
+                Fermer
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              <dl className="grid gap-3 rounded-2xl bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3">
+                <DetailItem
+                  label="Date"
+                  value={reservationBaleinesDetail.date_sortie}
+                />
+                <DetailItem
+                  label="Départ"
+                  value={reservationBaleinesDetail.depart}
+                />
+                <DetailItem
+                  label="Responsable"
+                  value={`${reservationBaleinesDetail.responsable_prenom || ""} ${
+                    reservationBaleinesDetail.responsable_nom || ""
+                  }`.trim()}
+                />
+                <DetailItem
+                  label="Téléphone"
+                  value={reservationBaleinesDetail.responsable_telephone}
+                />
+                <DetailItem
+                  label="Email"
+                  value={reservationBaleinesDetail.responsable_email}
+                />
+                <DetailItem
+                  label="Statut paiement"
+                  value={reservationBaleinesDetail.statut_paiement}
+                />
+                <DetailItem
+                  label="Montant"
+                  value={formatXpf(reservationBaleinesDetail.montant_total)}
+                />
+              </dl>
+
+              <div className="mt-5 space-y-4">
+                {(reservationBaleinesDetail.participants || []).map(
+                  (participant, index) => {
+                    const prenom = participant.prenom?.trim() || "";
+                    const nom = participant.nom?.trim() || "";
+                    const taille = participant.tailleCombinaison?.trim();
+                    const pointure = participant.pointurePalmes?.trim();
+                    const materielPersonnel =
+                      participant.materielPerso === true;
+
+                    return (
+                      <article
+                        key={`${prenom}-${nom}-${index}`}
+                        className="rounded-2xl bg-white p-4 shadow-sm sm:p-5"
+                      >
+                        <div className="flex flex-col gap-1 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                          <h3 className="font-black text-slate-950">
+                            Participant {index + 1}
+                          </h3>
+                          <p className="text-lg font-bold text-cyan-900">
+                            {`${prenom} ${nom}`.trim() || "Nom non renseigné"}
+                          </p>
+                        </div>
+
+                        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <DetailItem
+                            label="Âge"
+                            value={participant.age?.trim()}
+                          />
+                          <DetailItem
+                            label="Rôle"
+                            value={
+                              participant.role === "mise_eau"
+                                ? "Mise à l’eau"
+                                : participant.role === "observateur"
+                                  ? "Observateur"
+                                  : participant.role
+                            }
+                          />
+                          <DetailItem
+                            label="Matériel personnel"
+                            value={materielPersonnel ? "Oui" : "Non"}
+                            highlight={materielPersonnel}
+                          />
+                          {taille && (
+                            <DetailItem
+                              label="Taille combinaison"
+                              value={taille}
+                            />
+                          )}
+                          {pointure && (
+                            <DetailItem
+                              label="Pointure palmes"
+                              value={pointure}
+                            />
+                          )}
+                        </dl>
+                      </article>
+                    );
+                  }
+                )}
+
+                {!reservationBaleinesDetail.participants?.length && (
+                  <p className="rounded-2xl bg-white p-5 text-slate-500 shadow-sm">
+                    Aucun participant enregistré.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string | null | undefined;
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </dt>
+      <dd
+        className={`mt-1 break-words font-bold ${
+          highlight ? "text-cyan-700" : "text-slate-950"
+        }`}
+      >
+        {value?.trim() || "-"}
+      </dd>
+    </div>
   );
 }
 
