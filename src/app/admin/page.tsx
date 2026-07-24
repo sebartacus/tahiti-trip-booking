@@ -996,16 +996,10 @@ export default function AdminPage() {
         <div className="bg-white text-slate-900 rounded-2xl p-6 max-w-md w-full shadow">
           <h1 className="text-3xl font-bold mb-6">Accès admin</h1>
 
-          <input
-            type="password"
-            value={motDePasse}
-            onChange={(e) => setMotDePasse(e.target.value)}
-            placeholder="Mot de passe"
-            className="w-full border rounded-xl p-3 mb-4"
-          />
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
 
-          <button
-            onClick={() => {
               if (
                 motDePasse ===
                 (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123")
@@ -1015,10 +1009,22 @@ export default function AdminPage() {
                 alert("Mot de passe incorrect.");
               }
             }}
-            className="w-full cursor-pointer bg-sky-800 text-white font-bold p-3 rounded-xl"
           >
-            Entrer
-          </button>
+            <input
+              type="password"
+              value={motDePasse}
+              onChange={(e) => setMotDePasse(e.target.value)}
+              placeholder="Mot de passe"
+              className="w-full border rounded-xl p-3 mb-4"
+            />
+
+            <button
+              type="submit"
+              className="w-full cursor-pointer bg-sky-800 text-white font-bold p-3 rounded-xl"
+            >
+              Entrer
+            </button>
+          </form>
         </div>
       </main>
     );
