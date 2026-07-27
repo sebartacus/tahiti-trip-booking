@@ -37,6 +37,8 @@ type AdminReservation = {
   formulaire_url: string | null;
   photo_url: string | null;
   identite_url: string | null;
+  archived: boolean;
+  archived_at: string | null;
 };
 
 type ExamenBloque = {
@@ -369,6 +371,10 @@ export default function AdminPage() {
   const [reservationBaleinesDetail, setReservationBaleinesDetail] =
     useState<AdminBaleinesReservation | null>(null);
   const [filtreStatut, setFiltreStatut] = useState("Tous");
+  const [vuePermis, setVuePermis] = useState<"actives" | "archives">("actives");
+  const [actionPermisEnCours, setActionPermisEnCours] = useState("");
+  const [messageActionPermis, setMessageActionPermis] = useState("");
+  const [erreurActionPermis, setErreurActionPermis] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const {
     authenticated: accesAutorise,
@@ -600,6 +606,118 @@ export default function AdminPage() {
     }
 
     chargerReservations();
+  }
+
+  async function supprimerReservationPermis(reservation: AdminReservation) {
+    if (reservation.paiement_effectue !== false) return;
+
+    if (
+      !window.confirm(
+        "Cette réservation n'a jamais été payée.\nVoulez-vous vraiment la supprimer ?\nCette action est définitive."
+      )
+    ) {
+      return;
+    }
+
+    const actionKey = `delete:${reservation.id}`;
+    setActionPermisEnCours(actionKey);
+    setMessageActionPermis("");
+    setErreurActionPermis("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/permis/${encodeURIComponent(reservation.id)}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setErreurActionPermis(
+          payload.error || "Impossible de supprimer la réservation."
+        );
+        return;
+      }
+
+      setReservations((actuelles) =>
+        actuelles.filter((item) => item.id !== reservation.id)
+      );
+      setMessageActionPermis(
+        payload.warning || "La réservation non payée a été supprimée."
+      );
+    } catch {
+      setErreurActionPermis("Impossible de supprimer la réservation.");
+    } finally {
+      setActionPermisEnCours("");
+    }
+  }
+
+  async function archiverReservationPermis(reservation: AdminReservation) {
+    if (
+      reservation.paiement_effectue !== true ||
+      reservation.statut !== "Permis obtenu"
+    ) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Archiver ce dossier ?\nIl disparaîtra de la liste principale mais restera consultable dans les archives."
+      )
+    ) {
+      return;
+    }
+
+    await mettreAJourArchivePermis(reservation, "archive");
+  }
+
+  async function restaurerReservationPermis(reservation: AdminReservation) {
+    await mettreAJourArchivePermis(reservation, "restore");
+  }
+
+  async function mettreAJourArchivePermis(
+    reservation: AdminReservation,
+    action: "archive" | "restore"
+  ) {
+    const actionKey = `${action}:${reservation.id}`;
+    setActionPermisEnCours(actionKey);
+    setMessageActionPermis("");
+    setErreurActionPermis("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/permis/${encodeURIComponent(reservation.id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        }
+      );
+      const payload = await response.json();
+
+      if (!response.ok || !payload.reservation) {
+        setErreurActionPermis(
+          payload.error || "Impossible de mettre à jour le dossier."
+        );
+        return;
+      }
+
+      setReservations((actuelles) =>
+        actuelles.map((item) =>
+          item.id === reservation.id
+            ? { ...item, ...payload.reservation }
+            : item
+        )
+      );
+      setMessageActionPermis(
+        action === "archive"
+          ? "Le dossier a été archivé."
+          : "Le dossier a été restauré dans les réservations actives."
+      );
+    } catch {
+      setErreurActionPermis("Impossible de mettre à jour le dossier.");
+    } finally {
+      setActionPermisEnCours("");
+    }
   }
 
   function modifierReservationBaleinesManuelle(
@@ -905,7 +1023,10 @@ export default function AdminPage() {
     }
   }
 
-  const reservationsFiltrees = reservations.filter((reservation) =>
+  const reservationsVue = reservations.filter((reservation) =>
+    vuePermis === "archives" ? reservation.archived : !reservation.archived
+  );
+  const reservationsFiltrees = reservationsVue.filter((reservation) =>
     filtreStatut === "Tous" ? true : reservation.statut === filtreStatut
   );
   const reservationsPromoInternet = reservations.filter(
@@ -1253,23 +1374,66 @@ export default function AdminPage() {
         </div>
       </section>
 
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setVuePermis("actives");
+            setFiltreStatut("Tous");
+          }}
+          className={`rounded-xl px-5 py-3 font-bold ${
+            vuePermis === "actives"
+              ? "bg-sky-800 text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          Réservations actives
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setVuePermis("archives");
+            setFiltreStatut("Tous");
+          }}
+          className={`rounded-xl px-5 py-3 font-bold ${
+            vuePermis === "archives"
+              ? "bg-sky-800 text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          Archives
+        </button>
+      </div>
+
+      {messageActionPermis && (
+        <p className="mb-6 rounded-xl bg-green-100 p-4 font-bold text-green-800">
+          {messageActionPermis}
+        </p>
+      )}
+      {erreurActionPermis && (
+        <p className="mb-6 rounded-xl bg-red-100 p-4 font-bold text-red-800">
+          {erreurActionPermis}
+        </p>
+      )}
+
       <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white rounded-xl p-4 font-bold">
-          Total : {reservations.length}
+          Total : {reservationsVue.length}
         </div>
 
         <div className="bg-yellow-100 text-yellow-800 rounded-xl p-4 font-bold">
           En attente :{" "}
-          {reservations.filter((r) => r.statut === "En attente").length}
+          {reservationsVue.filter((r) => r.statut === "En attente").length}
         </div>
 
         <div className="bg-green-100 text-green-800 rounded-xl p-4 font-bold">
-          Validés : {reservations.filter((r) => r.statut === "Validé").length}
+          Validés :{" "}
+          {reservationsVue.filter((r) => r.statut === "Validé").length}
         </div>
 
         <div className="bg-blue-100 text-blue-800 rounded-xl p-4 font-bold">
           Permis obtenus :{" "}
-          {reservations.filter((r) => r.statut === "Permis obtenu").length}
+          {reservationsVue.filter((r) => r.statut === "Permis obtenu").length}
         </div>
 
         <div className="bg-orange-100 text-orange-900 rounded-xl p-4 font-bold">
@@ -1402,6 +1566,44 @@ export default function AdminPage() {
                 Facture
               </button>
             </div>
+
+            <div className="mt-4">
+              {vuePermis === "archives" ? (
+                <button
+                  type="button"
+                  disabled={Boolean(actionPermisEnCours)}
+                  onClick={() => restaurerReservationPermis(reservation)}
+                  className="w-full rounded-xl bg-sky-700 p-3 font-bold text-white disabled:bg-slate-300"
+                >
+                  {actionPermisEnCours === `restore:${reservation.id}`
+                    ? "Restauration..."
+                    : "Restaurer"}
+                </button>
+              ) : reservation.paiement_effectue === false ? (
+                <button
+                  type="button"
+                  disabled={Boolean(actionPermisEnCours)}
+                  onClick={() => supprimerReservationPermis(reservation)}
+                  className="w-full rounded-xl bg-red-600 p-3 font-bold text-white disabled:bg-slate-300"
+                >
+                  {actionPermisEnCours === `delete:${reservation.id}`
+                    ? "Suppression..."
+                    : "Supprimer"}
+                </button>
+              ) : reservation.paiement_effectue === true &&
+                reservation.statut === "Permis obtenu" ? (
+                <button
+                  type="button"
+                  disabled={Boolean(actionPermisEnCours)}
+                  onClick={() => archiverReservationPermis(reservation)}
+                  className="w-full rounded-xl bg-slate-700 p-3 font-bold text-white disabled:bg-slate-300"
+                >
+                  {actionPermisEnCours === `archive:${reservation.id}`
+                    ? "Archivage..."
+                    : "Archiver"}
+                </button>
+              ) : null}
+            </div>
           </div>
         ))}
       </div>
@@ -1424,6 +1626,7 @@ export default function AdminPage() {
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Statut</th>
               <th className="p-3 text-left">Documents</th>
+              <th className="p-3 text-left">Actions</th>
             </tr>
           </thead>
 
@@ -1492,6 +1695,45 @@ export default function AdminPage() {
                     <button onClick={() => ouvrirDocument(reservation.photo_url)} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Photo</button>
                     <button onClick={() => ouvrirDocument(reservation.identite_url)} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Identité</button>
                   </div>
+                </td>
+                <td className="p-3">
+                  {vuePermis === "archives" ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(actionPermisEnCours)}
+                      onClick={() => restaurerReservationPermis(reservation)}
+                      className="rounded bg-sky-700 px-3 py-1 font-bold text-white disabled:bg-slate-300"
+                    >
+                      {actionPermisEnCours === `restore:${reservation.id}`
+                        ? "Restauration..."
+                        : "Restaurer"}
+                    </button>
+                  ) : reservation.paiement_effectue === false ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(actionPermisEnCours)}
+                      onClick={() => supprimerReservationPermis(reservation)}
+                      className="rounded bg-red-600 px-3 py-1 font-bold text-white disabled:bg-slate-300"
+                    >
+                      {actionPermisEnCours === `delete:${reservation.id}`
+                        ? "Suppression..."
+                        : "Supprimer"}
+                    </button>
+                  ) : reservation.paiement_effectue === true &&
+                    reservation.statut === "Permis obtenu" ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(actionPermisEnCours)}
+                      onClick={() => archiverReservationPermis(reservation)}
+                      className="rounded bg-slate-700 px-3 py-1 font-bold text-white disabled:bg-slate-300"
+                    >
+                      {actionPermisEnCours === `archive:${reservation.id}`
+                        ? "Archivage..."
+                        : "Archiver"}
+                    </button>
+                  ) : (
+                    "-"
+                  )}
                 </td>
               </tr>
             ))}
