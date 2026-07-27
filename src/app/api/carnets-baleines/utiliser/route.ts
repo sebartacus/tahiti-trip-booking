@@ -99,13 +99,16 @@ export async function POST(request: Request) {
 
     const nouveauSolde = creditsRestants - nombreCredits;
 
-    const { error: erreurMaj } = await supabase
+    const { data: carnetMisAJour, error: erreurMaj } = await supabase
       .from("carnets_baleines")
       .update({
         credits_restants: nouveauSolde,
         statut: nouveauSolde === 0 ? "epuise" : "actif",
       })
-      .eq("id", carnet.id);
+      .eq("id", carnet.id)
+      .eq("statut", "actif")
+      .select("id")
+      .maybeSingle();
 
     if (erreurMaj) {
       console.error("Erreur débit carnet :", erreurMaj);
@@ -116,6 +119,16 @@ export async function POST(request: Request) {
           error: "Impossible de débiter le carnet.",
         },
         { status: 500 }
+      );
+    }
+
+    if (!carnetMisAJour) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Ce carnet n'est plus actif.",
+        },
+        { status: 409 }
       );
     }
 

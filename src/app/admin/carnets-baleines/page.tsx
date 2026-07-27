@@ -82,7 +82,13 @@ function statutCarnet(carnet: CarnetAdmin): StatutAffiche {
   const jour = partiesDate.find((partie) => partie.type === "day")?.value;
   const dateAujourdhuiTahiti = `${annee}-${mois}-${jour}`;
 
-  if (statut === "annule" || statut === "annulé") return "annule";
+  if (
+    statut === "cancelled" ||
+    statut === "annule" ||
+    statut === "annulé"
+  ) {
+    return "annule";
+  }
   if (
     statut === "expire" ||
     statut === "expiré" ||
@@ -281,6 +287,94 @@ export default function AdminCarnetsBaleinesPage() {
       );
     } catch {
       setMessage("Impossible de renvoyer le carnet.");
+    } finally {
+      setAction("");
+    }
+  }
+
+  async function annulerCarnet(carnet: CarnetAdmin) {
+    if (
+      !window.confirm(
+        `Annuler le carnet ${carnet.code} ? Il ne pourra plus être utilisé pour une réservation.`
+      )
+    ) {
+      return;
+    }
+
+    setAction("annulation");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/carnets-baleines/${encodeURIComponent(carnet.id)}`,
+        { method: "PATCH" }
+      );
+      const payload = await response.json();
+
+      if (!response.ok || !payload.carnet) {
+        setMessage(payload.error || "Impossible d’annuler le carnet.");
+        return;
+      }
+
+      const carnetAnnule = {
+        ...carnet,
+        ...payload.carnet,
+        historique: carnet.historique,
+      };
+      setCarnets((actuels) =>
+        actuels.map((item) =>
+          item.id === carnetAnnule.id ? carnetAnnule : item
+        )
+      );
+      setSelection(carnetAnnule);
+      setMessage("Le carnet a été annulé. Ses données ont été conservées.");
+    } catch {
+      setMessage("Impossible d’annuler le carnet.");
+    } finally {
+      setAction("");
+    }
+  }
+
+  async function supprimerCarnet(carnet: CarnetAdmin) {
+    if (
+      !window.confirm(
+        `Supprimer définitivement le carnet ${carnet.code} et tout son historique ?`
+      )
+    ) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Cette action est irréversible. Confirmez-vous la suppression définitive ?"
+      )
+    ) {
+      return;
+    }
+
+    setAction("suppression");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/admin/carnets-baleines/${encodeURIComponent(carnet.id)}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMessage(payload.error || "Impossible de supprimer le carnet.");
+        return;
+      }
+
+      setCarnets((actuels) =>
+        actuels.filter((item) => item.id !== carnet.id)
+      );
+      setSelection(null);
+      setMessage("");
+      window.alert("Le carnet et son historique ont été supprimés définitivement.");
+    } catch {
+      setMessage("Impossible de supprimer le carnet.");
     } finally {
       setAction("");
     }
@@ -554,6 +648,8 @@ export default function AdminCarnetsBaleinesPage() {
           onCopy={copier}
           onDownload={telechargerFacture}
           onResend={renvoyerCarnet}
+          onCancel={annulerCarnet}
+          onDelete={supprimerCarnet}
         />
       )}
       {creationOuverte && (
@@ -615,6 +711,8 @@ function CarnetDrawer({
   onCopy,
   onDownload,
   onResend,
+  onCancel,
+  onDelete,
 }: {
   action: string;
   carnet: CarnetAdmin;
@@ -623,6 +721,8 @@ function CarnetDrawer({
   onCopy: (value: string, confirmation: string) => void;
   onDownload: (carnet: CarnetAdmin) => void;
   onResend: (carnet: CarnetAdmin) => void;
+  onCancel: (carnet: CarnetAdmin) => void;
+  onDelete: (carnet: CarnetAdmin) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/40" onClick={onClose}>
@@ -754,6 +854,38 @@ function CarnetDrawer({
             disabled={!carnet.email}
             onClick={() => onCopy(carnet.email, "Adresse e-mail copiée.")}
           />
+        </section>
+
+        <section className="mt-7 border-t border-slate-200 pt-7">
+          <h3 className="text-lg font-black">Actions administratives</h3>
+          <p className="mt-2 text-sm text-slate-600">
+            L’annulation conserve les crédits, la facture et l’historique.
+            La suppression définitive est réservée aux erreurs et carnets de test.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={Boolean(action) || statutCarnet(carnet) === "annule"}
+              onClick={() => onCancel(carnet)}
+              className="min-h-12 rounded-2xl bg-red-600 px-4 text-sm font-black text-white disabled:bg-slate-300"
+            >
+              {action === "annulation"
+                ? "Annulation..."
+                : statutCarnet(carnet) === "annule"
+                  ? "Carnet annulé"
+                  : "Annuler le carnet"}
+            </button>
+            <button
+              type="button"
+              disabled={Boolean(action)}
+              onClick={() => onDelete(carnet)}
+              className="min-h-12 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white disabled:bg-slate-300"
+            >
+              {action === "suppression"
+                ? "Suppression..."
+                : "Supprimer définitivement"}
+            </button>
+          </div>
         </section>
 
         {message && (
