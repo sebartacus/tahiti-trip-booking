@@ -15,6 +15,7 @@ export type BaleinesInvoiceReservation = {
   responsable_telephone: string | null;
   participants: BaleinesParticipant[] | null;
   montant_total: number | null;
+  source_paiement?: string | null;
 };
 
 const PAGE_WIDTH = 595;
@@ -96,6 +97,10 @@ export function buildBaleinesInvoicePdf(
   const amountHt = amountTtc / (1 + TVA_RATE);
   const tva = amountTtc - amountHt;
   const invoiceDate = paidAt.toLocaleDateString("fr-FR");
+  const paymentMethod =
+    reservation.source_paiement === "carnet_baleines"
+      ? "Carnet Baleines"
+      : "PayZen";
 
   const content = [
     "0.05 0.30 0.40 rg",
@@ -143,7 +148,7 @@ export function buildBaleinesInvoicePdf(
     boldLine(`Date sortie : ${safeText(reservation.date_sortie)}`, 42, 492, 11),
     textLine(`Depart : ${safeText(reservation.depart)}`, 42, 470, 10),
     textLine(`Participants : ${participantsCount(reservation.participants)}`, 42, 454, 10),
-    textLine("Mode de reglement : PayZen", 42, 438, 10),
+    textLine(`Mode de reglement : ${paymentMethod}`, 42, 438, 10),
     textLine(`Montant paye : ${money(amountTtc)}`, 42, 422, 10),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),

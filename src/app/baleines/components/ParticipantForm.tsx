@@ -45,7 +45,8 @@ export function ParticipantForm({
   t = whaleWatchingTranslations.fr,
 }: ParticipantFormProps) {
   const isResponsable = index === 0;
-  const showEquipment = participant.role === "mise_eau";
+  const showEquipment =
+    participant.role === "mise_eau" && !participant.materielPerso;
   const isUnderWaterTooYoung = ageRenseigneMineurComplet(participant.age);
   const canChooseMiseEau = canSwitchToMiseEau && !isUnderWaterTooYoung;
 

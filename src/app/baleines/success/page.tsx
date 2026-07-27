@@ -22,11 +22,18 @@ const copy = {
   fr: {
     paidKicker: "Paiement confirme",
     unpaidKicker: "Paiement non confirme",
-    confirmedTitle: "Votre sortie baleines est confirmee",
+    payzenConfirmedTitle: "PAIEMENT CONFIRMÉ",
+    carnetConfirmedTitle: "RÉSERVATION CONFIRMÉE",
     failedTitle: "Reservation non finalisee",
     pendingTitle: "Paiement en attente de confirmation",
-    confirmedText:
-      "Merci ! Votre reservation est confirmee uniquement parce que PayZen a confirme le paiement.",
+    payzenConfirmedText: [
+      "Merci ! Votre réservation est confirmée.",
+      "Votre paiement a été confirmé par PayZen.",
+    ],
+    carnetConfirmedText: [
+      "Merci ! Votre réservation est confirmée.",
+      "Cette sortie a été déduite de votre carnet Baleines.",
+    ],
     unpaidText:
       "Votre retour boutique ne valide pas la reservation. Si le paiement n'a pas ete confirme par PayZen, aucune confirmation definitive n'est envoyee.",
     meeting: "Votre rendez-vous",
@@ -39,11 +46,18 @@ const copy = {
   en: {
     paidKicker: "Payment confirmed",
     unpaidKicker: "Payment not confirmed",
-    confirmedTitle: "Your whale watching trip is confirmed",
+    payzenConfirmedTitle: "PAYMENT CONFIRMED",
+    carnetConfirmedTitle: "BOOKING CONFIRMED",
     failedTitle: "Payment not confirmed",
     pendingTitle: "Payment not confirmed",
-    confirmedText:
-      "Thank you. Your booking is confirmed only because PayZen confirmed the payment.",
+    payzenConfirmedText: [
+      "Thank you! Your booking is confirmed.",
+      "Your payment has been confirmed by PayZen.",
+    ],
+    carnetConfirmedText: [
+      "Thank you! Your booking is confirmed.",
+      "This trip has been deducted from your Whale Watching pass.",
+    ],
     unpaidText:
       "Your booking has not been confirmed because the payment was not completed.",
     meeting: "Meeting point",
@@ -67,7 +81,9 @@ async function getReservationStatus(
   reservationId: string,
   payzenStatus: string
 ) {
-  if (!reservationId) return "pending";
+  if (!reservationId) {
+    return { status: "pending" as const, sourcePaiement: "" };
+  }
 
   if (isExplicitPayzenFailure(payzenStatus)) {
     await markReservationPaymentFailed("reservations_baleines", reservationId);
@@ -75,11 +91,13 @@ async function getReservationStatus(
 
   const { data } = await supabase
     .from("reservations_baleines")
-    .select("statut_paiement,paye")
+    .select("statut_paiement,paye,source_paiement")
     .eq("id", reservationId)
     .maybeSingle();
 
-  if (!data) return "pending";
+  if (!data) {
+    return { status: "pending" as const, sourcePaiement: "" };
+  }
 
   const status = getPaymentDisplayStatus(data);
 
@@ -90,7 +108,10 @@ async function getReservationStatus(
     );
   }
 
-  return status;
+  return {
+    status,
+    sourcePaiement: String(data.source_paiement || ""),
+  };
 }
 
 export default async function BaleinesSuccessPage({
@@ -103,9 +124,11 @@ export default async function BaleinesSuccessPage({
   const t = copy[locale];
   const reservationId = getReturnReservationId(params);
   const payzenStatus = getPayzenReturnStatus(params);
-  const status = await getReservationStatus(reservationId, payzenStatus);
+  const reservation = await getReservationStatus(reservationId, payzenStatus);
+  const status = reservation.status;
   const isConfirmed = status === "confirmed";
   const isFailed = status === "failed";
+  const isCarnet = reservation.sourcePaiement === "carnet_baleines";
 
   return (
     <main className="min-h-screen bg-white px-4 py-10 text-slate-950">
@@ -120,16 +143,29 @@ export default async function BaleinesSuccessPage({
 
         <h1 className="mt-3 text-3xl font-black leading-tight">
           {isConfirmed
-            ? t.confirmedTitle
+            ? isCarnet
+              ? t.carnetConfirmedTitle
+              : t.payzenConfirmedTitle
             : isFailed
             ? t.failedTitle
             : t.pendingTitle}
         </h1>
 
         <p className="mt-4 text-base font-semibold leading-7 text-slate-600">
-          {isConfirmed
-            ? t.confirmedText
-            : t.unpaidText}
+          {isConfirmed ? (
+            <>
+              {(isCarnet
+                ? t.carnetConfirmedText
+                : t.payzenConfirmedText
+              ).map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </>
+          ) : (
+            t.unpaidText
+          )}
         </p>
 
         {isConfirmed ? (

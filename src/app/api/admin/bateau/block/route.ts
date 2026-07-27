@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { verifyAdminSession } from "@/lib/adminSession";
 import { isBoatSlot, isIsoDate } from "@/lib/boat-calendar";
 
 type BlockBody = {
@@ -13,6 +14,10 @@ const SELECT_FIELDS =
   "id,date,slot,status,activity,reservation_id,reservation_table,blocked_reason,blocked_by,blocked_at,created_at,updated_at";
 
 export async function POST(request: Request) {
+  if (!verifyAdminSession(request)) {
+    return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
+  }
+
   const body = (await request.json()) as BlockBody;
   const { date, slot } = body;
 

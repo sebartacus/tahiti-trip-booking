@@ -1,463 +1,394 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
+import {
+  getOffreCarnetBaleines,
+  OFFRES_CARNETS_BALEINES,
+  type NombreCreditsCarnetBaleines,
+} from "@/lib/carnetsBaleines";
 
-type TypeCarnet = 5 | 10;
+const ETAPES = [
+  ["01", "J’achète mon carnet"],
+  ["02", "Je reçois mon code par e-mail"],
+  ["03", "Je réserve ma sortie Baleines"],
+  ["04", "Les crédits sont automatiquement déduits"],
+] as const;
 
-type CarnetCree = {
-  id: string;
-  code: string;
-  type_carnet: number;
-  credits_restants: number;
-  prix: number;
-};
+const FAQ = [
+  [
+    "Le carnet est-il nominatif ?",
+    "Oui, mais son propriétaire peut réserver pour plusieurs personnes.",
+  ],
+  ["Les observateurs utilisent-ils un crédit ?", "Oui."],
+  ["Les enfants utilisent-ils un crédit ?", "Oui."],
+  [
+    "Jusqu’à quand le carnet est-il valable ?",
+    "Jusqu’au 20 novembre 2026.",
+  ],
+] as const;
 
 export default function CarnetsBaleinesPage() {
-  const [typeCarnet, setTypeCarnet] = useState<TypeCarnet>(10);
-  const [formulaireVisible, setFormulaireVisible] = useState(false);
-
+  const [typeCarnet, setTypeCarnet] =
+    useState<NombreCreditsCarnetBaleines>(10);
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
-  const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
-
+  const [email, setEmail] = useState("");
   const [chargement, setChargement] = useState(false);
-  const [chargementPaiement, setChargementPaiement] = useState(false);
   const [erreur, setErreur] = useState("");
-  const [carnetCree, setCarnetCree] = useState<CarnetCree | null>(null);
+  const offre = getOffreCarnetBaleines(typeCarnet)!;
 
-  const prix = typeCarnet === 5 ? 65000 : 115000;
-
-  function choisirCarnet(type: TypeCarnet) {
-    setTypeCarnet(type);
+  function choisirCarnet(credits: NombreCreditsCarnetBaleines) {
+    setTypeCarnet(credits);
     setErreur("");
-    setCarnetCree(null);
+    document
+      .getElementById("achat")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function ouvrirFormulaire() {
-    setErreur("");
-    setCarnetCree(null);
-    setFormulaireVisible(true);
-
-    setTimeout(() => {
-      document
-        .getElementById("formulaire-achat")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-  }
-
-  async function creerCarnet(event: FormEvent<HTMLFormElement>) {
+  async function acheterCarnet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setErreur("");
-    setCarnetCree(null);
-
-    if (!prenom.trim() || !nom.trim() || !email.trim()) {
-      setErreur(
-        "Veuillez renseigner votre prénom, votre nom et votre e-mail."
-      );
-      return;
-    }
-
     setChargement(true);
 
     try {
-      const response = await fetch("/api/carnets-baleines", {
+      const creationResponse = await fetch("/api/carnets-baleines", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type_carnet: typeCarnet,
-          prenom_acheteur: prenom.trim(),
-          nom_acheteur: nom.trim(),
-          email: email.trim(),
-          telephone: telephone.trim(),
+          prenom_acheteur: prenom,
+          nom_acheteur: nom,
+          telephone,
+          email,
         }),
       });
+      const creation = await creationResponse.json();
 
-      const resultat = await response.json();
-
-      if (!response.ok || !resultat.ok) {
+      if (!creationResponse.ok || !creation.ok || !creation.carnet?.id) {
         throw new Error(
-          resultat.error ||
-            "Impossible de créer le carnet pour le moment."
+          creation.error || "Impossible de préparer votre carnet."
         );
       }
 
-      setCarnetCree(resultat.carnet);
-    } catch (error) {
-      setErreur(
-        error instanceof Error
-          ? error.message
-          : "Une erreur est survenue lors de la création du carnet."
-      );
-    } finally {
-      setChargement(false);
-    }
-  }
-
-  async function payerAvecPayZen() {
-    if (!carnetCree) return;
-
-    setErreur("");
-    setChargementPaiement(true);
-
-    try {
-      const response = await fetch("/api/payzen-carnets-baleines", {
+      const payzenResponse = await fetch("/api/payzen-carnets-baleines", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          montant: Number(carnetCree.prix),
-          email: email.trim(),
-          carnet_id: carnetCree.id,
-          carnet_code: carnetCree.code,
-          type_carnet: carnetCree.type_carnet,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ carnet_id: creation.carnet.id }),
       });
+      const paiement = await payzenResponse.json();
 
-      const resultat = await response.json();
-
-      if (!response.ok || !resultat.url || !resultat.champs) {
+      if (!payzenResponse.ok || !paiement.url || !paiement.champs) {
         throw new Error(
-          resultat.error ||
-            "Impossible de préparer le paiement PayZen."
+          paiement.error || "Impossible de préparer le paiement PayZen."
         );
       }
 
-      const formulaire = document.createElement("form");
+      const formulairePayzen = document.createElement("form");
+      formulairePayzen.method = "POST";
+      formulairePayzen.action = paiement.url;
 
-      formulaire.method = "POST";
-      formulaire.action = resultat.url;
-
-      Object.entries(resultat.champs).forEach(([nomChamp, valeur]) => {
+      Object.entries(paiement.champs).forEach(([name, value]) => {
         const input = document.createElement("input");
-
         input.type = "hidden";
-        input.name = nomChamp;
-        input.value = String(valeur);
-
-        formulaire.appendChild(input);
+        input.name = name;
+        input.value = String(value);
+        formulairePayzen.appendChild(input);
       });
 
-      document.body.appendChild(formulaire);
-      formulaire.submit();
+      document.body.appendChild(formulairePayzen);
+      formulairePayzen.submit();
     } catch (error) {
       setErreur(
         error instanceof Error
           ? error.message
           : "Une erreur est survenue avant le paiement."
       );
-
-      setChargementPaiement(false);
+      setChargement(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-white px-4 py-10 text-slate-900">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-10 text-center">
-          <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-sky-700">
+    <main className="min-h-screen bg-white text-slate-950">
+      <section className="relative min-h-[72svh] overflow-hidden bg-cyan-950 text-white">
+        <div
+          aria-label="Baleine à Tahiti"
+          className="absolute inset-0 bg-cover bg-center"
+          role="img"
+          style={{
+            backgroundImage: "url('/images/baleines/hero-baleine-saut.jpg')",
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-cyan-950 via-cyan-950/55 to-cyan-900/10" />
+        <div className="relative mx-auto flex min-h-[72svh] max-w-5xl flex-col justify-end px-4 pb-12 pt-24 md:pb-16">
+          <Link
+            href="/baleines"
+            className="mb-8 w-fit rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-black backdrop-blur"
+          >
+            ← Retour aux sorties Baleines
+          </Link>
+          <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100">
             Tahiti Trip Fishing
           </p>
-
-          <h1 className="text-3xl font-bold sm:text-5xl">
-            Carnets sorties baleines
+          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-none sm:text-6xl">
+            Carnets Baleines
           </h1>
-
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-            Profitez de plusieurs sorties à tarif préférentiel et utilisez vos
-            crédits librement pendant toute la saison baleines.
+          <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-cyan-50 sm:text-xl">
+            Profitez de tarifs préférentiels et réservez vos sorties en toute
+            simplicité pendant toute la saison.
           </p>
-
-          <p className="mt-2 font-semibold text-slate-800">
-            Valables jusqu’au 20 novembre 2026.
+          <p className="mt-6 w-fit rounded-2xl bg-white px-5 py-3 text-base font-black uppercase tracking-wide text-cyan-950">
+            Valables jusqu’au 20 novembre 2026
           </p>
-        </header>
+        </div>
+      </section>
 
-        <section className="grid gap-6 md:grid-cols-2">
-          <button
-            type="button"
-            onClick={() => choisirCarnet(5)}
-            className={`cursor-pointer rounded-3xl border p-6 text-left transition ${
-              typeCarnet === 5
-                ? "border-sky-600 ring-2 ring-sky-200"
-                : "border-slate-200 hover:border-sky-300"
-            }`}
-          >
-            <p className="text-sm font-semibold uppercase tracking-wide text-sky-700">
-              Carnet 5 places
-            </p>
+      <section className="mx-auto max-w-5xl px-4 py-14 sm:py-20">
+        <div className="grid gap-6 lg:grid-cols-2">
+          {OFFRES_CARNETS_BALEINES.map((item) => (
+            <article
+              key={item.credits}
+              className={`relative flex flex-col overflow-hidden rounded-[32px] border p-6 shadow-[0_24px_60px_rgba(8,145,178,0.12)] sm:p-8 ${
+                item.credits === 10
+                  ? "border-cyan-700 bg-cyan-950 text-white"
+                  : "border-cyan-100 bg-white"
+              }`}
+            >
+              {item.credits === 10 && (
+                <span className="absolute right-5 top-5 rounded-full bg-amber-300 px-3 py-1 text-xs font-black uppercase tracking-wide text-amber-950">
+                  Meilleure offre
+                </span>
+              )}
+              <p
+                className={`text-sm font-black uppercase tracking-[0.16em] ${
+                  item.credits === 10 ? "text-cyan-200" : "text-cyan-700"
+                }`}
+              >
+                {item.nom}
+              </p>
+              <p className="mt-5 text-4xl font-black sm:text-5xl">
+                {item.prix.toLocaleString("fr-FR")}{" "}
+                <span className="text-lg">F CFP</span>
+              </p>
+              <ul className="mt-8 flex-1 space-y-4 text-sm font-bold leading-6 sm:text-base">
+                {item.avantages.map((avantage) => (
+                  <li key={avantage} className="flex gap-3">
+                    <span
+                      className={
+                        item.credits === 10
+                          ? "text-cyan-300"
+                          : "text-cyan-700"
+                      }
+                    >
+                      ✓
+                    </span>
+                    {avantage}
+                  </li>
+                ))}
+              </ul>
+              <p
+                className={`mt-7 rounded-2xl p-4 text-center font-black ${
+                  item.credits === 10
+                    ? "bg-white/10 text-amber-200"
+                    : "bg-emerald-50 text-emerald-800"
+                }`}
+              >
+                Économie de {item.economie.toLocaleString("fr-FR")} F CFP
+              </p>
+              <button
+                type="button"
+                onClick={() => choisirCarnet(item.credits)}
+                className={`mt-5 min-h-14 rounded-2xl px-5 text-base font-black transition ${
+                  item.credits === 10
+                    ? "bg-white text-cyan-950 hover:bg-cyan-50"
+                    : "bg-cyan-700 text-white hover:bg-cyan-800"
+                }`}
+              >
+                Acheter ce carnet
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
 
-            <div className="mt-4">
-              <span className="text-4xl font-bold">65 000 F CFP</span>
-            </div>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Soit 13 000 F CFP par crédit
-            </p>
-
-            <p className="mt-5 text-slate-700">
-              5 crédits utilisables à l’unité, à plusieurs ou par vos proches.
-            </p>
-
-            <p className="mt-4 font-semibold text-emerald-700">
-              Jusqu’à 10 000 F CFP d’économie
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => choisirCarnet(10)}
-            className={`relative cursor-pointer rounded-3xl border p-6 text-left transition ${
-              typeCarnet === 10
-                ? "border-sky-600 ring-2 ring-sky-200"
-                : "border-slate-200 hover:border-sky-300"
-            }`}
-          >
-            <span className="absolute right-5 top-5 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">
-              Meilleure offre
-            </span>
-
-            <p className="text-sm font-semibold uppercase tracking-wide text-sky-700">
-              Carnet 10 places
-            </p>
-
-            <div className="mt-4">
-              <span className="text-4xl font-bold">115 000 F CFP</span>
-            </div>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Soit 11 500 F CFP par crédit
-            </p>
-
-            <p className="mt-5 text-slate-700">
-              10 crédits utilisables à l’unité, à plusieurs ou par vos proches.
-            </p>
-
-            <p className="mt-4 font-semibold text-emerald-700">
-              Jusqu’à 35 000 F CFP d’économie
-            </p>
-          </button>
-        </section>
-
-        <section className="mt-8 rounded-3xl bg-slate-50 p-6 sm:p-8">
-          <h2 className="text-xl font-bold">
+      <section className="bg-cyan-50 py-14 sm:py-20">
+        <div className="mx-auto max-w-5xl px-4">
+          <h2 className="text-3xl font-black sm:text-4xl">
             Comment fonctionne le carnet ?
           </h2>
-
-          <div className="mt-5 space-y-3 leading-7 text-slate-700">
-            <p>
-              <strong>1 crédit = 1 place</strong>, quel que soit le type de
-              participant choisi.
-            </p>
-
-            <p>
-              Le carnet peut être utilisé à l’unité, pour plusieurs personnes
-              lors d’une même sortie ou être partagé avec vos proches.
-            </p>
-
-            <p>Les crédits sont débités dès la réservation.</p>
-
-            <p>
-              Aucune annulation n’est possible à l’initiative du client.
-            </p>
-
-            <p>
-              En cas d’annulation décidée par Tahiti Trip Fishing, notamment
-              pour mauvaises conditions météorologiques, les crédits concernés
-              sont recrédités.
-            </p>
-
-            <p>
-              Les crédits non utilisés expirent à la fin de la saison, le{" "}
-              <strong>20 novembre 2026</strong>.
-            </p>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {ETAPES.map(([numero, texte]) => (
+              <article
+                key={numero}
+                className="rounded-3xl border border-cyan-100 bg-white p-5"
+              >
+                <span className="text-sm font-black text-cyan-700">
+                  {numero}
+                </span>
+                <p className="mt-4 text-lg font-black leading-6">{texte}</p>
+              </article>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {!formulaireVisible && (
-          <div className="mt-8 text-center">
-            <button
-              type="button"
-              onClick={ouvrirFormulaire}
-              className="cursor-pointer rounded-full bg-sky-700 px-8 py-4 text-lg font-bold text-white transition hover:bg-sky-800"
-            >
-              Choisir le carnet {typeCarnet} places
-            </button>
-
-            <p className="mt-3 text-sm text-slate-500">
-              Montant : {prix.toLocaleString("fr-FR")} F CFP
+      <section
+        id="achat"
+        className="mx-auto max-w-5xl scroll-mt-6 px-4 py-14 sm:py-20"
+      >
+        <div className="grid gap-8 lg:grid-cols-[1fr_0.72fr]">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-cyan-700">
+              Achat sécurisé
             </p>
-          </div>
-        )}
-
-        {formulaireVisible && (
-          <section
-            id="formulaire-achat"
-            className="mt-10 scroll-mt-6 rounded-3xl border border-slate-200 p-6 shadow-sm sm:p-8"
-          >
-            <div className="mb-7">
-              <p className="text-sm font-bold uppercase tracking-wide text-sky-700">
-                Votre sélection
-              </p>
-
-              <h2 className="mt-2 text-2xl font-bold">
-                Carnet {typeCarnet} places —{" "}
-                {prix.toLocaleString("fr-FR")} F CFP
-              </h2>
-            </div>
-
-            {!carnetCree ? (
-              <form onSubmit={creerCarnet}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor="prenom"
-                      className="mb-2 block font-semibold"
-                    >
-                      Prénom *
-                    </label>
-
-                    <input
-                      id="prenom"
-                      type="text"
-                      value={prenom}
-                      onChange={(event) => setPrenom(event.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-sky-600"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="nom"
-                      className="mb-2 block font-semibold"
-                    >
-                      Nom *
-                    </label>
-
-                    <input
-                      id="nom"
-                      type="text"
-                      value={nom}
-                      onChange={(event) => setNom(event.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-sky-600"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="email"
-                      className="mb-2 block font-semibold"
-                    >
-                      E-mail *
-                    </label>
-
-                    <input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-sky-600"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="telephone"
-                      className="mb-2 block font-semibold"
-                    >
-                      Téléphone
-                    </label>
-
-                    <input
-                      id="telephone"
-                      type="tel"
-                      value={telephone}
-                      onChange={(event) => setTelephone(event.target.value)}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-sky-600"
-                    />
-                  </div>
-                </div>
-
-                {erreur && (
-                  <div className="mt-5 rounded-xl bg-red-50 p-4 font-semibold text-red-700">
-                    {erreur}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={chargement}
-                  className="mt-7 w-full cursor-pointer rounded-xl bg-sky-700 px-6 py-4 text-lg font-bold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {chargement
-                    ? "Création en cours..."
-                    : `Continuer — ${prix.toLocaleString(
-                        "fr-FR"
-                      )} F CFP`}
-                </button>
-              </form>
-            ) : (
-              <div>
-                <div className="rounded-2xl bg-emerald-50 p-6">
-                  <p className="text-xl font-bold text-emerald-800">
-                    Votre carnet est prêt
-                  </p>
-
-                  <p className="mt-4 text-slate-700">
-                    Code du carnet :
-                  </p>
-
-                  <p className="mt-1 break-all text-2xl font-black tracking-wide text-slate-950">
-                    {carnetCree.code}
-                  </p>
-
-                  <p className="mt-4 text-slate-700">
-                    Crédits :{" "}
-                    <strong>{carnetCree.credits_restants}</strong>
-                  </p>
-
-                  <p className="mt-1 text-slate-700">
-                    Montant :{" "}
-                    <strong>
-                      {Number(carnetCree.prix).toLocaleString("fr-FR")} F CFP
-                    </strong>
-                  </p>
-                </div>
-
-                {erreur && (
-                  <div className="mt-5 rounded-xl bg-red-50 p-4 font-semibold text-red-700">
-                    {erreur}
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={payerAvecPayZen}
-                  disabled={chargementPaiement}
-                  className="mt-6 w-full cursor-pointer rounded-xl bg-sky-700 px-6 py-4 text-lg font-bold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {chargementPaiement
-                    ? "Redirection vers PayZen..."
-                    : `Payer ${Number(carnetCree.prix).toLocaleString(
-                        "fr-FR"
-                      )} F CFP avec PayZen`}
-                </button>
-
-                <p className="mt-3 text-center text-sm text-slate-500">
-                  Le carnet sera activé après confirmation du paiement.
-                </p>
+            <h2 className="mt-3 text-3xl font-black sm:text-4xl">
+              Acheter mon Carnet Baleines
+            </h2>
+            <form onSubmit={acheterCarnet} className="mt-8 grid gap-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Input
+                  label="Prénom"
+                  value={prenom}
+                  onChange={setPrenom}
+                  autoComplete="given-name"
+                />
+                <Input
+                  label="Nom"
+                  value={nom}
+                  onChange={setNom}
+                  autoComplete="family-name"
+                />
+                <Input
+                  label="Téléphone"
+                  value={telephone}
+                  onChange={setTelephone}
+                  type="tel"
+                  autoComplete="tel"
+                />
+                <Input
+                  label="E-mail"
+                  value={email}
+                  onChange={setEmail}
+                  type="email"
+                  autoComplete="email"
+                />
               </div>
-            )}
-          </section>
-        )}
-      </div>
+
+              <fieldset>
+                <legend className="mb-3 text-sm font-black uppercase tracking-wide text-slate-600">
+                  Choix du carnet
+                </legend>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {OFFRES_CARNETS_BALEINES.map((item) => (
+                    <label
+                      key={item.credits}
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 font-black ${
+                        typeCarnet === item.credits
+                          ? "border-cyan-700 bg-cyan-50 text-cyan-950"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="type-carnet"
+                        checked={typeCarnet === item.credits}
+                        onChange={() => setTypeCarnet(item.credits)}
+                      />
+                      {item.credits} sorties
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              {erreur && (
+                <p className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">
+                  {erreur}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={chargement}
+                className="min-h-14 rounded-2xl bg-cyan-700 px-6 text-lg font-black text-white shadow-[0_15px_30px_rgba(8,145,178,0.22)] disabled:bg-slate-300"
+              >
+                {chargement
+                  ? "Redirection vers PayZen..."
+                  : `Payer ${offre.prix.toLocaleString("fr-FR")} F CFP`}
+              </button>
+              <p className="text-center text-xs font-semibold text-slate-500">
+                Paiement sécurisé par PayZen. Le carnet est activé uniquement
+                après confirmation du paiement.
+              </p>
+            </form>
+          </div>
+
+          <aside className="h-fit rounded-[30px] bg-cyan-950 p-6 text-white lg:sticky lg:top-6">
+            <p className="text-sm font-black uppercase tracking-wide text-cyan-200">
+              Votre sélection
+            </p>
+            <h3 className="mt-3 text-2xl font-black">{offre.nom}</h3>
+            <p className="mt-4 text-4xl font-black">
+              {offre.prix.toLocaleString("fr-FR")} F CFP
+            </p>
+            <div className="my-6 border-t border-white/15" />
+            <p className="font-bold">{offre.credits} crédits disponibles</p>
+            <p className="mt-2 text-sm leading-6 text-cyan-100">
+              1 crédit = 1 participant, quel que soit son statut.
+            </p>
+            <p className="mt-5 rounded-2xl bg-white/10 p-4 text-sm font-black text-amber-200">
+              Vous économisez {offre.economie.toLocaleString("fr-FR")} F CFP
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section className="border-t border-cyan-100 bg-slate-50 py-14">
+        <div className="mx-auto max-w-3xl px-4">
+          <h2 className="text-3xl font-black">Questions fréquentes</h2>
+          <div className="mt-7 space-y-3">
+            {FAQ.map(([question, reponse]) => (
+              <details
+                key={question}
+                className="group rounded-2xl border border-slate-200 bg-white p-5"
+              >
+                <summary className="cursor-pointer list-none font-black">
+                  {question}
+                </summary>
+                <p className="mt-3 leading-7 text-slate-600">{reponse}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
     </main>
+  );
+}
+
+function Input({
+  autoComplete,
+  label,
+  onChange,
+  type = "text",
+  value,
+}: {
+  autoComplete: string;
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string;
+}) {
+  return (
+    <label className="text-sm font-black text-slate-700">
+      {label}
+      <input
+        required
+        type={type}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 min-h-14 w-full rounded-2xl border border-cyan-100 bg-cyan-50/50 px-4 text-base font-semibold outline-none focus:border-cyan-700 focus:bg-white"
+      />
+    </label>
   );
 }

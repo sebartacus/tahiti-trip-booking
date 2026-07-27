@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyAdminSession } from "@/lib/adminSession";
 import { supabase } from "@/lib/supabase";
 
 const ALLOWED_TABLES = new Set([
@@ -92,6 +93,10 @@ function countBaleinesParticipants(participants: unknown) {
 }
 
 export async function GET(request: Request) {
+  if (!verifyAdminSession(request)) {
+    return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const table = searchParams.get("table") || "";
   const id = searchParams.get("id") || "";

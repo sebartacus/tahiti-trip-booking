@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import type {
   BoatActivity,
   BoatCalendarSlot,
@@ -63,7 +64,7 @@ function activityLabel(activity: BoatActivity | null) {
   return "Disponible";
 }
 
-export function AdminBoatCalendar() {
+export function AdminBoatCalendar({ onLogout }: { onLogout: () => void }) {
   const [monthDate, setMonthDate] = useState(
     () => new Date(Date.UTC(2026, 6, 1))
   );
@@ -220,26 +221,43 @@ export function AdminBoatCalendar() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-2xl bg-cyan-50 p-2">
-              <button
-                type="button"
-                onClick={goToPreviousMonth}
-                className="min-h-12 min-w-12 rounded-xl bg-white text-xl font-black text-cyan-900"
-                aria-label="Mois precedent"
-              >
-                &lt;
-              </button>
-              <p className="min-w-40 text-center text-base font-black text-cyan-950">
-                {monthNames[bounds.monthIndex]} {bounds.year}
-              </p>
-              <button
-                type="button"
-                onClick={goToNextMonth}
-                className="min-h-12 min-w-12 rounded-xl bg-white text-xl font-black text-cyan-900"
-                aria-label="Mois suivant"
-              >
-                &gt;
-              </button>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/admin"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-900"
+                >
+                  Tableau de bord
+                </Link>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="min-h-11 rounded-xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-900"
+                >
+                  Déconnexion
+                </button>
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl bg-cyan-50 p-2">
+                <button
+                  type="button"
+                  onClick={goToPreviousMonth}
+                  className="min-h-12 min-w-12 rounded-xl bg-white text-xl font-black text-cyan-900"
+                  aria-label="Mois precedent"
+                >
+                  &lt;
+                </button>
+                <p className="min-w-40 text-center text-base font-black text-cyan-950">
+                  {monthNames[bounds.monthIndex]} {bounds.year}
+                </p>
+                <button
+                  type="button"
+                  onClick={goToNextMonth}
+                  className="min-h-12 min-w-12 rounded-xl bg-white text-xl font-black text-cyan-900"
+                  aria-label="Mois suivant"
+                >
+                  &gt;
+                </button>
+              </div>
             </div>
           </div>
         </header>

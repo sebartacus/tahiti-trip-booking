@@ -1,4 +1,4 @@
-type SendEmailPayload = {
+export type SendEmailPayload = {
   from: string;
   to: string[];
   subject: string;
@@ -28,6 +28,7 @@ export type BaleinesEmailReservation = {
   responsable_telephone: string | null;
   participants: BaleinesParticipant[] | null;
   montant_total: number | null;
+  source_paiement?: string | null;
 };
 
 type SendBaleinesEmailsOptions = {
@@ -50,7 +51,15 @@ function participantsCount(participants: BaleinesParticipant[] | null) {
   return Array.isArray(participants) ? participants.length : 0;
 }
 
-async function sendResendEmail(payload: SendEmailPayload, fetchFn: typeof fetch) {
+function isCarnetReservation(reservation: BaleinesEmailReservation) {
+  return reservation.source_paiement === "carnet_baleines";
+}
+
+export async function sendResendEmail(
+  payload: SendEmailPayload,
+  fetchFn: typeof fetch,
+  idempotencyKey?: string
+) {
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
@@ -62,6 +71,7 @@ async function sendResendEmail(payload: SendEmailPayload, fetchFn: typeof fetch)
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -77,11 +87,16 @@ async function sendResendEmail(payload: SendEmailPayload, fetchFn: typeof fetch)
 export function buildBaleinesClientEmailHtml(
   reservation: BaleinesEmailReservation
 ) {
+  const paymentConfirmation = isCarnetReservation(reservation)
+    ? "Cette sortie a ete deduite de votre carnet Baleines."
+    : "Votre paiement a ete confirme par PayZen.";
+
   return `
     <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.55">
       <h1 style="color:#075985">Confirmation de votre reservation - Observation des baleines</h1>
       <p>Bonjour ${safeText(reservation.responsable_prenom)},</p>
       <p>Merci pour votre confiance. Votre reservation baleines est confirmee.</p>
+      <p>${paymentConfirmation}</p>
 
       <h2>Recapitulatif</h2>
       <ul>
@@ -104,6 +119,10 @@ export function buildBaleinesClientEmailHtml(
 export function buildBaleinesInternalEmailHtml(
   reservation: BaleinesEmailReservation
 ) {
+  const paymentMethod = isCarnetReservation(reservation)
+    ? "Carnet Baleines"
+    : "PayZen";
+
   return `
     <div style="font-family:Arial,sans-serif;color:#0f172a;line-height:1.55">
       <h1>Nouvelle reservation baleines</h1>
@@ -115,6 +134,7 @@ export function buildBaleinesInternalEmailHtml(
         <li>Email : ${safeText(reservation.responsable_email)}</li>
         <li>Date : ${safeText(reservation.date_sortie)}</li>
         <li>Depart : ${safeText(reservation.depart)}</li>
+        <li>Confirmation : ${paymentMethod}</li>
         <li>Montant : ${formatXpf(reservation.montant_total)}</li>
         <li>Participants : ${participantsCount(reservation.participants)}</li>
       </ul>

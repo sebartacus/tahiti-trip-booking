@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 const ALLOWED_TABLES = new Set(["reservations_peche", "reservations_baleines"]);
 
@@ -59,13 +60,6 @@ function isManualReservation(table: string, record: ReservationRecord) {
 
 function shouldKeepHistory(table: string, record: ReservationRecord) {
   return !isManualReservation(table, record) && isPaidReservation(record);
-}
-
-function validateAdminPassword(request: Request) {
-  const configuredPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "";
-  if (!configuredPassword) return true;
-
-  return request.headers.get("x-admin-password") === configuredPassword;
 }
 
 async function findReservation(
@@ -137,7 +131,7 @@ async function releaseBoatSlots(
 }
 
 export async function POST(request: Request) {
-  if (!validateAdminPassword(request)) {
+  if (!verifyAdminSession(request)) {
     return NextResponse.json({ error: "Acces admin refuse." }, { status: 401 });
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
   MAX_MISE_EAU,
@@ -9,6 +10,7 @@ import {
 import type { Depart, Role } from "@/app/baleines/lib/types";
 import { PECHE_FORMULAS, type FormulaId } from "@/components/peche/constants";
 import { getPermisPricing } from "@/lib/permisPricing";
+import { useAdminSession } from "@/hooks/useAdminSession";
 
 type AdminReservation = {
   id: number;
@@ -368,7 +370,12 @@ export default function AdminPage() {
     useState<AdminBaleinesReservation | null>(null);
   const [filtreStatut, setFiltreStatut] = useState("Tous");
   const [motDePasse, setMotDePasse] = useState("");
-  const [accesAutorise, setAccesAutorise] = useState(false);
+  const {
+    authenticated: accesAutorise,
+    checking: verificationSession,
+    login: connecterAdmin,
+    logout: deconnecterAdmin,
+  } = useAdminSession();
 
   const [dateExamenBloquee, setDateExamenBloquee] = useState("");
   const [motifBlocage, setMotifBlocage] = useState("");
@@ -541,7 +548,6 @@ export default function AdminPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-password": motDePasse,
         },
         body: JSON.stringify({ reservationTable, reservationId }),
       });
@@ -990,6 +996,14 @@ export default function AdminPage() {
     sortiesCompletes ? `${sortiesCompletes} sortie(s) complete(s)` : "",
   ].filter(Boolean);
 
+  if (verificationSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+        <p className="font-bold text-cyan-900">Vérification de la session…</p>
+      </main>
+    );
+  }
+
   if (!accesAutorise) {
     return (
       <main className="min-h-screen bg-slate-100 p-4 flex items-center justify-center">
@@ -997,17 +1011,10 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold mb-6">Accès admin</h1>
 
           <form
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
-
-              if (
-                motDePasse ===
-                (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123")
-              ) {
-                setAccesAutorise(true);
-              } else {
-                alert("Mot de passe incorrect.");
-              }
+              const resultat = await connecterAdmin(motDePasse);
+              if (!resultat.ok) alert(resultat.error);
             }}
           >
             <input
@@ -1032,22 +1039,77 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 p-4 md:p-8">
-      <section className="mb-10 overflow-hidden rounded-[2rem] bg-slate-950 p-5 text-white shadow-2xl md:p-8">
+      <section className="mb-10 overflow-hidden rounded-[2rem] border border-cyan-100 bg-cyan-50/60 p-5 shadow-sm md:p-8">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-300">
-              Tahiti Trip Fishing
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-cyan-700">
+              Espace de gestion
             </p>
-            <h1 className="mt-2 text-3xl font-black md:text-5xl">
-              Tableau de bord
+            <h1 className="mt-2 text-3xl font-black text-cyan-950 md:text-5xl">
+              Administration Tahiti Trip
             </h1>
+            <p className="mt-4 max-w-3xl font-semibold leading-7 text-slate-600">
+              Gérez les réservations, les carnets, les disponibilités et les
+              activités depuis un seul espace.
+            </p>
           </div>
-          <p className="text-sm font-semibold text-slate-300">
-            Aujourd&apos;hui : {todayKey.split("-").reverse().join("/")}
-          </p>
+          <div className="flex flex-col items-start gap-3 md:items-end">
+            <button
+              type="button"
+              onClick={() => void deconnecterAdmin()}
+              className="min-h-11 rounded-xl border border-cyan-200 bg-white px-4 text-sm font-black text-cyan-900"
+            >
+              Déconnexion
+            </button>
+            <p className="text-sm font-semibold text-slate-500">
+              Aujourd&apos;hui : {todayKey.split("-").reverse().join("/")}
+            </p>
+          </div>
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <nav
+          className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          aria-label="Modules d’administration"
+        >
+          <AdminModuleCard
+            href="/admin/carnets-baleines"
+            icon="🐋"
+            title="Carnets Baleines"
+            description="Gérer les carnets, crédits, paiements et factures."
+          />
+          <AdminModuleCard
+            href="#reservations-baleines"
+            icon="🌊"
+            title="Réservations Baleines"
+            description="Consulter et gérer les réservations Baleines."
+          />
+          <AdminModuleCard
+            href="/admin/bateau"
+            icon="⛵"
+            title="Calendrier bateau"
+            description="Bloquer des dates et visualiser les disponibilités du bateau."
+          />
+          <AdminModuleCard
+            href="#reservations-peche"
+            icon="🎣"
+            title="Réservations Pêche"
+            description="Consulter les réservations de pêche au gros."
+          />
+          <AdminModuleCard
+            href="#reservations-permis"
+            icon="⚓"
+            title="Permis côtier"
+            description="Gérer les candidats, cours pratiques et examens."
+          />
+        </nav>
+
+        <div className="mt-10 border-t border-cyan-100 pt-8">
+          <h2 className="text-2xl font-black text-cyan-950">
+            Aperçu de l’activité
+          </h2>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
           <DashboardCard
             icon="🎣"
             title="Pêche aujourd'hui"
@@ -1079,8 +1141,8 @@ export default function AdminPage() {
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-          <section className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/10">
-            <h2 className="text-lg font-black">Cette semaine</h2>
+          <section className="rounded-3xl border border-cyan-100 bg-white p-5">
+            <h2 className="text-lg font-black text-cyan-950">Cette semaine</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
               <MiniMetric label="Pêche" value={pecheWeek.length} />
               <MiniMetric label="Baleines" value={baleinesWeek.length} />
@@ -1088,8 +1150,8 @@ export default function AdminPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/10">
-            <h2 className="text-lg font-black">Ce mois</h2>
+          <section className="rounded-3xl border border-cyan-100 bg-white p-5">
+            <h2 className="text-lg font-black text-cyan-950">Ce mois</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <MiniMetric label="CA Pêche" value={numberXpf(caPeche)} />
               <MiniMetric label="CA Baleines" value={numberXpf(caBaleines)} />
@@ -1108,9 +1170,9 @@ export default function AdminPage() {
           </section>
         </div>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_1fr]">
-          <section className="rounded-3xl bg-white p-5 text-slate-950">
-            <h2 className="text-lg font-black">Alertes</h2>
+        <div className="mt-5">
+          <section className="rounded-3xl border border-cyan-100 bg-white p-5 text-slate-950">
+            <h2 className="text-lg font-black text-cyan-950">Alertes</h2>
             {alerts.length === 0 ? (
               <p className="mt-4 rounded-2xl bg-emerald-50 p-4 font-bold text-emerald-700">
                 ✅ Aucune alerte.
@@ -1127,25 +1189,6 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
-          </section>
-
-          <section className="rounded-3xl bg-white p-5 text-slate-950">
-            <h2 className="text-lg font-black">Raccourcis</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <ShortcutButton href="/admin/bateau" label="Calendrier bateau" />
-              <ShortcutButton
-                href="#reservations-permis"
-                label="Réservations Permis"
-              />
-              <ShortcutButton
-                href="#reservations-peche"
-                label="Réservations Pêche"
-              />
-              <ShortcutButton
-                href="#reservations-baleines"
-                label="Réservations Baleines"
-              />
-            </div>
           </section>
         </div>
       </section>
@@ -2258,6 +2301,39 @@ function DashboardCard({
   );
 }
 
+function AdminModuleCard({
+  description,
+  href,
+  icon,
+  title,
+}: {
+  description: string;
+  href: string;
+  icon: string;
+  title: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-52 flex-col rounded-3xl border border-cyan-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-800"
+    >
+      <span
+        className="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-50 text-2xl"
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <h2 className="mt-5 text-xl font-black text-cyan-950">{title}</h2>
+      <p className="mt-2 flex-1 text-sm font-semibold leading-6 text-slate-600">
+        {description}
+      </p>
+      <span className="mt-5 inline-flex min-h-11 items-center justify-center self-start rounded-xl bg-cyan-900 px-5 text-sm font-black text-white transition group-hover:bg-cyan-700">
+        Ouvrir
+      </span>
+    </Link>
+  );
+}
+
 function MiniMetric({
   label,
   value,
@@ -2272,16 +2348,5 @@ function MiniMetric({
       </p>
       <p className="mt-2 text-2xl font-black">{value}</p>
     </div>
-  );
-}
-
-function ShortcutButton({ href, label }: { href: string; label: string }) {
-  return (
-    <a
-      href={href}
-      className="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-cyan-800"
-    >
-      {label}
-    </a>
   );
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PECHE_FORMULAS, type FormulaId } from "@/components/peche/constants";
+import { verifyAdminSession } from "@/lib/adminSession";
 import { supabase } from "@/lib/supabase";
 
 type ManualPecheReservationBody = {
@@ -71,6 +72,10 @@ function parseApiError(responseText: string) {
 }
 
 export async function POST(request: Request) {
+  if (!verifyAdminSession(request)) {
+    return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
+  }
+
   let body: ManualPecheReservationBody;
 
   try {

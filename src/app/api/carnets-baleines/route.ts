@@ -1,82 +1,67 @@
 import { NextResponse } from "next/server";
+import {
+  DATE_EXPIRATION_CARNETS_BALEINES,
+  getOffreCarnetBaleines,
+} from "@/lib/carnetsBaleines";
 import { supabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const typeCarnet = Number(body.type_carnet);
+    const prenom = String(body.prenom_acheteur || "").trim();
+    const nom = String(body.nom_acheteur || "").trim();
+    const email = String(body.email || "").trim().toLowerCase();
+    const telephone = String(body.telephone || "").trim();
+    const offre = getOffreCarnetBaleines(typeCarnet);
 
-    const {
-      type_carnet,
-      prenom_acheteur,
-      nom_acheteur,
-      email,
-      telephone,
-    } = body;
-
-    if (![5, 10].includes(type_carnet)) {
+    if (!offre) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Type de carnet invalide",
-        },
+        { ok: false, error: "Type de carnet invalide." },
         { status: 400 }
       );
     }
 
-    if (!prenom_acheteur || !nom_acheteur || !email) {
+    if (!prenom || !nom || !email || !telephone) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Informations acheteur incomplètes",
-        },
+        { ok: false, error: "Toutes les coordonnées sont obligatoires." },
         { status: 400 }
       );
     }
-
-    const prix = type_carnet === 5 ? 65000 : 115000;
 
     const { data, error } = await supabase
       .from("carnets_baleines")
       .insert({
-        type_carnet,
-        credits_initiaux: type_carnet,
-        credits_restants: type_carnet,
-        prix,
-        prenom_acheteur,
-        nom_acheteur,
+        type_carnet: offre.credits,
+        credits_initiaux: offre.credits,
+        credits_restants: offre.credits,
+        prix: offre.prix,
+        prenom_acheteur: prenom,
+        nom_acheteur: nom,
         email,
-        telephone: telephone || null,
-        date_expiration: "2026-11-20",
-        statut: "actif",
+        telephone,
+        date_expiration: DATE_EXPIRATION_CARNETS_BALEINES,
+        statut: "en_attente",
         paiement_effectue: false,
+        origine_creation: "payzen",
+        mode_paiement: "payzen",
       })
-      .select()
+      .select("id,type_carnet,prix")
       .single();
 
-    if (error) {
-      console.error("Erreur création carnet baleines :", error);
-
+    if (error || !data) {
+      console.error("Erreur création carnet Baleines :", error);
       return NextResponse.json(
-        {
-          ok: false,
-          error: error.message,
-        },
+        { ok: false, error: "Impossible de préparer le carnet." },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      carnet: data,
-    });
+    return NextResponse.json({ ok: true, carnet: data });
   } catch (error) {
-    console.error("Erreur serveur carnets baleines :", error);
-
+    console.error("Erreur serveur carnets Baleines :", error);
     return NextResponse.json(
-      {
-        ok: false,
-        error: "Erreur serveur",
-      },
+      { ok: false, error: "Erreur serveur." },
       { status: 500 }
     );
   }

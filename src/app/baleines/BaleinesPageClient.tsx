@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { calculerCreditsCarnet } from "@/lib/carnetsBaleines";
 import {
   type WhaleWatchingLocale,
   whaleWatchingTranslations,
@@ -13,6 +14,7 @@ import { BaleinesGallery } from "./components/BaleinesGallery";
 import { BaleinesInfoCards } from "./components/BaleinesInfoCards";
 import { BaleinesIntro } from "./components/BaleinesIntro";
 import { BaleinesVideo } from "./components/BaleinesVideo";
+import { BookingModeChoice } from "./components/BookingModeChoice";
 import { DateStep } from "./components/DateStep";
 import { DepartureStep } from "./components/DepartureStep";
 import { ParticipantsStep } from "./components/ParticipantsStep";
@@ -148,6 +150,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
       0
     );
   }, [participants]);
+  const creditsCarnetNecessaires = calculerCreditsCarnet(participants);
 
   useEffect(() => {
     dateRef.current = date;
@@ -516,11 +519,11 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
         return;
       }
 
-      if (soldeCarnet < participants.length) {
+      if (soldeCarnet < creditsCarnetNecessaires) {
         setErreur(
           locale === "fr"
-            ? `Crédits insuffisants. ${participants.length} crédit(s) nécessaire(s), solde disponible : ${soldeCarnet}.`
-            : `Insufficient credits. ${participants.length} required, ${soldeCarnet} available.`
+            ? `Crédits insuffisants. ${creditsCarnetNecessaires} crédit(s) nécessaire(s), solde disponible : ${soldeCarnet}.`
+            : `Insufficient credits. ${creditsCarnetNecessaires} required, ${soldeCarnet} available.`
         );
         return;
       }
@@ -627,7 +630,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             code: codeCarnet.trim(),
-            nombre_credits: participants.length,
+            nombre_credits: creditsCarnetNecessaires,
             reservation_id: data.id,
           }),
         });
@@ -691,12 +694,23 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
 
         const nouveauSolde = Number(utilisation.carnet.credits_restants);
         setSoldeCarnet(nouveauSolde);
-        setMessage(
-          locale === "fr"
-            ? `Réservation confirmée avec votre carnet. ${participants.length} crédit(s) utilisé(s). Solde restant : ${nouveauSolde}.`
-            : `Booking confirmed with your pass. ${participants.length} credit(s) used. Remaining balance: ${nouveauSolde}.`
+
+        const reponseEmails = await fetch(
+          "/api/carnets-baleines/confirmation",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reservationId: data.id }),
+          }
         );
-        setEnvoi(false);
+
+        if (!reponseEmails.ok) {
+          console.error(
+            "Impossible d'envoyer les e-mails de confirmation Carnet."
+          );
+        }
+
+        window.location.href = `/baleines/success?reservationId=${data.id}&locale=${locale}`;
         return;
       } catch {
         setErreur(
@@ -754,6 +768,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
   return (
     <main className="min-h-screen bg-white text-slate-950">
       <BaleinesHero t={t} />
+      <BookingModeChoice locale={locale} />
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 pt-6">
         <Link
           href={t.navigation.homeHref}
@@ -784,7 +799,10 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
       <div className="mx-auto max-w-md space-y-8 px-4 py-8 md:max-w-5xl md:py-10">
         <BaleinesIntro t={t} />
 
-        <section className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7">
+        <section
+          id="reservation-baleines"
+          className="peche-reveal scroll-mt-6 rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.10)] transition duration-300 hover:shadow-[0_22px_50px_rgba(8,145,178,0.13)] md:p-7"
+        >
           <DateStep
             date={date}
             chargement={chargement || chargementBateau}

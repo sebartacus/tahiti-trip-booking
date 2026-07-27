@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { NextResponse } from "next/server";
+import { verifyAdminSession } from "@/lib/adminSession";
 
 const reviewFile = path.join(process.cwd(), "media-review.json");
 
@@ -8,9 +9,12 @@ function unavailableOutsideDevelopment() {
   return process.env.NODE_ENV !== "development";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (unavailableOutsideDevelopment()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!verifyAdminSession(request)) {
+    return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
   }
 
   try {
@@ -24,6 +28,9 @@ export async function GET() {
 export async function POST(request: Request) {
   if (unavailableOutsideDevelopment()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!verifyAdminSession(request)) {
+    return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
   }
 
   const body = await request.json();

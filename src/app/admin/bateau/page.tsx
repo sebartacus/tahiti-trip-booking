@@ -1,11 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useAdminSession } from "@/hooks/useAdminSession";
 import { AdminBoatCalendar } from "./components/AdminBoatCalendar";
 
 export default function AdminBateauPage() {
   const [motDePasse, setMotDePasse] = useState("");
-  const [accesAutorise, setAccesAutorise] = useState(false);
+  const {
+    authenticated: accesAutorise,
+    checking: verificationSession,
+    login: connecterAdmin,
+    logout: deconnecterAdmin,
+  } = useAdminSession();
+
+  if (verificationSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-cyan-50 p-4">
+        <p className="font-bold text-cyan-900">Vérification de la session…</p>
+      </main>
+    );
+  }
 
   if (!accesAutorise) {
     return (
@@ -26,15 +40,9 @@ export default function AdminBateauPage() {
 
           <button
             type="button"
-            onClick={() => {
-              if (
-                motDePasse ===
-                (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "admin123")
-              ) {
-                setAccesAutorise(true);
-              } else {
-                alert("Mot de passe incorrect.");
-              }
+            onClick={async () => {
+              const resultat = await connecterAdmin(motDePasse);
+              if (!resultat.ok) alert(resultat.error);
             }}
             className="mt-4 w-full cursor-pointer rounded-xl bg-cyan-900 p-3 font-bold text-white"
           >
@@ -45,5 +53,5 @@ export default function AdminBateauPage() {
     );
   }
 
-  return <AdminBoatCalendar />;
+  return <AdminBoatCalendar onLogout={() => void deconnecterAdmin()} />;
 }
