@@ -225,19 +225,6 @@ function canCancelPecheReservation(reservation: AdminPecheReservation) {
   );
 }
 
-function canCancelBaleinesReservation(reservation: AdminBaleinesReservation) {
-  if (reservation.source_paiement === "paiement_externe_a_facturer") {
-    return true;
-  }
-  if (reservation.statut_paiement === "cancelled") return false;
-
-  return (
-    reservation.paye !== true &&
-    reservation.statut_paiement !== "paid" &&
-    reservation.statut_paiement !== "paye"
-  );
-}
-
 function formatXpf(value: number | null) {
   return value ? `${value.toLocaleString("fr-FR")} XPF` : "-";
 }
@@ -399,6 +386,8 @@ export default function AdminPage() {
   const [erreurBaleinesManuel, setErreurBaleinesManuel] = useState("");
   const [annulationEnCours, setAnnulationEnCours] = useState("");
   const [erreurAnnulation, setErreurAnnulation] = useState("");
+  const [suppressionBaleinesEnCours, setSuppressionBaleinesEnCours] =
+    useState("");
 
   useEffect(() => {
     if (!accesAutorise) return;
@@ -606,6 +595,46 @@ export default function AdminPage() {
     }
 
     chargerReservations();
+  }
+
+  async function supprimerReservationBaleines(
+    reservation: AdminBaleinesReservation
+  ) {
+    if (!canDeleteBaleinesReservation(reservation)) return;
+
+    if (
+      !window.confirm(
+        "Cette réservation n'a jamais été payée.\n\nVoulez-vous vraiment la supprimer ?\n\nCette action est définitive."
+      )
+    ) {
+      return;
+    }
+
+    setErreurAnnulation("");
+    setSuppressionBaleinesEnCours(reservation.id);
+
+    try {
+      const response = await fetch(
+        `/api/admin/baleines/${encodeURIComponent(reservation.id)}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setErreurAnnulation(
+          payload.error || "Impossible de supprimer la réservation."
+        );
+        return;
+      }
+
+      setReservationsBaleines((actuelles) =>
+        actuelles.filter((item) => item.id !== reservation.id)
+      );
+    } catch {
+      setErreurAnnulation("Impossible de supprimer la réservation.");
+    } finally {
+      setSuppressionBaleinesEnCours("");
+    }
   }
 
   async function supprimerReservationPermis(reservation: AdminReservation) {
@@ -2304,24 +2333,15 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="p-3">
-                    {canCancelBaleinesReservation(reservation) ? (
+                    {canDeleteBaleinesReservation(reservation) ? (
                       <button
-                        onClick={() =>
-                          annulerReservationBateau(
-                            "reservations_baleines",
-                            reservation.id
-                          )
-                        }
-                        disabled={
-                          annulationEnCours ===
-                          `reservations_baleines:${reservation.id}`
-                        }
+                        onClick={() => supprimerReservationBaleines(reservation)}
+                        disabled={suppressionBaleinesEnCours === reservation.id}
                         className="cursor-pointer rounded bg-red-700 px-3 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {annulationEnCours ===
-                        `reservations_baleines:${reservation.id}`
-                          ? "Annulation..."
-                          : "Annuler"}
+                        {suppressionBaleinesEnCours === reservation.id
+                          ? "Suppression..."
+                          : "Supprimer"}
                       </button>
                     ) : (
                       "-"
@@ -2486,6 +2506,15 @@ export default function AdminPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function canDeleteBaleinesReservation(reservation: AdminBaleinesReservation) {
+  const status = String(reservation.statut_paiement || "").toLowerCase();
+  return (
+    reservation.paye !== true &&
+    status !== "paid" &&
+    status !== "paye"
   );
 }
 
