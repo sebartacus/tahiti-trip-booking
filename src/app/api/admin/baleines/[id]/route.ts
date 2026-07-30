@@ -5,8 +5,6 @@ import { verifyAdminSession } from "@/lib/adminSession";
 type RouteContext = { params: Promise<{ id: string }> };
 type BaleinesReservation = {
   id: string;
-  paye: boolean | null;
-  statut_paiement: string | null;
   facture_url: string | null;
 };
 
@@ -17,11 +15,6 @@ function getAdminSupabaseClient() {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-function isPaid(reservation: BaleinesReservation) {
-  const status = String(reservation.statut_paiement || "").toLowerCase();
-  return reservation.paye === true || status === "paid" || status === "paye";
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
@@ -35,7 +28,7 @@ export async function DELETE(request: Request, context: RouteContext) {
     const supabase = getAdminSupabaseClient();
     const lookup = await supabase
       .from("reservations_baleines")
-      .select("id,paye,statut_paiement,facture_url")
+      .select("id,facture_url")
       .eq("id", id)
       .maybeSingle();
 
@@ -48,38 +41,18 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
 
     const reservation = lookup.data as BaleinesReservation;
-    if (isPaid(reservation)) {
-      return NextResponse.json(
-        { error: "Une réservation payée ne peut jamais être supprimée." },
-        { status: 409 }
-      );
-    }
-
-    // Les filtres répètent la protection sur la requête de suppression afin
-    // qu'un paiement enregistré entre la lecture et le DELETE bloque l'action.
-    let deletionQuery = supabase
+    const deletion = await supabase
       .from("reservations_baleines")
       .delete()
-      .eq("id", id);
-
-    deletionQuery =
-      reservation.paye === null
-        ? deletionQuery.is("paye", null)
-        : deletionQuery.eq("paye", reservation.paye);
-    deletionQuery =
-      reservation.statut_paiement === null
-        ? deletionQuery.is("statut_paiement", null)
-        : deletionQuery.eq("statut_paiement", reservation.statut_paiement);
-
-    const deletion = await deletionQuery
+      .eq("id", id)
       .select("id")
       .maybeSingle();
 
     if (deletion.error) throw deletion.error;
     if (!deletion.data) {
       return NextResponse.json(
-        { error: "La réservation est désormais payée et ne peut plus être supprimée." },
-        { status: 409 }
+        { error: "Réservation Baleines introuvable." },
+        { status: 404 }
       );
     }
 

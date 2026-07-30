@@ -600,13 +600,12 @@ export default function AdminPage() {
   async function supprimerReservationBaleines(
     reservation: AdminBaleinesReservation
   ) {
-    if (!canDeleteBaleinesReservation(reservation)) return;
+    const reservationPayee = !canDeleteBaleinesReservation(reservation);
+    const confirmation = reservationPayee
+      ? "Attention : cette réservation est enregistrée comme payée.\n\nVous êtes sur le point de la supprimer définitivement, ainsi que ses participants et sa facture éventuelle.\n\nCette action est irréversible.\n\nVoulez-vous vraiment continuer ?"
+      : "Cette réservation n'a jamais été payée.\n\nVoulez-vous vraiment la supprimer ?\n\nCette action est définitive.";
 
-    if (
-      !window.confirm(
-        "Cette réservation n'a jamais été payée.\n\nVoulez-vous vraiment la supprimer ?\n\nCette action est définitive."
-      )
-    ) {
+    if (!window.confirm(confirmation)) {
       return;
     }
 
@@ -2333,19 +2332,15 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="p-3">
-                    {canDeleteBaleinesReservation(reservation) ? (
-                      <button
-                        onClick={() => supprimerReservationBaleines(reservation)}
-                        disabled={suppressionBaleinesEnCours === reservation.id}
-                        className="cursor-pointer rounded bg-red-700 px-3 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {suppressionBaleinesEnCours === reservation.id
-                          ? "Suppression..."
-                          : "Supprimer"}
-                      </button>
-                    ) : (
-                      "-"
-                    )}
+                    <button
+                      onClick={() => supprimerReservationBaleines(reservation)}
+                      disabled={suppressionBaleinesEnCours === reservation.id}
+                      className="cursor-pointer rounded bg-red-700 px-3 py-1 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {suppressionBaleinesEnCours === reservation.id
+                        ? "Suppression..."
+                        : "Supprimer"}
+                    </button>
                   </td>
                 </tr>
               ))}
