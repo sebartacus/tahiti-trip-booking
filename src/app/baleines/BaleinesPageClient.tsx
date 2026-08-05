@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { supabase } from "@/lib/supabase";
 import { calculerCreditsCarnet } from "@/lib/carnetsBaleines";
 import {
@@ -867,6 +868,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
 
         <BaleinesGallery t={t} />
         <BaleinesInfoCards t={t} />
+        <GoogleReviews />
 
         {erreur && (
           <p className="rounded-2xl bg-red-50 p-4 text-sm font-bold text-red-700">

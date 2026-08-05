@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { FilmHeroBackground } from "@/components/FilmHeroBackground";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 import { localeHomePaths, localeLabels } from "@/lib/i18n";
 
@@ -82,21 +83,6 @@ const gallery = [
   { src: "/images/baleines/navigation.jpg", label: "Navigation" },
   { src: "/images/peche/clients.jpg", label: "Clients" },
   { src: "/images/baleines/hero.jpg", label: "Départ" },
-];
-
-const reviews = [
-  {
-    name: "Avis Google",
-    text: "Une expérience mémorable, une équipe attentive et une organisation très professionnelle.",
-  },
-  {
-    name: "Avis Google",
-    text: "Sortie superbe au départ de la Marina Taina. Réservation simple et accueil chaleureux.",
-  },
-  {
-    name: "Avis Google",
-    text: "Une journée incroyable à Tahiti, avec des conseils clairs et un vrai sens du service.",
-  },
 ];
 
 type HomeSearchParams = {
@@ -408,30 +394,7 @@ export default async function Home({
 
       <section className="bg-cyan-50 py-10 md:py-14">
         <div className="mx-auto max-w-md px-4 md:max-w-6xl">
-          <div className="peche-reveal">
-            <p className="text-sm font-black uppercase tracking-[0.14em] text-cyan-700">
-              Avis clients
-            </p>
-            <h2 className="mt-2 text-3xl font-black text-slate-950 md:text-4xl">
-              Ils racontent leur sortie
-            </h2>
-          </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            {reviews.map((review, index) => (
-              <article
-                key={`${review.name}-${index}`}
-                className="peche-reveal rounded-3xl border border-cyan-100 bg-white p-5 shadow-[0_18px_45px_rgba(8,145,178,0.08)]"
-              >
-                <p className="text-2xl font-black text-cyan-700">★★★★★</p>
-                <p className="mt-4 text-sm font-bold leading-6 text-slate-700">
-                  “{review.text}”
-                </p>
-                <p className="mt-5 text-sm font-black uppercase tracking-[0.12em] text-cyan-700">
-                  {review.name}
-                </p>
-              </article>
-            ))}
-          </div>
+          <GoogleReviews />
         </div>
       </section>
 

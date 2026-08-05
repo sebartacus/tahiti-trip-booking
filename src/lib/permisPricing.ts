@@ -28,6 +28,17 @@ const SALON_PRICES: PermisPrices = {
   Sérénité: 29000,
 };
 
+export function getPermisSalonPricing() {
+  return {
+    prices: SALON_PRICES,
+    pricingType: "salon_tourisme" as const,
+    isPromotionActive: false,
+    promotionReservationsSold: 0,
+    promotionsRemaining: 0,
+    requiresExam: false,
+  };
+}
+
 function getTahitiDateKey(date: Date) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Pacific/Tahiti",

@@ -39,6 +39,10 @@ type AdminReservation = {
   identite_url: string | null;
   archived: boolean;
   archived_at: string | null;
+  mode_paiement: string | null;
+  reference_paiement: string | null;
+  paid_at: string | null;
+  origine_reservation: string | null;
 };
 
 type ExamenBloque = {
@@ -185,6 +189,15 @@ const pricingTypeLabels: Record<string, string> = {
 
 function formatPricingType(value: string | null) {
   return pricingTypeLabels[value || "normal"] || pricingTypeLabels.normal;
+}
+
+function formatPermisPaymentMode(value: string | null) {
+  return {
+    payzen: "PayZen",
+    especes: "Espèces",
+    cheque: "Chèque",
+    tpe: "Carte bancaire – TPE",
+  }[value || "payzen"] || "PayZen";
 }
 
 function formatPecheFormula(value: string | null) {
@@ -1341,12 +1354,12 @@ export default function AdminPage() {
           </section>
         </div>
       </section>
-      <h1
-        id="reservations-permis"
-        className="text-3xl md:text-4xl font-bold mb-6 scroll-mt-6"
-      >
-        Réservations Permis Côtier
-      </h1>
+      <div id="reservations-permis" className="mb-6 flex scroll-mt-6 flex-col justify-between gap-4 md:flex-row md:items-center">
+        <h1 className="text-3xl font-bold md:text-4xl">Réservations Permis Côtier</h1>
+        <Link href="/admin/permis/nouvelle-reservation" className="rounded-xl bg-green-700 px-5 py-3 text-center font-bold text-white shadow">
+          + Nouvelle réservation Permis
+        </Link>
+      </div>
 
       <section className="bg-white rounded-2xl p-4 md:p-6 mb-6 shadow">
         <h2 className="text-2xl font-bold mb-4">Dates d’examen bloquées</h2>
@@ -1547,6 +1560,9 @@ export default function AdminPage() {
               <strong>Paiement :</strong>{" "}
               {reservation.paiement_effectue ? "Payé" : "Non payé"}
             </p>
+            <p><strong>Origine :</strong> {reservation.origine_reservation === "salon_admin" ? "Salon" : "Site"}</p>
+            <p><strong>Mode :</strong> {formatPermisPaymentMode(reservation.mode_paiement)}</p>
+            {reservation.reference_paiement && <p><strong>Référence :</strong> {reservation.reference_paiement}</p>}
 
             <div className="mt-4">
               <label className="font-bold block mb-2">Statut</label>
@@ -1637,7 +1653,7 @@ export default function AdminPage() {
       </div>
 
       <div className="hidden lg:block overflow-x-auto bg-white rounded-xl shadow">
-        <table className="min-w-[1400px] w-full text-sm">
+        <table className="min-w-[1600px] w-full text-sm">
           <thead className="bg-sky-800 text-white">
             <tr>
               <th className="p-3 text-left">Nom</th>
@@ -1650,6 +1666,7 @@ export default function AdminPage() {
               <th className="p-3 text-left">Cours</th>
               <th className="p-3 text-left">Créneau</th>
               <th className="p-3 text-left">Paiement</th>
+              <th className="p-3 text-left">Origine / mode</th>
               <th className="p-3 text-left">Facture</th>
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Statut</th>
@@ -1683,6 +1700,11 @@ export default function AdminPage() {
                 <td className="p-3">{reservation.creneau || "-"}</td>
                 <td className="p-3">
                   {reservation.paiement_effectue ? "Payé" : "Non payé"}
+                </td>
+                <td className="p-3">
+                  <div>{reservation.origine_reservation === "salon_admin" ? "Salon" : "Site"}</div>
+                  <div className="text-xs text-slate-500">{formatPermisPaymentMode(reservation.mode_paiement)}</div>
+                  {reservation.reference_paiement && <div className="text-xs text-slate-500">Réf. {reservation.reference_paiement}</div>}
                 </td>
                 <td className="p-3">
                   {reservation.facture_url ? (

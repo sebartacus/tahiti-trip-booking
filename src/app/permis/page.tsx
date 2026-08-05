@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { supabase } from "@/lib/supabase";
 import { permisDocuments } from "@/lib/permisDocuments";
 import {
@@ -973,6 +974,10 @@ const recap = (
             {formulaireClient}
           </section>
         )}
+
+        <section className="mt-8 rounded-2xl bg-white p-4 text-slate-950 shadow-xl md:p-6">
+          <GoogleReviews />
+        </section>
       </div>
     </main>
   );

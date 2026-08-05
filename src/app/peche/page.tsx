@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { PecheBookingForm } from "@/components/peche/PecheBookingForm";
 import { PecheGallery } from "@/components/peche/PecheGallery";
 import { PecheHero } from "@/components/peche/PecheHero";
@@ -62,6 +63,7 @@ export default function PechePage() {
         <PecheSpecies />
         <PecheGallery />
         <PecheInfoCards />
+        <GoogleReviews />
       </div>
     </main>
   );

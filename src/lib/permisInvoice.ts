@@ -14,6 +14,8 @@ export type PermisInvoiceReservation = {
   formule: string | null;
   pricing_type: PermisInvoicePricingType | string | null;
   pricing_amount: number | null;
+  mode_paiement?: string | null;
+  reference_paiement?: string | null;
 };
 
 const PAGE_WIDTH = 595;
@@ -81,6 +83,15 @@ function getPricingLabel(pricingType: string | null | undefined) {
   }
 
   return pricingLabels.normal;
+}
+
+function getPaymentLabel(mode: string | null | undefined) {
+  return {
+    payzen: "PayZen",
+    especes: "Especes",
+    cheque: "Cheque",
+    tpe: "Carte bancaire - TPE",
+  }[mode || "payzen"] || "PayZen";
 }
 
 function textLine(text: string, x: number, y: number, size = 10) {
@@ -159,9 +170,12 @@ export function buildPermisInvoicePdf(
     textLine(moneyAmount(amountTtc), 505, 558, 10),
     textLine("Tous les montants sont exprimés en F CFP.", 42, 512, 9),
     boldLine(`Type de tarif : ${pricingLabel}`, 42, 492, 11),
-    textLine("Mode de règlement : PayZen", 42, 470, 10),
-    textLine(`Montant payé : ${money(amountTtc)}`, 42, 454, 10),
-    textLine("Structure acompte : montant total, acompte, solde restant.", 42, 438, 9),
+    textLine(`Mode de reglement : ${getPaymentLabel(reservation.mode_paiement)}`, 42, 470, 10),
+    ...(reservation.reference_paiement?.trim()
+      ? [textLine(`Reference : ${reservation.reference_paiement.trim()}`, 42, 454, 10)]
+      : []),
+    textLine(`Montant paye : ${money(amountTtc)}`, 42, 438, 10),
+    textLine("Structure acompte : montant total, acompte, solde restant.", 42, 422, 9),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),
     "0 0 0 rg",

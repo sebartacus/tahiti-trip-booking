@@ -51,6 +51,15 @@ function pricingLabel(value: string | null | undefined) {
   return pricingLabels[value || ""] || pricingLabels.normal;
 }
 
+function paymentLabel(value: string | null | undefined) {
+  return {
+    payzen: "PayZen",
+    especes: "Espèces",
+    cheque: "Chèque",
+    tpe: "Carte bancaire – TPE",
+  }[value || "payzen"] || "PayZen";
+}
+
 function documentLink(baseUrl: string, href: string) {
   return new URL(href, baseUrl).toString();
 }
@@ -76,6 +85,7 @@ export function buildPermisClientEmailHtml(
 ) {
   const certificateUrl = documentLink(baseUrl, permisDocuments[0].href);
   const formUrl = documentLink(baseUrl, permisDocuments[1].href);
+  const resumeUrl = documentLink(baseUrl, "/reprendre-reservation");
   const documentsList = getPermisRequiredDocumentLabels(reservation.formule)
     .map((document) => `<li>${document}</li>`)
     .join("");
@@ -94,6 +104,7 @@ export function buildPermisClientEmailHtml(
         <li>Formule choisie : ${safeText(reservation.formule)}</li>
         <li>Type de tarif : ${pricingLabel(reservation.pricing_type)}</li>
         <li>Montant paye : ${formatXpf(reservation.pricing_amount)}</li>
+        <li>Mode de règlement : ${paymentLabel(reservation.mode_paiement)}</li>
         <li>Date d'examen : ${safeText(reservation.examen)}</li>
         <li>Date du cours pratique : ${safeText(reservation.date_cours)}</li>
       </ul>
@@ -103,6 +114,13 @@ export function buildPermisClientEmailHtml(
         ${documentsList}
       </ul>
       <p>Les documents officiels sont joints a cet email.</p>
+      <p>
+        Pour reprendre votre réservation, choisir votre cours pratique si
+        nécessaire et déposer votre certificat médical, votre formulaire
+        d'inscription, votre photo et votre pièce d'identité, rendez-vous sur :
+        <a href="${resumeUrl}">${resumeUrl}</a>.
+      </p>
+      <p>Utilisez l'adresse e-mail ou le numéro de téléphone renseigné lors de la réservation pour retrouver votre dossier.</p>
       <p>
         Certificat medical :
         <a href="${certificateUrl}">${certificateUrl}</a>
