@@ -468,8 +468,20 @@ export default async function Home({
             <a href="tel:+68987321631">Téléphone</a>
             <a href="https://wa.me/68987321631">WhatsApp : +689 87 32 16 31</a>
             <a href="mailto:contact@tahiti-trip.com">Email</a>
-            <a href="#facebook">Facebook</a>
-            <a href="#instagram">Instagram</a>
+            <a
+              href="https://www.facebook.com/profile.php?id=61581236393914"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Facebook
+            </a>
+            <a
+              href="https://www.instagram.com/tahiti_trip_fishing/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Instagram
+            </a>
           </div>
         </div>
       </footer>
