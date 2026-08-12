@@ -58,6 +58,13 @@ const experiences = [
     href: "/permis",
     image: "/images/peche/rodman.jpg",
   },
+  {
+    icon: "⛵",
+    title: "Charter catamaran",
+    text: "Privatisez notre Lagoon 410 S2 pour Tetiaroa, Moorea ou un sunset à Tahiti.",
+    href: "/charter",
+    image: "/images/charter/lagoon-410-vue-aerienne.jpg",
+  },
 ];
 
 const reasons = [
@@ -280,7 +287,7 @@ export default async function Home({
           </h2>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {experiences.map((experience) => (
             <article
               key={experience.title}
