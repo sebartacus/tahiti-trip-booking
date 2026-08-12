@@ -1,4 +1,4 @@
-export const BOAT_ACTIVITIES = ["baleines", "peche", "peche_nuit"] as const;
+export const BOAT_ACTIVITIES = ["baleines", "peche", "peche_nuit", "charter"] as const;
 export const BOAT_STATUSES = ["available", "hold", "reserved", "blocked"] as const;
 export const BOAT_SLOTS = ["morning", "afternoon"] as const;
 
