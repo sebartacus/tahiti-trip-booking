@@ -11,6 +11,7 @@ type MonthPayload = { formula: CharterFormula; month: string; days: MonthDay[]; 
 
 const FORMULAS: CharterFormula[] = ["tetiaroa_2j_1n", "tetiaroa_3j_2n", "moorea_matin", "moorea_journee", "sunset"];
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
+const ENGLISH_WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 function formulaLabel(formula: CharterFormula, en: boolean) {
   if (!en) return CHARTER_FORMULA_DETAILS[formula].label;
@@ -41,8 +42,8 @@ function shiftMonth(month: string, offset: number) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function dateLabel(value: string) {
-  return new Intl.DateTimeFormat("fr-FR", {
+function dateLabel(value: string, en = false) {
+  return new Intl.DateTimeFormat(en ? "en-US" : "fr-FR", {
     timeZone: "UTC",
     day: "numeric",
     month: "long",
@@ -91,22 +92,21 @@ function CharterAvailabilityCalendarForFormula({
     })
       .then(async (response) => {
         const payload = (await response.json()) as MonthPayload;
-        if (!response.ok) throw new Error(payload.error || "Disponibilités indisponibles.");
+        if (!response.ok) throw new Error(en ? "Availability is currently unavailable." : payload.error || "Disponibilités indisponibles.");
         setDays(payload.days);
       })
       .catch((requestError: unknown) => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
         setDays([]);
-        setError(requestError instanceof Error ? requestError.message : "Disponibilités indisponibles.");
+        setError(requestError instanceof Error ? requestError.message : en ? "Availability is currently unavailable." : "Disponibilités indisponibles.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
 
     return () => controller.abort();
-  }, [formula, month]);
+  }, [en, formula, month]);
 
-  const selectedFormula = CHARTER_FORMULA_DETAILS[formula];
   const selectedDay = days.find((day) => day.date === selectedDate);
   const calendar = useMemo(() => {
     const [year, monthNumber] = month.split("-").map(Number);
@@ -148,35 +148,35 @@ function CharterAvailabilityCalendarForFormula({
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.8fr] lg:items-start">
           <div className="rounded-[2rem] border border-cyan-100 bg-white p-4 shadow-[0_16px_40px_rgba(8,145,178,0.08)] sm:p-6">
             <div className="flex items-center justify-between gap-3">
-              <button type="button" onClick={() => changeMonth(-1)} disabled={month <= initialMonth()} aria-label="Mois précédent" className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-100 text-xl font-black text-cyan-900 disabled:cursor-not-allowed disabled:opacity-30">‹</button>
+              <button type="button" onClick={() => changeMonth(-1)} disabled={month <= initialMonth()} aria-label={en ? "Previous month" : "Mois précédent"} className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-100 text-xl font-black text-cyan-900 disabled:cursor-not-allowed disabled:opacity-30">‹</button>
               <p className="text-center text-base font-black capitalize text-cyan-950 sm:text-lg">{calendar.label}</p>
-              <button type="button" onClick={() => changeMonth(1)} aria-label="Mois suivant" className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-100 text-xl font-black text-cyan-900">›</button>
+              <button type="button" onClick={() => changeMonth(1)} aria-label={en ? "Next month" : "Mois suivant"} className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-100 text-xl font-black text-cyan-900">›</button>
             </div>
-            <div className="mt-5 grid grid-cols-7 gap-1 text-center text-[11px] font-black text-slate-500 sm:gap-2">{WEEKDAYS.map((day, index) => <span key={`${day}-${index}`} className="py-1">{day}</span>)}</div>
+            <div className="mt-5 grid grid-cols-7 gap-1 text-center text-[11px] font-black text-slate-500 sm:gap-2">{(en ? ENGLISH_WEEKDAYS : WEEKDAYS).map((day, index) => <span key={`${day}-${index}`} className="py-1">{day}</span>)}</div>
             <div className="mt-1 grid grid-cols-7 gap-1 sm:gap-2">
               {Array.from({ length: calendar.offset }, (_, index) => <span key={`empty-${index}`} />)}
               {days.map((day) => {
                 const past = day.date < today;
                 const disabled = past || !day.available || loading;
-                return <button key={day.date} type="button" disabled={disabled} onClick={() => { setSelectedDate(day.date); setBookingConflict(""); }} aria-label={`${dateLabel(day.date)} — ${past ? "date passée" : day.available ? "disponible" : "indisponible"}`} className={`aspect-square min-w-0 rounded-xl border text-sm font-black transition sm:text-base ${selectedDate === day.date ? "border-cyan-900 bg-cyan-900 text-white ring-2 ring-cyan-200" : past ? "border-transparent bg-slate-50 text-slate-300" : day.available ? "border-teal-200 bg-teal-50 text-teal-900 hover:border-teal-500" : "border-rose-100 bg-rose-50 text-rose-300"}`}>{Number(day.date.slice(-2))}</button>;
+                return <button key={day.date} type="button" disabled={disabled} onClick={() => { setSelectedDate(day.date); setBookingConflict(""); }} aria-label={`${dateLabel(day.date, en)} — ${past ? (en ? "past date" : "date passée") : day.available ? (en ? "available" : "disponible") : (en ? "unavailable" : "indisponible")}`} className={`aspect-square min-w-0 rounded-xl border text-sm font-black transition sm:text-base ${selectedDate === day.date ? "border-cyan-900 bg-cyan-900 text-white ring-2 ring-cyan-200" : past ? "border-transparent bg-slate-50 text-slate-300" : day.available ? "border-teal-200 bg-teal-50 text-teal-900 hover:border-teal-500" : "border-rose-100 bg-rose-50 text-rose-300"}`}>{Number(day.date.slice(-2))}</button>;
               })}
             </div>
             <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
-              <Legend color="bg-teal-100 ring-teal-300" label="Disponible" />
-              <Legend color="bg-rose-50 ring-rose-200" label="Indisponible" />
-              <Legend color="bg-slate-100 ring-slate-200" label="Date passée" />
+              <Legend color="bg-teal-100 ring-teal-300" label={en ? "Available" : "Disponible"} />
+              <Legend color="bg-rose-50 ring-rose-200" label={en ? "Unavailable" : "Indisponible"} />
+              <Legend color="bg-slate-100 ring-slate-200" label={en ? "Past date" : "Date passée"} />
             </div>
-            {(loading || error) && <p className={`mt-4 text-sm font-bold ${error ? "text-rose-700" : "text-slate-500"}`}>{error || "Chargement des disponibilités…"}</p>}
+            {(loading || error) && <p className={`mt-4 text-sm font-bold ${error ? "text-rose-700" : "text-slate-500"}`}>{error || (en ? "Loading availability…" : "Chargement des disponibilités…")}</p>}
             {bookingConflict && <p role="alert" className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm font-black text-rose-700">{bookingConflict}</p>}
           </div>
 
           <aside className="rounded-[2rem] bg-cyan-950 p-6 text-white sm:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Votre sélection</p>
-            <h3 className="mt-3 text-2xl font-black">{selectedFormula.label}</h3>
-            {selectedDay ? <div className="mt-6 space-y-3 text-sm font-semibold text-cyan-50"><p><b className="text-white">Départ :</b> {dateLabel(selectedDay.date)}</p>{formula.startsWith("tetiaroa") && <><p><b className="text-white">Retour :</b> {dateLabel(selectedDay.date_fin)}</p><p>{selectedFormula.detail}</p></>}{formula === "sunset" && <p>Horaire adapté au coucher du soleil.</p>}</div> : <p className="mt-5 text-sm font-semibold leading-6 text-cyan-100">Sélectionnez une date disponible dans le calendrier pour afficher votre récapitulatif.</p>}
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{en ? "Your selection" : "Votre sélection"}</p>
+            <h3 className="mt-3 text-2xl font-black">{formulaLabel(formula, en)}</h3>
+            {selectedDay ? <div className="mt-6 space-y-3 text-sm font-semibold text-cyan-50"><p><b className="text-white">{en ? "Departure:" : "Départ :"}</b> {dateLabel(selectedDay.date, en)}</p>{formula.startsWith("tetiaroa") && <><p><b className="text-white">{en ? "Return:" : "Retour :"}</b> {dateLabel(selectedDay.date_fin, en)}</p><p>{formulaDetail(formula, en)}</p></>}{formula === "sunset" && <p>{en ? "Departure time adapted to sunset." : "Horaire adapté au coucher du soleil."}</p>}</div> : <p className="mt-5 text-sm font-semibold leading-6 text-cyan-100">{en ? "Select an available date in the calendar to view your summary." : "Sélectionnez une date disponible dans le calendrier pour afficher votre récapitulatif."}</p>}
           </aside>
         </div>
-        {selectedDay && <CharterBookingForm key={`${formula}:${selectedDay.date}`} formula={formula} startDate={selectedDay.date} endDate={selectedDay.date_fin} locale={locale} onAvailabilityConflict={() => { setSelectedDate(""); setBookingConflict("Cette date vient d’être réservée. Choisissez une autre date."); setDays([]); setLoading(true); fetch(`/api/charter/availability/month?formule=${formula}&mois=${month}`).then((response) => response.json()).then((payload: MonthPayload) => setDays(payload.days || [])).finally(() => setLoading(false)); }} />}
+        {selectedDay && <CharterBookingForm key={`${formula}:${selectedDay.date}`} formula={formula} startDate={selectedDay.date} endDate={selectedDay.date_fin} locale={locale} onAvailabilityConflict={() => { setSelectedDate(""); setBookingConflict(en ? "This date has just been booked. Please choose another date." : "Cette date vient d’être réservée. Choisissez une autre date."); setDays([]); setLoading(true); fetch(`/api/charter/availability/month?formule=${formula}&mois=${month}`).then((response) => response.json()).then((payload: MonthPayload) => setDays(payload.days || [])).finally(() => setLoading(false)); }} />}
       </div>
     </section>
   );

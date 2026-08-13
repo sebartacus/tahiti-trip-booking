@@ -48,8 +48,8 @@ function redirectToPayzen(url: string, fields: Record<string, string>) {
   form.submit();
 }
 
-function dateLabel(value: string) {
-  return new Intl.DateTimeFormat("fr-FR", {
+function dateLabel(value: string, en = false) {
+  return new Intl.DateTimeFormat(en ? "en-US" : "fr-FR", {
     timeZone: "UTC",
     day: "numeric",
     month: "long",
@@ -59,6 +59,10 @@ function dateLabel(value: string) {
 
 const inputClass =
   "mt-2 min-h-12 w-full rounded-2xl border border-cyan-100 bg-cyan-50/50 px-4 font-semibold text-slate-950 outline-none transition focus:border-cyan-600 focus:bg-white";
+
+function EnglishFormula({ formula }: { formula: CharterFormula }) {
+  return <>{({ tetiaroa_2j_1n: "Tetiaroa 2 days / 1 night", tetiaroa_3j_2n: "Tetiaroa 3 days / 2 nights", moorea_matin: "Moorea 7 AM–1 PM", moorea_journee: "Moorea full day", sunset: "Private Sunset" })[formula]}</>;
+}
 
 export function CharterBookingForm({ formula, startDate, endDate, onAvailabilityConflict, locale = "fr" }: Props) {
   const en = locale === "en";
@@ -104,7 +108,7 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
       formula, firstName, lastName, phone, email, participants,
       sunsetDrinkSelected: Boolean(sunsetDrink), sleepingAccepted, conditionsAccepted,
     });
-    if (validationError) return setError(validationError);
+    if (validationError) return setError(en ? "Please complete all required fields and accept the applicable terms." : validationError);
 
     setError("");
     setSending(true);
@@ -138,11 +142,11 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
           onAvailabilityConflict();
           return;
         }
-        setError(payload.error || "Impossible d’enregistrer la réservation.");
+        setError(en ? "Unable to save your booking." : payload.error || "Impossible d’enregistrer la réservation.");
         return;
       }
       setReservation(payload);
-      setMessage("Préparation du paiement…");
+      setMessage(en ? "Preparing payment…" : "Préparation du paiement…");
       const payzenResponse = await fetch("/api/payzen-charter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -152,12 +156,12 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
       if (!payzenResponse.ok || !payzen.url || !payzen.champs) {
         setReservation(null);
         setMessage("");
-        setError(payzen.error || "Impossible de préparer le paiement. Votre date reste maintenue temporairement.");
+        setError(en ? "Unable to prepare payment. Your date is being held temporarily." : payzen.error || "Impossible de préparer le paiement. Votre date reste maintenue temporairement.");
         return;
       }
       redirectToPayzen(payzen.url, payzen.champs);
     } catch {
-      setError("Impossible d’enregistrer la réservation pour le moment.");
+      setError(en ? "Unable to save your booking at this time." : "Impossible d’enregistrer la réservation pour le moment.");
     } finally {
       setSending(false);
     }
@@ -169,14 +173,14 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
         <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">{en ? "Your details" : "Vos informations"}</p>
         <h3 className="mt-3 text-2xl font-black text-cyan-950 sm:text-3xl">{en ? "Prepare your booking" : "Préparer votre demande"}</h3>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Field label="Prénom"><input value={firstName} onChange={(event) => setFirstName(event.target.value)} autoComplete="given-name" className={inputClass} /></Field>
-          <Field label="Nom"><input value={lastName} onChange={(event) => setLastName(event.target.value)} autoComplete="family-name" className={inputClass} /></Field>
-          <Field label="Téléphone"><input value={phone} onChange={(event) => setPhone(event.target.value)} type="tel" autoComplete="tel" className={inputClass} /></Field>
-          <Field label="E-mail"><input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" className={inputClass} /></Field>
+          <Field label={en ? "First name" : "Prénom"}><input value={firstName} onChange={(event) => setFirstName(event.target.value)} autoComplete="given-name" className={inputClass} /></Field>
+          <Field label={en ? "Last name" : "Nom"}><input value={lastName} onChange={(event) => setLastName(event.target.value)} autoComplete="family-name" className={inputClass} /></Field>
+          <Field label={en ? "Phone" : "Téléphone"}><input value={phone} onChange={(event) => setPhone(event.target.value)} type="tel" autoComplete="tel" className={inputClass} /></Field>
+          <Field label={en ? "Email" : "E-mail"}><input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" className={inputClass} /></Field>
         </div>
 
         <label className="mt-5 block text-sm font-black text-slate-700">
-          Nombre de participants
+          {en ? "Number of guests" : "Nombre de participants"}
           <select value={participants} onChange={(event) => changeParticipants(Number(event.target.value))} className={inputClass}>
             {Array.from({ length: details.maxParticipants }, (_, index) => index + 1).map((value) => <option key={value} value={value}>{value} {value === 1 ? "participant" : "participants"}</option>)}
           </select>
@@ -184,60 +188,60 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
 
         {formula === "sunset" && participants <= 2 && (
           <fieldset className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <legend className="px-1 text-sm font-black text-amber-950">Boisson incluse</legend>
-            <Choice checked={sunsetDrink === "white_wine"} onChange={() => setSunsetDrink("white_wine")} name="sunset-drink" label="Vin blanc inclus" />
-            <Choice checked={sunsetDrink === "champagne_included"} onChange={() => setSunsetDrink("champagne_included")} name="sunset-drink" label="Champagne inclus" />
+            <legend className="px-1 text-sm font-black text-amber-950">{en ? "Included drink" : "Boisson incluse"}</legend>
+            <Choice checked={sunsetDrink === "white_wine"} onChange={() => setSunsetDrink("white_wine")} name="sunset-drink" label={en ? "White wine included" : "Vin blanc inclus"} />
+            <Choice checked={sunsetDrink === "champagne_included"} onChange={() => setSunsetDrink("champagne_included")} name="sunset-drink" label={en ? "Champagne included" : "Champagne inclus"} />
           </fieldset>
         )}
 
         {formula === "sunset" && participants >= 3 && (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
-            <p>Vin blanc inclus.</p>
+            <p>{en ? "White wine included." : "Vin blanc inclus."}</p>
             <label className="mt-3 flex cursor-pointer items-start gap-3 font-black"><input type="checkbox" checked={champagneSupplement} onChange={(event) => setChampagneSupplement(event.target.checked)} className="mt-1 h-5 w-5 shrink-0" />Champagne +15 000 F CFP</label>
           </div>
         )}
 
         {needsSleepingAcceptance && (
           <div className="mt-6 rounded-2xl border border-teal-200 bg-teal-50 p-4 text-sm leading-6 text-slate-700">
-            <p className="font-semibold">Pour 9 participants, le Lagoon dispose de 4 cabines doubles. Le 9e couchage est installé dans le carré du catamaran.</p>
-            <label className="mt-3 flex cursor-pointer items-start gap-3 font-black text-cyan-950"><input type="checkbox" checked={sleepingAccepted} onChange={(event) => setSleepingAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0" />J’ai pris connaissance de l’organisation des couchages.</label>
+            <p className="font-semibold">{en ? "For 9 guests, the Lagoon has 4 double cabins. The ninth sleeping space is prepared in the saloon." : "Pour 9 participants, le Lagoon dispose de 4 cabines doubles. Le 9e couchage est installé dans le carré du catamaran."}</p>
+            <label className="mt-3 flex cursor-pointer items-start gap-3 font-black text-cyan-950"><input type="checkbox" checked={sleepingAccepted} onChange={(event) => setSleepingAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0" />{en ? "I understand the sleeping arrangements." : "J’ai pris connaissance de l’organisation des couchages."}</label>
           </div>
         )}
 
         <fieldset className="mt-7">
-          <legend className="text-lg font-black text-cyan-950">Comment souhaitez-vous régler ?</legend>
+          <legend className="text-lg font-black text-cyan-950">{en ? "Payment choice" : "Comment souhaitez-vous régler ?"}</legend>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <PaymentChoice checked={paymentType === "deposit"} onChange={() => setPaymentType("deposit")} title="Acompte de 30 %" amount={formatXpf(payment.deposit)} detail={`Solde : ${formatXpf(payment.balance)}`} />
-            <PaymentChoice checked={paymentType === "full"} onChange={() => setPaymentType("full")} title="Paiement intégral" amount={formatXpf(total)} detail="Aucun solde restant" />
+            <PaymentChoice checked={paymentType === "deposit"} onChange={() => setPaymentType("deposit")} title={en ? "30% deposit" : "Acompte de 30 %"} amount={formatXpf(payment.deposit)} detail={`${en ? "Balance" : "Solde"}: ${formatXpf(payment.balance)}`} />
+            <PaymentChoice checked={paymentType === "full"} onChange={() => setPaymentType("full")} title={en ? "Full payment" : "Paiement intégral"} amount={formatXpf(total)} detail={en ? "No remaining balance" : "Aucun solde restant"} />
           </div>
-          <p className="mt-3 text-xs font-semibold leading-5 text-slate-600">En cas de paiement d’un acompte de 30 %, le solde est à régler au plus tard la veille du départ.</p>
+          <p className="mt-3 text-xs font-semibold leading-5 text-slate-600">{en ? "If a 30% deposit is paid, the remaining balance must be paid no later than the day before departure." : "En cas de paiement d’un acompte de 30 %, le solde est à régler au plus tard la veille du départ."}</p>
         </fieldset>
 
         <div className="mt-7 rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-          <label className="flex cursor-pointer items-start gap-3 font-black text-slate-900"><input type="checkbox" checked={conditionsAccepted} onChange={(event) => setConditionsAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0" />J’accepte les conditions de réservation et d’annulation.</label>
-          <p className="mt-3 font-semibold">En cas d’annulation pour raisons météorologiques, les sommes versées sont remboursées, déduction faite de 3 % correspondant aux frais bancaires.</p>
+          <label className="flex cursor-pointer items-start gap-3 font-black text-slate-900"><input type="checkbox" checked={conditionsAccepted} onChange={(event) => setConditionsAccepted(event.target.checked)} className="mt-1 h-5 w-5 shrink-0" />{en ? "I accept the booking and cancellation terms." : "J’accepte les conditions de réservation et d’annulation."}</label>
+          <p className="mt-3 font-semibold">{en ? "In case of cancellation due to weather conditions, amounts paid are refunded minus 3% bank fees." : "En cas d’annulation pour raisons météorologiques, les sommes versées sont remboursées, déduction faite de 3 % correspondant aux frais bancaires."}</p>
         </div>
 
-        <button type="submit" disabled={sending || Boolean(reservation?.reservation_id)} className="mt-6 min-h-14 w-full rounded-full bg-teal-700 px-6 text-base font-black text-white shadow-lg transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-teal-300">{sending ? (reservation?.reservation_id ? "Préparation du paiement…" : "Vérification des disponibilités…") : "Continuer vers le paiement"}</button>
+        <button type="submit" disabled={sending || Boolean(reservation?.reservation_id)} className="mt-6 min-h-14 w-full rounded-full bg-teal-700 px-6 text-base font-black text-white shadow-lg transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-teal-300">{sending ? (reservation?.reservation_id ? (en ? "Preparing payment…" : "Préparation du paiement…") : (en ? "Checking availability…" : "Vérification des disponibilités…")) : (en ? "Continue to payment" : "Continuer vers le paiement")}</button>
         {(error || message) && <p role="status" className={`mt-4 rounded-2xl p-4 text-sm font-black ${error ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-800"}`}>{error || message}</p>}
       </div>
 
       <aside className="rounded-[2rem] bg-cyan-950 p-6 text-white lg:sticky lg:top-6 sm:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">Récapitulatif</p>
-        <h3 className="mt-3 text-2xl font-black">{details.label}</h3>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-200">{en ? "Summary" : "Récapitulatif"}</p>
+        <h3 className="mt-3 text-2xl font-black">{en ? <EnglishFormula formula={formula} /> : details.label}</h3>
         <div className="mt-6 space-y-3 text-sm font-semibold text-cyan-50">
-          <p><b className="text-white">Départ :</b> {dateLabel(startDate)}</p>
-          {details.isTetiaroa && <p><b className="text-white">Retour :</b> {dateLabel(endDate)}</p>}
-          {details.isTetiaroa && <p>{details.detail}</p>}
-          <p><b className="text-white">Participants :</b> {participants}</p>
-          {formula === "sunset" && participants <= 2 && <p><b className="text-white">Boisson :</b> {sunsetDrink === "champagne_included" ? "Champagne inclus" : sunsetDrink === "white_wine" ? "Vin blanc inclus" : "À choisir"}</p>}
-          {formula === "sunset" && participants >= 3 && <p><b className="text-white">Boisson :</b> {champagneSupplement ? "Champagne (+15 000 F CFP)" : "Vin blanc inclus"}</p>}
+          <p><b className="text-white">{en ? "Departure:" : "Départ :"}</b> {dateLabel(startDate, en)}</p>
+          {details.isTetiaroa && <p><b className="text-white">{en ? "Return:" : "Retour :"}</b> {dateLabel(endDate, en)}</p>}
+          {details.isTetiaroa && <p>{en ? (formula === "tetiaroa_2j_1n" ? "One night aboard" : "Two nights aboard") : details.detail}</p>}
+          <p><b className="text-white">{en ? "Guests:" : "Participants :"}</b> {participants}</p>
+          {formula === "sunset" && participants <= 2 && <p><b className="text-white">{en ? "Drink:" : "Boisson :"}</b> {sunsetDrink === "champagne_included" ? (en ? "Champagne included" : "Champagne inclus") : sunsetDrink === "white_wine" ? (en ? "White wine included" : "Vin blanc inclus") : (en ? "To be selected" : "À choisir")}</p>}
+          {formula === "sunset" && participants >= 3 && <p><b className="text-white">{en ? "Drink:" : "Boisson :"}</b> {champagneSupplement ? "Champagne (+15 000 F CFP)" : (en ? "White wine included" : "Vin blanc inclus")}</p>}
         </div>
         <div className="mt-7 border-t border-white/15 pt-6">
-          <p className="text-sm font-bold text-cyan-200">Montant total</p>
+          <p className="text-sm font-bold text-cyan-200">{en ? "Total amount" : "Montant total"}</p>
           <p className="mt-1 text-3xl font-black sm:text-4xl">{formatXpf(total)}</p>
-          <p className="mt-4 text-sm font-semibold text-cyan-100">À régler maintenant : <b className="text-white">{formatXpf(payment.amountToPay)}</b></p>
-          {paymentType === "deposit" && <p className="mt-2 text-sm font-semibold text-cyan-100">Solde : <b className="text-white">{formatXpf(payment.balance)}</b></p>}
+          <p className="mt-4 text-sm font-semibold text-cyan-100">{en ? "Due now:" : "À régler maintenant :"} <b className="text-white">{formatXpf(payment.amountToPay)}</b></p>
+          {paymentType === "deposit" && <p className="mt-2 text-sm font-semibold text-cyan-100">{en ? "Balance:" : "Solde :"} <b className="text-white">{formatXpf(payment.balance)}</b></p>}
         </div>
       </aside>
     </form>

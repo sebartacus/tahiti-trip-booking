@@ -1,6 +1,6 @@
 ﻿import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
-import { CHARTER_FORMULA_DETAILS, formatXpf } from "@/lib/charter-pricing";
+import { formatXpf } from "@/lib/charter-pricing";
 import { isCharterFormula } from "@/lib/charter-availability";
 
 type SearchParams = { reservationId?: string | string[] };
@@ -25,6 +25,14 @@ async function getReservation(id: string) {
   return result.data;
 }
 
+const englishFormulaLabels = {
+  tetiaroa_2j_1n: "Tetiaroa 2 days / 1 night",
+  tetiaroa_3j_2n: "Tetiaroa 3 days / 2 nights",
+  moorea_matin: "Moorea 7 AM–1 PM",
+  moorea_journee: "Moorea full day",
+  sunset: "Private Sunset",
+} as const;
+
 export default async function CharterSuccessPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const params = searchParams ? await searchParams : {};
   const reservation = await getReservation(first(params.reservationId));
@@ -32,8 +40,8 @@ export default async function CharterSuccessPage({ searchParams }: { searchParam
   const failed = reservation?.statut_paiement === "failed" || reservation?.statut_paiement === "cancelled";
   const title = paid ? "PAYMENT CONFIRMED" : failed ? "PAYMENT FAILED / CANCELLED" : "CONFIRMATION IN PROGRESS";
   const formula = reservation && isCharterFormula(reservation.formule)
-    ? CHARTER_FORMULA_DETAILS[reservation.formule].label
-    : "Charter privé";
+    ? englishFormulaLabels[reservation.formule]
+    : "Private charter";
 
   return (
     <main className="min-h-screen bg-cyan-50/50 px-4 py-10 text-slate-950 sm:py-16">
@@ -41,19 +49,19 @@ export default async function CharterSuccessPage({ searchParams }: { searchParam
         <p className={`text-xs font-black uppercase tracking-[0.18em] ${paid ? "text-teal-700" : failed ? "text-rose-700" : "text-amber-700"}`}>Tahiti Trip Charter</p>
         <h1 className="mt-3 text-3xl font-black leading-tight text-cyan-950 sm:text-4xl">{title}</h1>
         <p className="mt-4 font-semibold leading-7 text-slate-600">
-          {paid ? "Merci, votre charter est réservé." : failed ? "Le paiement n’a pas été validé. Aucun charter n’est confirmé." : "Votre paiement est en cours de confirmation."}
+          {paid ? "Thank you, your charter is booked." : failed ? "The payment was not completed. No charter has been confirmed." : "Your payment is being confirmed."}
         </p>
 
         {paid && reservation && (
           <div className="mt-7 rounded-2xl bg-cyan-50 p-5 text-left text-sm font-semibold leading-7 text-slate-700">
             <h2 className="text-xl font-black text-cyan-950">{formula}</h2>
-            <p className="mt-3"><b>Départ :</b> {dateLabel(String(reservation.date_debut))}</p>
-            {reservation.date_fin !== reservation.date_debut && <p><b>Retour :</b> {dateLabel(String(reservation.date_fin))}</p>}
-            <p><b>Participants :</b> {reservation.nombre_personnes}</p>
-            <p><b>Montant payé :</b> {formatXpf(Number(reservation.montant_paye))}</p>
-            {Number(reservation.montant_solde) > 0 && <p><b>Solde restant :</b> {formatXpf(Number(reservation.montant_solde))}</p>}
+            <p className="mt-3"><b>Departure:</b> {dateLabel(String(reservation.date_debut))}</p>
+            {reservation.date_fin !== reservation.date_debut && <p><b>Return:</b> {dateLabel(String(reservation.date_fin))}</p>}
+            <p><b>Guests:</b> {reservation.nombre_personnes}</p>
+            <p><b>Amount paid:</b> {formatXpf(Number(reservation.montant_paye))}</p>
+            {Number(reservation.montant_solde) > 0 && <p><b>Remaining balance:</b> {formatXpf(Number(reservation.montant_solde))}</p>}
             <div className="mt-4 border-t border-cyan-200 pt-4">
-              <b className="text-cyan-950">Rendez-vous : Marina Taina, Punaauia.</b>
+              <b className="text-cyan-950">Meeting point: Marina Taina, Punaauia.</b>
             </div>
           </div>
         )}
