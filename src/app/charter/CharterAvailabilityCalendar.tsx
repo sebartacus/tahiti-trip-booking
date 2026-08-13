@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import type { CharterFormula } from "@/lib/charter-availability";
 import { CHARTER_FORMULA_DETAILS } from "@/lib/charter-pricing";
 import { CharterBookingForm } from "./CharterBookingForm";
+import { useCharterReservation } from "./CharterReservationNavigation";
 
 type MonthDay = { date: string; date_fin: string; available: boolean };
 type MonthPayload = { formula: CharterFormula; month: string; days: MonthDay[]; error?: string };
@@ -40,7 +41,26 @@ function dateLabel(value: string) {
 }
 
 export function CharterAvailabilityCalendar() {
-  const [formula, setFormula] = useState<CharterFormula>("tetiaroa_2j_1n");
+  const { formula, reservationRef, selectFormula } = useCharterReservation();
+  return (
+    <CharterAvailabilityCalendarForFormula
+      key={formula}
+      formula={formula}
+      reservationRef={reservationRef}
+      selectFormula={selectFormula}
+    />
+  );
+}
+
+function CharterAvailabilityCalendarForFormula({
+  formula,
+  reservationRef,
+  selectFormula,
+}: {
+  formula: CharterFormula;
+  reservationRef: RefObject<HTMLElement | null>;
+  selectFormula: (formula: CharterFormula) => void;
+}) {
   const [month, setMonth] = useState(initialMonth);
   const [days, setDays] = useState<MonthDay[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
@@ -81,12 +101,7 @@ export function CharterAvailabilityCalendar() {
   }, [month]);
 
   function chooseFormula(nextFormula: CharterFormula) {
-    setFormula(nextFormula);
-    setSelectedDate("");
-    setDays([]);
-    setError("");
-    setBookingConflict("");
-    setLoading(true);
+    selectFormula(nextFormula);
   }
 
   function changeMonth(offset: number) {
@@ -99,7 +114,7 @@ export function CharterAvailabilityCalendar() {
   }
 
   return (
-    <section id="reservation-charter" className="bg-[#eef9f8] py-16 md:py-24">
+    <section ref={reservationRef} id="reservation-charter" className="scroll-mt-4 bg-[#eef9f8] py-16 md:scroll-mt-6 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
           <p className="text-xs font-black uppercase tracking-[0.22em] text-teal-700">Disponibilités</p>

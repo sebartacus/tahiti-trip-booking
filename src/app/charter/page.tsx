@@ -3,6 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { GoogleReviews } from "@/components/GoogleReviews";
 import { CharterAvailabilityCalendar } from "./CharterAvailabilityCalendar";
+import {
+  CharterReservationProvider,
+  CharterReserveButton,
+} from "./CharterReservationNavigation";
 
 export const metadata: Metadata = {
   title: "Charter catamaran Tahiti & Tetiaroa | Tahiti Trip",
@@ -82,6 +86,7 @@ function CheckItem({ children }: { children: React.ReactNode }) {
 
 export default function CharterPage() {
   return (
+    <CharterReservationProvider>
     <main className="min-h-screen overflow-x-hidden bg-[#fbfdfc] text-slate-950">
       <section className="relative min-h-[88svh] overflow-hidden bg-cyan-950 text-white sm:min-h-[92svh]">
         <Image
@@ -97,8 +102,8 @@ export default function CharterPage() {
 
         <div className="relative mx-auto flex min-h-[88svh] max-w-7xl flex-col px-4 py-5 sm:min-h-[92svh] sm:px-6 lg:px-8">
           <header className="flex items-center justify-between gap-4">
-            <Link href="/" className="text-sm font-black uppercase tracking-[0.18em]">
-              Tahiti Trip
+            <Link href="/" className="inline-flex min-h-11 items-center rounded-full border border-white/35 bg-white/10 px-3 text-sm font-black text-white backdrop-blur transition hover:bg-white/20 sm:px-4">
+              ← Retour à l&apos;accueil
             </Link>
             <nav className="hidden items-center gap-6 text-sm font-bold text-cyan-50 md:flex">
               <a href="#tetiaroa">Tetiaroa</a>
@@ -179,8 +184,8 @@ export default function CharterPage() {
           <p className="mt-4 max-w-2xl font-semibold leading-7 text-cyan-100">Jusqu’à 9 personnes — le prix concerne la privatisation du catamaran.</p>
           <div className="mt-9 grid gap-5 lg:grid-cols-2">
             {[
-              { title: "Tetiaroa — 2 jours / 1 nuit", price: "310 000 F CFP", timing: "Rendez-vous à 5h00 · retour vers 18h30 / 19h le lendemain", nights: "Nuit à bord" },
-              { title: "Tetiaroa — 3 jours / 2 nuits", price: "429 000 F CFP", timing: "Un séjour prolongé à Tetiaroa", nights: "Deux nuits à bord" },
+              { title: "Tetiaroa — 2 jours / 1 nuit", price: "310 000 F CFP", timing: "Rendez-vous à 5h00 · retour vers 18h30 / 19h le lendemain", nights: "Nuit à bord", formula: "tetiaroa_2j_1n" as const },
+              { title: "Tetiaroa — 3 jours / 2 nuits", price: "429 000 F CFP", timing: "Un séjour prolongé à Tetiaroa", nights: "Deux nuits à bord", formula: "tetiaroa_3j_2n" as const },
             ].map((offer, index) => (
               <article key={offer.title} className={`rounded-[2rem] p-6 sm:p-8 ${index === 0 ? "bg-white text-slate-950" : "border border-cyan-700 bg-cyan-900/60"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -196,6 +201,7 @@ export default function CharterPage() {
                   ))}
                 </ul>
                 <p className={`mt-6 border-t pt-4 text-xs font-semibold ${index === 0 ? "border-slate-200 text-slate-500" : "border-white/10 text-cyan-200"}`}>Alcool non compris.</p>
+                <CharterReserveButton formula={offer.formula} variant={index === 0 ? "light" : "dark"} />
               </article>
             ))}
           </div>
@@ -252,11 +258,13 @@ export default function CharterPage() {
             <article className="rounded-[2rem] border border-cyan-100 bg-white p-6 shadow-[0_16px_40px_rgba(8,145,178,0.08)] sm:p-8">
               <p className="text-xs font-black uppercase tracking-widest text-teal-700">Formule 7h–13h</p><h3 className="mt-3 text-4xl font-black text-cyan-950">95 000 F CFP</h3><p className="mt-2 text-sm font-bold text-slate-600">Jusqu’à 4 personnes, puis +5 000 F CFP par personne · 12 max.</p>
               <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs font-bold"><span className="rounded-xl bg-cyan-50 p-3">4 pers.<b className="mt-1 block text-cyan-950">95 000 F</b></span><span className="rounded-xl bg-cyan-50 p-3">6 pers.<b className="mt-1 block text-cyan-950">105 000 F</b></span><span className="rounded-xl bg-cyan-50 p-3">12 pers.<b className="mt-1 block text-cyan-950">135 000 F</b></span></div>
+              <CharterReserveButton formula="moorea_matin" />
             </article>
             <article className="rounded-[2rem] bg-cyan-950 p-6 text-white shadow-[0_16px_40px_rgba(8,51,68,0.15)] sm:p-8">
               <p className="text-xs font-black uppercase tracking-widest text-cyan-200">Formule journée</p><h3 className="mt-3 text-4xl font-black">145 000 F CFP</h3><p className="mt-2 text-sm font-bold text-cyan-100">Jusqu’à 6 personnes, puis +5 000 F CFP par personne · 12 max.</p>
               <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs font-bold"><span className="rounded-xl bg-white/10 p-3">6 pers.<b className="mt-1 block">145 000 F</b></span><span className="rounded-xl bg-white/10 p-3">8 pers.<b className="mt-1 block">155 000 F</b></span><span className="rounded-xl bg-white/10 p-3">12 pers.<b className="mt-1 block">175 000 F</b></span></div>
               <p className="mt-5 text-xs font-semibold text-cyan-200">Repas inclus · alcool non compris.</p>
+              <CharterReserveButton formula="moorea_journee" variant="dark" />
             </article>
           </div>
         </div>
@@ -273,6 +281,7 @@ export default function CharterPage() {
             <div className="mt-7 rounded-2xl bg-white/65 p-5 text-sm font-semibold leading-6 text-slate-700 backdrop-blur">
               <p><b>1–2 personnes :</b> une bouteille de vin blanc ou de champagne incluse.</p><p className="mt-2"><b>À partir de 3 :</b> vin blanc inclus · option champagne +15 000 F CFP.</p><p className="mt-2">Maximum 10 personnes.</p>
             </div>
+            <CharterReserveButton formula="sunset" variant="sunset" />
           </div>
           <div className="overflow-hidden rounded-[2rem] bg-white/75 p-2 shadow-2xl shadow-rose-950/10 backdrop-blur">
             <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem]">
@@ -361,5 +370,6 @@ export default function CharterPage() {
 
       <footer className="bg-cyan-950 px-4 py-10 text-white"><div className="mx-auto flex max-w-7xl flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black uppercase tracking-[0.18em]">Tahiti Trip</p><p className="mt-2 text-sm font-semibold text-cyan-200">Charters privés au départ de Marina Taina.</p></div><div className="flex flex-wrap gap-5 text-sm font-bold text-cyan-100"><Link href="/">Accueil</Link><Link href="/contact">Contact</Link><a href="tel:+68987321631">+689 87 32 16 31</a></div></div></footer>
     </main>
+    </CharterReservationProvider>
   );
 }
