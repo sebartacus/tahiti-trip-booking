@@ -12,6 +12,16 @@ type MonthPayload = { formula: CharterFormula; month: string; days: MonthDay[]; 
 const FORMULAS: CharterFormula[] = ["tetiaroa_2j_1n", "tetiaroa_3j_2n", "moorea_matin", "moorea_journee", "sunset"];
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
+function formulaLabel(formula: CharterFormula, en: boolean) {
+  if (!en) return CHARTER_FORMULA_DETAILS[formula].label;
+  return { tetiaroa_2j_1n: "Tetiaroa 2 days / 1 night", tetiaroa_3j_2n: "Tetiaroa 3 days / 2 nights", moorea_matin: "Moorea 7 AM–1 PM", moorea_journee: "Moorea full day", sunset: "Private Sunset" }[formula];
+}
+
+function formulaDetail(formula: CharterFormula, en: boolean) {
+  if (!en) return CHARTER_FORMULA_DETAILS[formula].detail;
+  return { tetiaroa_2j_1n: "1 night aboard", tetiaroa_3j_2n: "2 nights aboard", moorea_matin: "Morning trip", moorea_journee: "Full-day trip", sunset: "2.5-hour cruise" }[formula];
+}
+
 function todayTahiti() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Pacific/Tahiti",
@@ -40,7 +50,7 @@ function dateLabel(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-export function CharterAvailabilityCalendar() {
+export function CharterAvailabilityCalendar({ locale = "fr" }: { locale?: "fr" | "en" }) {
   const { formula, reservationRef, selectFormula } = useCharterReservation();
   return (
     <CharterAvailabilityCalendarForFormula
@@ -48,6 +58,7 @@ export function CharterAvailabilityCalendar() {
       formula={formula}
       reservationRef={reservationRef}
       selectFormula={selectFormula}
+      locale={locale}
     />
   );
 }
@@ -56,11 +67,14 @@ function CharterAvailabilityCalendarForFormula({
   formula,
   reservationRef,
   selectFormula,
+  locale,
 }: {
   formula: CharterFormula;
   reservationRef: RefObject<HTMLElement | null>;
   selectFormula: (formula: CharterFormula) => void;
+  locale: "fr" | "en";
 }) {
+  const en = locale === "en";
   const [month, setMonth] = useState(initialMonth);
   const [days, setDays] = useState<MonthDay[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
@@ -97,8 +111,8 @@ function CharterAvailabilityCalendarForFormula({
   const calendar = useMemo(() => {
     const [year, monthNumber] = month.split("-").map(Number);
     const offset = (new Date(Date.UTC(year, monthNumber - 1, 1)).getUTCDay() + 6) % 7;
-    return { offset, label: new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, monthNumber - 1, 1))) };
-  }, [month]);
+    return { offset, label: new Intl.DateTimeFormat(en ? "en-US" : "fr-FR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, monthNumber - 1, 1))) };
+  }, [en, month]);
 
   function chooseFormula(nextFormula: CharterFormula) {
     selectFormula(nextFormula);
@@ -117,16 +131,16 @@ function CharterAvailabilityCalendarForFormula({
     <section ref={reservationRef} id="reservation-charter" className="scroll-mt-4 bg-[#eef9f8] py-16 md:scroll-mt-6 md:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-teal-700">Disponibilités</p>
-          <h2 className="mt-3 text-4xl font-black tracking-[-0.03em] text-cyan-950 sm:text-5xl">Réserver votre charter</h2>
-          <p className="mt-4 font-semibold leading-7 text-slate-700">Choisissez votre formule puis une date disponible.</p>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-teal-700">{en ? "Availability" : "Disponibilités"}</p>
+          <h2 className="mt-3 text-4xl font-black tracking-[-0.03em] text-cyan-950 sm:text-5xl">{en ? "Book your charter" : "Réserver votre charter"}</h2>
+          <p className="mt-4 font-semibold leading-7 text-slate-700">{en ? "Choose an option, then select an available date." : "Choisissez votre formule puis une date disponible."}</p>
         </div>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {FORMULAS.map((formulaId) => (
             <button key={formulaId} type="button" onClick={() => chooseFormula(formulaId)} aria-pressed={formula === formulaId} className={`min-h-24 rounded-2xl border p-4 text-left transition ${formula === formulaId ? "border-cyan-900 bg-cyan-950 text-white shadow-lg" : "border-cyan-100 bg-white text-cyan-950 hover:border-cyan-400"}`}>
-              <span className="block text-sm font-black leading-5">{CHARTER_FORMULA_DETAILS[formulaId].label}</span>
-              <span className={`mt-2 block text-xs font-bold ${formula === formulaId ? "text-cyan-100" : "text-slate-500"}`}>{CHARTER_FORMULA_DETAILS[formulaId].detail}</span>
+              <span className="block text-sm font-black leading-5">{formulaLabel(formulaId, en)}</span>
+              <span className={`mt-2 block text-xs font-bold ${formula === formulaId ? "text-cyan-100" : "text-slate-500"}`}>{formulaDetail(formulaId, en)}</span>
             </button>
           ))}
         </div>
@@ -162,7 +176,7 @@ function CharterAvailabilityCalendarForFormula({
             {selectedDay ? <div className="mt-6 space-y-3 text-sm font-semibold text-cyan-50"><p><b className="text-white">Départ :</b> {dateLabel(selectedDay.date)}</p>{formula.startsWith("tetiaroa") && <><p><b className="text-white">Retour :</b> {dateLabel(selectedDay.date_fin)}</p><p>{selectedFormula.detail}</p></>}{formula === "sunset" && <p>Horaire adapté au coucher du soleil.</p>}</div> : <p className="mt-5 text-sm font-semibold leading-6 text-cyan-100">Sélectionnez une date disponible dans le calendrier pour afficher votre récapitulatif.</p>}
           </aside>
         </div>
-        {selectedDay && <CharterBookingForm key={`${formula}:${selectedDay.date}`} formula={formula} startDate={selectedDay.date} endDate={selectedDay.date_fin} onAvailabilityConflict={() => { setSelectedDate(""); setBookingConflict("Cette date vient d’être réservée. Choisissez une autre date."); setDays([]); setLoading(true); fetch(`/api/charter/availability/month?formule=${formula}&mois=${month}`).then((response) => response.json()).then((payload: MonthPayload) => setDays(payload.days || [])).finally(() => setLoading(false)); }} />}
+        {selectedDay && <CharterBookingForm key={`${formula}:${selectedDay.date}`} formula={formula} startDate={selectedDay.date} endDate={selectedDay.date_fin} locale={locale} onAvailabilityConflict={() => { setSelectedDate(""); setBookingConflict("Cette date vient d’être réservée. Choisissez une autre date."); setDays([]); setLoading(true); fetch(`/api/charter/availability/month?formule=${formula}&mois=${month}`).then((response) => response.json()).then((payload: MonthPayload) => setDays(payload.days || [])).finally(() => setLoading(false)); }} />}
       </div>
     </section>
   );

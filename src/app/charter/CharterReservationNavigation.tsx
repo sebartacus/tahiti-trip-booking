@@ -53,9 +53,11 @@ export function useCharterReservation() {
 export function CharterReserveButton({
   formula,
   variant = "light",
+  locale = "fr",
 }: {
   formula: CharterFormula;
   variant?: "light" | "dark" | "sunset";
+  locale?: "fr" | "en";
 }) {
   const { selectFormulaAndScroll } = useCharterReservation();
   const colors = {
@@ -70,7 +72,7 @@ export function CharterReserveButton({
       onClick={() => selectFormulaAndScroll(formula)}
       className={`mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-full px-6 text-base font-black shadow-lg transition hover:-translate-y-0.5 sm:w-auto ${colors}`}
     >
-      Réserver
+      {locale === "en" ? "Book" : "Réserver"}
     </button>
   );
 }

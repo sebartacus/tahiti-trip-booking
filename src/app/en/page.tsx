@@ -43,6 +43,12 @@ const t = homeTranslations.en;
 
 const experiences = [
   {
+    title: "Catamaran Charter",
+    text: "Privatize our Lagoon 410 S2 for Tetiaroa, Moorea or a sunset cruise in Tahiti.",
+    href: "/en/charter",
+    image: "/images/charter/lagoon-410-vue-aerienne.jpg",
+  },
+  {
     title: t.experiences.fishing.title,
     text: t.experiences.fishing.text,
     href: englishRoutes.fishing,
@@ -162,7 +168,7 @@ export default function EnglishHomePage() {
           </h2>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {experiences.map((experience) => (
             <article
               key={experience.title}

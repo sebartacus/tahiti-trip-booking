@@ -17,6 +17,7 @@ type Props = {
   startDate: string;
   endDate: string;
   onAvailabilityConflict: () => void;
+  locale?: "fr" | "en";
 };
 
 type ReservationResponse = {
@@ -59,7 +60,8 @@ function dateLabel(value: string) {
 const inputClass =
   "mt-2 min-h-12 w-full rounded-2xl border border-cyan-100 bg-cyan-50/50 px-4 font-semibold text-slate-950 outline-none transition focus:border-cyan-600 focus:bg-white";
 
-export function CharterBookingForm({ formula, startDate, endDate, onAvailabilityConflict }: Props) {
+export function CharterBookingForm({ formula, startDate, endDate, onAvailabilityConflict, locale = "fr" }: Props) {
+  const en = locale === "en";
   const details = CHARTER_FORMULA_DETAILS[formula];
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -144,7 +146,7 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
       const payzenResponse = await fetch("/api/payzen-charter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reservation_id: payload.reservation_id }),
+        body: JSON.stringify({ reservation_id: payload.reservation_id, locale }),
       });
       const payzen = (await payzenResponse.json()) as PayzenResponse;
       if (!payzenResponse.ok || !payzen.url || !payzen.champs) {
@@ -164,8 +166,8 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
   return (
     <form onSubmit={submit} noValidate className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
       <div className="rounded-[2rem] border border-cyan-100 bg-white p-5 shadow-[0_16px_40px_rgba(8,145,178,0.08)] sm:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">Vos informations</p>
-        <h3 className="mt-3 text-2xl font-black text-cyan-950 sm:text-3xl">Préparer votre demande</h3>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">{en ? "Your details" : "Vos informations"}</p>
+        <h3 className="mt-3 text-2xl font-black text-cyan-950 sm:text-3xl">{en ? "Prepare your booking" : "Préparer votre demande"}</h3>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field label="Prénom"><input value={firstName} onChange={(event) => setFirstName(event.target.value)} autoComplete="given-name" className={inputClass} /></Field>
           <Field label="Nom"><input value={lastName} onChange={(event) => setLastName(event.target.value)} autoComplete="family-name" className={inputClass} /></Field>

@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const reservationId = typeof body.reservation_id === "string" ? body.reservation_id.trim() : "";
+    const locale = body.locale === "en" ? "en" : "fr";
     if (!reservationId) return NextResponse.json({ error: "Identifiant de réservation manquant." }, { status: 400 });
 
     const supabase = adminClient();
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
       vads_trans_date: formatPayzenDate(new Date()),
       vads_trans_id: Date.now().toString().slice(-6),
       vads_url_check: new URL("/api/payzen-notification-charter", baseUrl).toString(),
-      vads_url_return: new URL(`/charter/success?reservationId=${encodeURIComponent(reservationId)}`, baseUrl).toString(),
+      vads_url_return: new URL(`/${locale === "en" ? "en/charter" : "charter"}/success?reservationId=${encodeURIComponent(reservationId)}`, baseUrl).toString(),
       vads_version: "V2",
     };
 
