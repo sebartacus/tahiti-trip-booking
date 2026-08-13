@@ -40,13 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-public/media/
-media/
 
-public/media/
-media/
-public/videos/
-
-public/videos/
+public/videos/*
+!public/videos/charter/
+public/videos/charter/*
+!public/videos/charter/tetiaroa-reve-eveille.mp4
 public/media/
 media/
