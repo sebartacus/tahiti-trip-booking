@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import { CHARTER_FORMULAS, getCharterSlotRequirements, type CharterFormula } from "@/lib/charter-availability";
 import { CHARTER_FORMULA_DETAILS, formatXpf, getCharterPrice } from "@/lib/charter-pricing";
+import { normalizeManualCharterSunsetOptions } from "@/lib/manual-charter-options";
 
 type Reservation = {
   id: string; date_debut: string; date_fin: string; formule: CharterFormula;
@@ -27,7 +28,7 @@ const initialForm: Form = {
   formule: "tetiaroa_2j_1n", date_debut: "", responsable_prenom: "",
   responsable_nom: "", responsable_tel: "", responsable_email: "",
   nombre_personnes: 2, type_paiement: "cash", statut_paiement: "unpaid",
-  sunset_drink: "white_wine", champagne_supplement: false,
+  sunset_drink: "", champagne_supplement: false,
   sleeping_arrangement_accepted: false,
 };
 
@@ -105,8 +106,13 @@ export default function AdminCharterPage() {
   async function submit(event: FormEvent) {
     event.preventDefault(); setLoading(true); setError(""); setMessage("");
     try {
+      const sunsetOptions = normalizeManualCharterSunsetOptions(
+        form.formule,
+        form.sunset_drink,
+        form.champagne_supplement
+      );
       const response = await fetch("/api/admin/charter", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, ...sunsetOptions }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error);
@@ -161,7 +167,7 @@ export default function AdminCharterPage() {
         <style jsx global>{`.input { min-height: 3rem; width: 100%; border-radius: .75rem; border: 1px solid #cbd5e1; background: white; padding: .7rem .85rem; font-weight: 600; } .input:focus { outline: 2px solid #0e7490; outline-offset: 2px; }`}</style>
         <div className="flex items-start justify-between gap-4"><div><p className="text-sm font-black uppercase tracking-widest text-cyan-700">Création manuelle</p><h2 className="mt-2 text-2xl font-black">Nouvelle réservation Charter</h2></div><button type="button" onClick={() => setOpen(false)} className="rounded-full border px-4 py-2 font-black">Fermer</button></div>
         <div className="mt-7 grid gap-5 sm:grid-cols-2">
-          <Field label="Formule"><select value={form.formule} onChange={e => { const formule = e.target.value as CharterFormula; setAvailable(null); setForm(v => ({ ...v, formule, nombre_personnes: Math.min(v.nombre_personnes, CHARTER_FORMULA_DETAILS[formule].maxParticipants), champagne_supplement: false, sunset_drink: "white_wine" })); }} className="input">{CHARTER_FORMULAS.map(f => <option key={f} value={f}>{CHARTER_FORMULA_DETAILS[f].label}</option>)}</select></Field>
+          <Field label="Formule"><select value={form.formule} onChange={e => { const formule = e.target.value as CharterFormula; const sunsetOptions = normalizeManualCharterSunsetOptions(formule, "white_wine", false); setAvailable(null); setForm(v => ({ ...v, formule, nombre_personnes: Math.min(v.nombre_personnes, CHARTER_FORMULA_DETAILS[formule].maxParticipants), ...sunsetOptions, sunset_drink: sunsetOptions.sunset_drink || "" })); }} className="input">{CHARTER_FORMULAS.map(f => <option key={f} value={f}>{CHARTER_FORMULA_DETAILS[f].label}</option>)}</select></Field>
           <Field label="Date de départ"><input required type="date" min={todayTahiti()} value={form.date_debut} onChange={e => { setAvailable(null); setForm(v => ({ ...v, date_debut: e.target.value })); }} className="input" />{form.date_debut && <small className={available === false ? "font-bold text-red-700" : available ? "font-bold text-emerald-700" : "text-slate-500"}>{available === false ? "Indisponible : un créneau requis est occupé." : available ? `Disponible · Retour : ${formatDate(getCharterSlotRequirements(form.formule, form.date_debut).endDate)}` : "Vérification des créneaux…"}</small>}</Field>
           <Field label="Prénom"><input required value={form.responsable_prenom} onChange={e => setForm(v => ({ ...v, responsable_prenom: e.target.value }))} className="input" /></Field>
           <Field label="Nom"><input required value={form.responsable_nom} onChange={e => setForm(v => ({ ...v, responsable_nom: e.target.value }))} className="input" /></Field>

@@ -11,6 +11,7 @@ import {
   getCharterPrice,
   type SunsetDrink,
 } from "@/lib/charter-pricing";
+import { normalizeManualCharterSunsetOptions } from "@/lib/manual-charter-options";
 
 const PAYMENT_METHODS = ["cash", "check", "bank_transfer", "card_terminal"] as const;
 const PAYMENT_STATUSES = ["unpaid", "deposit_paid", "paid"] as const;
@@ -61,13 +62,19 @@ export async function POST(request: Request) {
   const email = text(body.responsable_email);
   const paymentMethod = body.type_paiement;
   const paymentStatus = body.statut_paiement;
-  const champagne = body.champagne_supplement === true;
+  const submittedChampagne = body.champagne_supplement === true;
   const sleepingAccepted = body.sleeping_arrangement_accepted === true;
-  const sunsetDrink = body.sunset_drink;
+  const submittedSunsetDrink = body.sunset_drink;
 
   if (!isCharterFormula(formula) || !isValidIsoDate(startDate)) {
     return NextResponse.json({ error: "Formule ou date invalide." }, { status: 400 });
   }
+  const { sunset_drink: sunsetDrink, champagne_supplement: champagne } =
+    normalizeManualCharterSunsetOptions(
+      formula,
+      submittedSunsetDrink,
+      submittedChampagne
+    );
   if (!firstName || !lastName || !phone) {
     return NextResponse.json({ error: "Prénom, nom et téléphone sont obligatoires." }, { status: 400 });
   }
@@ -91,10 +98,6 @@ export async function POST(request: Request) {
   if (formula === "sunset" && participants >= 3 && sunsetDrink !== "white_wine") {
     return NextResponse.json({ error: "Le vin blanc doit être sélectionné pour ce Sunset." }, { status: 400 });
   }
-  if (formula !== "sunset" && (sunsetDrink != null || champagne)) {
-    return NextResponse.json({ error: "Option Sunset incohérente." }, { status: 400 });
-  }
-
   const total = getCharterPrice(formula, participants, champagne);
   const paid = paymentStatus === "unpaid" ? 0 : paymentStatus === "paid" ? total : Math.round(total * 0.3);
   const { endDate, requiredSlots } = getCharterSlotRequirements(formula, startDate);
