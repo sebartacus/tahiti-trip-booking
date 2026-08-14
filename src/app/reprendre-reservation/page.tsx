@@ -6,6 +6,7 @@ import { uploadDocument } from "@/lib/uploadDocuments";
 import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 
 type PermisReservation = {
   id: string | number;
@@ -413,13 +414,14 @@ onChange={(e) => setExamen(e.target.value)}
   </h3>
 
   <Calendar
+  defaultActiveStartDate={getTahitiTodayAsLocalDate()}
   onChange={(value) => {
     const date = value as Date;
     setDateCours(date);
     chargerCreneauxReserves(date);
   }}
   value={dateCours}
-  minDate={new Date()}
+  minDate={getTahitiTodayAsLocalDate()}
   locale="fr-FR"
   className="w-full border-none"
 />

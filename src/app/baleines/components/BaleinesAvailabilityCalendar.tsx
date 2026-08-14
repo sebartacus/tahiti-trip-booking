@@ -11,6 +11,7 @@ import {
   SAISON_FIN,
 } from "../lib/rules";
 import type { Depart } from "../lib/types";
+import { getTahitiCurrentMonthAsLocalDate, getTahitiToday } from "@/lib/tahiti-date";
 
 type BoatSlotStatus = "available" | "hold" | "reserved" | "blocked";
 type BoatSlotName = "morning" | "afternoon";
@@ -33,10 +34,6 @@ const emptyCapacities: Capacities = {
   "07:00": { miseEau: 0, observateurs: 0 },
   "13:15": { miseEau: 0, observateurs: 0 },
 };
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatDate(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(
@@ -154,7 +151,7 @@ export function BaleinesAvailabilityCalendar({
   t = whaleWatchingTranslations.fr,
 }: BaleinesAvailabilityCalendarProps) {
   const [monthDate, setMonthDate] = useState(() => {
-    const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
+    const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : getTahitiCurrentMonthAsLocalDate();
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
   const [slots, setSlots] = useState<BoatCalendarSlot[]>([]);
@@ -163,7 +160,7 @@ export function BaleinesAvailabilityCalendar({
   >(new Map());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const minDate = todayIso();
+  const minDate = getTahitiToday();
   const bounds = useMemo(() => getMonthBounds(monthDate), [monthDate]);
   const monthFormatter = useMemo(
     () =>

@@ -5,6 +5,7 @@ import type { CharterFormula } from "@/lib/charter-availability";
 import { CHARTER_FORMULA_DETAILS } from "@/lib/charter-pricing";
 import { CharterBookingForm } from "./CharterBookingForm";
 import { useCharterReservation } from "./CharterReservationNavigation";
+import { getTahitiCurrentMonth, getTahitiToday } from "@/lib/tahiti-date";
 
 type MonthDay = { date: string; date_fin: string; available: boolean };
 type MonthPayload = { formula: CharterFormula; month: string; days: MonthDay[]; error?: string };
@@ -23,17 +24,8 @@ function formulaDetail(formula: CharterFormula, en: boolean) {
   return { tetiaroa_2j_1n: "1 night aboard", tetiaroa_3j_2n: "2 nights aboard", moorea_matin: "Morning trip", moorea_journee: "Full-day trip", sunset: "2.5-hour cruise" }[formula];
 }
 
-function todayTahiti() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Pacific/Tahiti",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
-
 function initialMonth() {
-  return todayTahiti().slice(0, 7);
+  return getTahitiCurrentMonth();
 }
 
 function shiftMonth(month: string, offset: number) {
@@ -82,7 +74,7 @@ function CharterAvailabilityCalendarForFormula({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [bookingConflict, setBookingConflict] = useState("");
-  const today = todayTahiti();
+  const today = getTahitiToday();
 
   useEffect(() => {
     const controller = new AbortController();

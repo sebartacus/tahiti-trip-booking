@@ -12,6 +12,7 @@ import {
 } from "@/lib/permisPricing";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 
 const joursFeriesPolynesie = [
   "2026-01-01",
@@ -874,6 +875,7 @@ const recap = (
 
             <div className="bg-white text-black rounded-2xl p-6 shadow-xl">
               <Calendar
+                defaultActiveStartDate={getTahitiTodayAsLocalDate()}
                 onChange={(value) => {
   const date = value as Date;
   const erreurDateCours = getErreurDateCours(date);
@@ -890,7 +892,7 @@ const recap = (
   chargerCreneauxReserves(date);
 }}
                 value={dateCours}
-                minDate={new Date()}
+                minDate={getTahitiTodayAsLocalDate()}
                 maxDate={dateMaxCours}
                 locale="fr-FR"
                 className="w-full border-none"

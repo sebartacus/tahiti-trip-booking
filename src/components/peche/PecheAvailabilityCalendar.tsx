@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { BoatSlotName } from "./constants";
+import { getTahitiCurrentMonthAsLocalDate, getTahitiToday } from "@/lib/tahiti-date";
 
 type BoatSlotStatus = "available" | "hold" | "reserved" | "blocked";
 
@@ -42,10 +43,6 @@ const defaultLabels: CalendarLabels = {
   error: "Disponibilités indisponibles.",
   dayLabels: ["L", "M", "M", "J", "V", "S", "D"],
 };
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function formatDate(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(
@@ -113,13 +110,13 @@ export function PecheAvailabilityCalendar({
   labels = defaultLabels,
 }: PecheAvailabilityCalendarProps) {
   const [monthDate, setMonthDate] = useState(() => {
-    const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : new Date();
+    const base = selectedDate ? new Date(`${selectedDate}T00:00:00`) : getTahitiCurrentMonthAsLocalDate();
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
   const [slots, setSlots] = useState<BoatCalendarSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const minDate = todayIso();
+  const minDate = getTahitiToday();
   const bounds = useMemo(() => getMonthBounds(monthDate), [monthDate]);
   const monthFormatter = useMemo(
     () =>

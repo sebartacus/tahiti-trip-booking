@@ -10,6 +10,7 @@ import type {
 import { AdminBoatDay } from "./AdminBoatDay";
 import { AdminBoatSidebar } from "./AdminBoatSidebar";
 import { AdminBoatStats } from "./AdminBoatStats";
+import { getTahitiCurrentMonthAsUtcDate } from "@/lib/tahiti-date";
 
 type CalendarCell = {
   date: string;
@@ -65,9 +66,7 @@ function activityLabel(activity: BoatActivity | null) {
 }
 
 export function AdminBoatCalendar({ onLogout }: { onLogout: () => void }) {
-  const [monthDate, setMonthDate] = useState(
-    () => new Date(Date.UTC(2026, 6, 1))
-  );
+  const [monthDate, setMonthDate] = useState(getTahitiCurrentMonthAsUtcDate);
   const [slots, setSlots] = useState<BoatCalendarSlot[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

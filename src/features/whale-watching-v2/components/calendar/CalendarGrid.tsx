@@ -9,6 +9,7 @@ import {
   firstDay,
 } from "../../utils/calendar";
 import { CalendarDay } from "./CalendarDay";
+import { getTahitiDateParts } from "@/lib/tahiti-date";
 
 type Props = {
   selectedDate: string | null;
@@ -39,7 +40,16 @@ export function CalendarGrid({
   selectedDate,
   onSelect,
 }: Props) {
-  const [monthIndex, setMonthIndex] = useState(0);
+  const [monthIndex, setMonthIndex] = useState(() => {
+    const { year, month } = getTahitiDateParts();
+    const currentIndex = MONTHS.findIndex(
+      (candidate) => candidate.year === year && candidate.month === month
+    );
+    if (currentIndex >= 0) return currentIndex;
+    const currentValue = year * 12 + month;
+    const firstValue = MONTHS[0].year * 12 + MONTHS[0].month;
+    return currentValue < firstValue ? 0 : MONTHS.length - 1;
+  });
 
   const month = MONTHS[monthIndex];
   const totalDays = daysInMonth(month.month, month.year);
