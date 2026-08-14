@@ -1252,6 +1252,12 @@ export default function AdminPage() {
             description="Bloquer des dates et visualiser les disponibilités du bateau."
           />
           <AdminModuleCard
+            href="/admin/charter"
+            icon="🛥️"
+            title="Réservations Charter"
+            description="Consulter et créer les réservations Charter privées."
+          />
+          <AdminModuleCard
             href="#reservations-peche"
             icon="🎣"
             title="Réservations Pêche"
