@@ -2,6 +2,7 @@ export const SALON_PRICING = {
   permis: {
     classique: { salon: 20_900, normal: 25_000 },
     serenite: { salon: 28_900, normal: 33_000 },
+    validite: "31 janvier 2027",
   },
   peche: {
     place: { demiJournee: 33_000, journee: 40_000 },
@@ -26,7 +27,12 @@ export const SALON_PRICING = {
     validiteCarnets: "20 novembre 2027",
   },
   charter: {
-    tetiaroaDeuxJours: { salon: 290_000, normal: 310_000, capacite: 9 },
+    tetiaroaDeuxJours: {
+      salon: 290_000,
+      normal: 310_000,
+      capacite: 9,
+      validite: "31 janvier 2027",
+    },
     tetiaroaTroisJours: { prix: null },
   },
 } as const;
