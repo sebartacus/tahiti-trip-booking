@@ -10,6 +10,7 @@ import {
 } from "@/lib/salonSales";
 import { getTahitiToday, getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 import { SalonCarnetForm } from "./SalonCarnetForm";
+import { SalonBaleinesForm } from "./SalonBaleinesForm";
 
 const slots = [
   "07h00 - 09h00",
@@ -294,10 +295,10 @@ export default function AdminSalonPage() {
               <p className="text-2xl">🐋</p>
               <h2 className="mt-2 text-xl font-black">Baleines</h2>
               <p className="text-sm font-bold text-emerald-700">
-                Carnets disponibles
+                Sorties et carnets disponibles
               </p>
               <p className="text-xs text-slate-500">
-                Autres offres bientôt disponibles
+                Individuels · 5+1 · Carnets
               </p>
             </article>
             {["Pêche", "Charter"].map((name) => (
@@ -310,6 +311,12 @@ export default function AdminSalonPage() {
               </article>
             ))}
           </section>
+          <SalonBaleinesForm
+            onRefresh={load}
+            openInvoice={openInvoice}
+            generateInvoice={generateInvoice}
+            sendInvoice={sendInvoice}
+          />
           <SalonCarnetForm
             onRefresh={load}
             openInvoice={openInvoice}
@@ -378,10 +385,10 @@ export default function AdminSalonPage() {
             <p className="text-2xl">🐋</p>
             <h2 className="mt-2 text-xl font-black">Baleines</h2>
             <p className="text-sm font-bold text-emerald-700">
-              Carnets disponibles
+              Sorties et carnets disponibles
             </p>
             <p className="text-xs text-slate-500">
-              Autres offres bientôt disponibles
+              Individuels · 5+1 · Carnets
             </p>
           </button>
           {["Pêche", "Charter"].map((name) => (

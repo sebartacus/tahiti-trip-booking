@@ -1,3 +1,6 @@
+import { calculateSalonTax } from "./salonTax";
+import { getInvoiceValidityText } from "./invoiceValidity";
+
 type BaleinesParticipant = {
   prenom?: string | null;
   nom?: string | null;
@@ -67,7 +70,7 @@ function invoiceSequenceFromId(id: string | number) {
 
 export function getBaleinesInvoiceNumber(
   reservationId: string | number,
-  date = new Date()
+  date = new Date(),
 ) {
   return `BAL-${date.getFullYear()}-${invoiceSequenceFromId(reservationId)}`;
 }
@@ -90,17 +93,26 @@ function filledRect(x: number, y: number, width: number, height: number) {
 
 export function buildBaleinesInvoicePdf(
   reservation: BaleinesInvoiceReservation,
-  paidAt = new Date()
+  paidAt = new Date(),
+  options: {
+    designation?: string;
+    composition?: string;
+    paymentMethod?: string;
+    salon?: boolean;
+    validUntil?: string | null;
+  } = {},
 ) {
   const invoiceNumber = getBaleinesInvoiceNumber(reservation.id, paidAt);
   const amountTtc = reservation.montant_total ?? 0;
-  const amountHt = amountTtc / (1 + TVA_RATE);
-  const tva = amountTtc - amountHt;
+  const tax = options.salon ? calculateSalonTax(amountTtc) : null;
+  const amountHt = tax?.ht ?? amountTtc / (1 + TVA_RATE);
+  const tva = tax?.tva ?? amountTtc - amountHt;
   const invoiceDate = paidAt.toLocaleDateString("fr-FR");
   const paymentMethod =
-    reservation.source_paiement === "carnet_baleines"
+    options.paymentMethod ||
+    (reservation.source_paiement === "carnet_baleines"
       ? "Carnet Baleines"
-      : "PayZen";
+      : "PayZen");
 
   const content = [
     "0.05 0.30 0.40 rg",
@@ -121,9 +133,24 @@ export function buildBaleinesInvoicePdf(
     textLine(`Date : ${invoiceDate}`, 42, 674, 11),
     boldLine("Client", 360, 710, 13),
     textLine(`Nom : ${safeText(reservation.responsable_nom)}`, 360, 690, 10),
-    textLine(`Prenom : ${safeText(reservation.responsable_prenom)}`, 360, 674, 10),
-    textLine(`Telephone : ${safeText(reservation.responsable_telephone)}`, 360, 658, 10),
-    textLine(`Email : ${safeText(reservation.responsable_email)}`, 360, 642, 10),
+    textLine(
+      `Prenom : ${safeText(reservation.responsable_prenom)}`,
+      360,
+      674,
+      10,
+    ),
+    textLine(
+      `Telephone : ${safeText(reservation.responsable_telephone)}`,
+      360,
+      658,
+      10,
+    ),
+    textLine(
+      `Email : ${safeText(reservation.responsable_email)}`,
+      360,
+      642,
+      10,
+    ),
     "0.85 0.93 0.96 rg",
     filledRect(42, 582, 511, 28),
     "0 0 0 RG",
@@ -139,17 +166,28 @@ export function buildBaleinesInvoicePdf(
     boldLine("Prix HT", 346, 592, 10),
     boldLine("TVA 5 %", 420, 592, 10),
     boldLine("Prix TTC", 496, 592, 10),
-    textLine("Observation des baleines", 54, 558, 10),
+    textLine(options.designation || "Observation des baleines", 54, 558, 10),
     textLine("1", 296, 558, 10),
     textLine(moneyAmount(amountHt), 354, 558, 10),
     textLine(moneyAmount(tva), 443, 558, 10),
     textLine(moneyAmount(amountTtc), 505, 558, 10),
     textLine("Tous les montants sont exprimes en F CFP.", 42, 512, 9),
     boldLine(`Date sortie : ${safeText(reservation.date_sortie)}`, 42, 492, 11),
-    textLine(`Depart : ${safeText(reservation.depart)}`, 42, 470, 10),
-    textLine(`Participants : ${participantsCount(reservation.participants)}`, 42, 454, 10),
-    textLine(`Mode de reglement : ${paymentMethod}`, 42, 438, 10),
-    textLine(`Montant paye : ${money(amountTtc)}`, 42, 422, 10),
+    textLine(`Depart : ${safeText(reservation.depart)}`, 42, 474, 10),
+    textLine(
+      `Participants : ${participantsCount(reservation.participants)}`,
+      42,
+      456,
+      10,
+    ),
+    ...(options.composition
+      ? [textLine(`Composition : ${options.composition}`, 42, 438, 9)]
+      : []),
+    textLine(`Mode de reglement : ${paymentMethod}`, 42, 420, 10),
+    textLine(`Montant paye : ${money(amountTtc)}`, 42, 402, 10),
+    ...(options.validUntil
+      ? [boldLine(getInvoiceValidityText(options.validUntil), 42, 382, 10)]
+      : []),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),
     "0 0 0 rg",
@@ -183,7 +221,7 @@ export function buildBaleinesInvoicePdf(
   }
 
   chunks.push(
-    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`,
   );
 
   return {

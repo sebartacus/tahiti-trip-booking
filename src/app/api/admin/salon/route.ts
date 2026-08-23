@@ -94,21 +94,33 @@ export async function DELETE(request: Request) {
       );
 
     const supabase = getSalonAdminClient();
-    const deletion = await supabase.rpc("admin_delete_salon_sale_item", {
+    const itemLookup = await supabase
+      .from("salon_sale_items")
+      .select("activity")
+      .eq("id", itemId)
+      .eq("sale_id", saleId)
+      .maybeSingle();
+    if (itemLookup.error) throw itemLookup.error;
+    const deletion = await supabase.rpc(
+      itemLookup.data?.activity === "baleines"
+        ? "admin_delete_salon_baleines_item"
+        : "admin_delete_salon_sale_item",
+      {
       p_sale_id: saleId,
       p_item_id: itemId,
-    });
+      },
+    );
 
     if (deletion.error) {
       const message = deletion.error.message || "";
       if (message.includes("déjà été utilisé")) {
         return NextResponse.json(
-          {
-            error: "Ce carnet a déjà été utilisé et ne peut pas être supprimé.",
-          },
+          { error: message },
           { status: 409 },
         );
       }
+      if (message.includes("passée"))
+        return NextResponse.json({ error: message }, { status: 409 });
       console.error("Suppression vente Admin Salon", deletion.error);
       return NextResponse.json(
         { error: "Impossible de supprimer cette vente Salon." },
