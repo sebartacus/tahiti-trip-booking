@@ -21,8 +21,8 @@ export const SALON_PRICING = {
     enfantMoinsCinq: 0,
     groupe: { placesPayees: 5, placesTotales: 6, total: 62_500, normal: 90_000 },
     carnets: [
-      { sorties: 5, total: 55_000, normal: 65_000, parSortie: 11_000 },
-      { sorties: 10, total: 100_000, normal: 115_000, parSortie: 10_000 },
+      { offerCode: "carnet_baleines_5", sorties: 5, total: 55_000, normal: 65_000, parSortie: 11_000 },
+      { offerCode: "carnet_baleines_10", sorties: 10, total: 100_000, normal: 115_000, parSortie: 10_000 },
     ],
     validiteCarnets: "20 novembre 2027",
   },

@@ -32,3 +32,12 @@ export function getSalonPermisValidUntil() {
 export function getSalonPermisValidityLabel() {
   return SALON_PRICING.permis.validite;
 }
+
+export function getSalonCarnetOffer(code: unknown) {
+  return SALON_PRICING.baleines.carnets
+    .map((offer) => ({ code: offer.offerCode, credits: offer.sorties, label: `Carnet Baleines ${offer.sorties} sorties`, price: offer.total, normalPrice: offer.normal }))
+    .find((offer) => offer.code === code) || null;
+}
+
+export function getSalonCarnetValidUntil() { return "2027-11-20"; }
+export function getSalonCarnetValidityLabel() { return SALON_PRICING.baleines.validiteCarnets; }

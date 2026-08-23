@@ -42,7 +42,8 @@ function boldLine(text: string, x: number, y: number, size = 10) {
 
 export function buildCarnetBaleinesInvoicePdf(
   carnet: CarnetBaleinesInvoiceData,
-  paidAt = new Date()
+  paidAt = new Date(),
+  options: { salonValidity?: boolean } = {}
 ) {
   const invoiceNumber = `CBAL-${paidAt.getFullYear()}-${invoiceSequenceFromId(
     carnet.id
@@ -72,7 +73,7 @@ export function buildCarnetBaleinesInvoicePdf(
     boldLine(`Carnet Baleines ${carnet.credits} sorties`, 42, 590, 14),
     textLine(`Code carnet : ${carnet.code}`, 42, 562, 11),
     textLine(`Credits : ${carnet.credits}`, 42, 540, 11),
-    textLine(`Validite : ${dateExpiration}`, 42, 518, 11),
+    textLine(options.salonValidity ? `Validite de l'offre : jusqu'au ${dateExpiration}` : `Validite : ${dateExpiration}`, 42, 518, 11),
     textLine(
       `Mode de reglement : ${carnet.modePaiement || "PayZen"}`,
       42,

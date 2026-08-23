@@ -6,6 +6,7 @@ export const MODES_PAIEMENT_CARNET_MANUEL = [
   { value: "cheque", label: "Chèque" },
   { value: "virement", label: "Virement" },
   { value: "carte", label: "Carte bancaire" },
+  { value: "tpe", label: "Carte bancaire / TPE" },
   { value: "autre", label: "Autre" },
 ] as const;
 
