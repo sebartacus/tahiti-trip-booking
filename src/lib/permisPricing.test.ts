@@ -1,10 +1,16 @@
-import { getPermisPricing } from "./permisPricing";
+import { getPermisPricing, getPermisPublicPricing } from "./permisPricing";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
     throw new Error(message);
   }
 }
+
+const publicPricing = getPermisPublicPricing();
+assert(publicPricing.pricingType === "normal", "Le site public doit toujours utiliser le tarif normal.");
+assert(publicPricing.prices.Classique === 25000, "Le tarif public Classique doit être 25 000 XPF.");
+assert(publicPricing.prices.Sérénité === 33000, "Le tarif public Sérénité doit être 33 000 XPF.");
+assert(!publicPricing.isPromotionActive, "Aucune promotion ne doit être active sur le site public.");
 
 const normalPricing = getPermisPricing({
   promotionReservationsSold: 20,

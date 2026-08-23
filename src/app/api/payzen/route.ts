@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { supabase } from "@/lib/supabase";
 
 function signerPayzen(champs: Record<string, string>, cle: string) {
   const ordre = Object.keys(champs)
@@ -32,7 +33,7 @@ function getBaseUrl(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json();
 
-  const montant = Number(body.montant || 0);
+  let montant = Number(body.montant || 0);
 
   if (!montant || montant <= 0) {
     return NextResponse.json(
@@ -83,6 +84,32 @@ export async function POST(request: Request) {
     typeof body.activity === "string" && body.activity.trim()
       ? body.activity.trim()
       : "";
+
+  if (activity === "permis") {
+    if (reservationTable !== "reservations" || !reservationId) {
+      return NextResponse.json(
+        { error: "Réservation Permis invalide" },
+        { status: 400 }
+      );
+    }
+
+    const reservationResponse = await supabase
+      .from("reservations")
+      .select("pricing_amount")
+      .eq("id", reservationId)
+      .single();
+    const reservationAmount = Number(reservationResponse.data?.pricing_amount || 0);
+
+    if (reservationResponse.error || !Number.isSafeInteger(reservationAmount) || reservationAmount <= 0) {
+      console.error(reservationResponse.error);
+      return NextResponse.json(
+        { error: "Montant de la réservation Permis invalide" },
+        { status: 400 }
+      );
+    }
+
+    montant = reservationAmount;
+  }
 
   const champs: Record<string, string> = {
     vads_action_mode: "INTERACTIVE",

@@ -18,6 +18,17 @@ const NORMAL_PRICES: PermisPrices = {
   Sérénité: 33000,
 };
 
+export function getPermisPublicPricing() {
+  return {
+    prices: NORMAL_PRICES,
+    pricingType: "normal" as const,
+    isPromotionActive: false,
+    promotionReservationsSold: 0,
+    promotionsRemaining: 0,
+    requiresExam: false,
+  };
+}
+
 const PROMOTION_PRICES: PermisPrices = {
   Classique: 19000,
   Sérénité: 27000,

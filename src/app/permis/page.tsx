@@ -8,7 +8,7 @@ import { permisDocuments } from "@/lib/permisDocuments";
 import {
   formatXpf,
   getPermisPriceForFormula,
-  getPermisPricing,
+  getPermisPublicPricing,
 } from "@/lib/permisPricing";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -167,9 +167,6 @@ const [enregistrementEnCours, setEnregistrementEnCours] = useState(false);
 const [accepteCgv, setAccepteCgv] = useState(false);
 const [accepteDocuments, setAccepteDocuments] = useState(false);
 const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
-const [reservationsPromotionnellesVendues, setReservationsPromotionnellesVendues] =
-  useState(0);
-
 useEffect(() => {
   async function chargerDonneesPermis() {
     const examensBloquesResponse = await supabase
@@ -184,25 +181,12 @@ useEffect(() => {
       );
     }
 
-    const reservationsResponse = await supabase
-      .from("reservations")
-      .select("id", { count: "exact", head: true })
-      .eq("pricing_type", "promo_internet");
-
-    if (reservationsResponse.error) {
-      console.error(reservationsResponse.error);
-      return;
-    }
-
-    setReservationsPromotionnellesVendues(reservationsResponse.count || 0);
   }
 
   chargerDonneesPermis();
 }, []);
 
-const permisPricing = getPermisPricing({
-  promotionReservationsSold: reservationsPromotionnellesVendues,
-});
+const permisPricing = getPermisPublicPricing();
 
 const examens = genererExamens().filter(
   (examen) =>
@@ -210,17 +194,12 @@ const examens = genererExamens().filter(
     (examen.iso && !datesExamensBloques.includes(examen.iso))
 );
 
-const reservationPermisPricing =
-  session === "Plus tard" && permisPricing.pricingType === "promo_internet"
-    ? getPermisPricing({ promotionReservationsSold: Number.MAX_SAFE_INTEGER })
-    : permisPricing;
-
 const examenSelectionne = examens.find((examen) => examen.value === session);
 const dateExamenIsoSelectionnee =
   examenSelectionne?.iso || getIsoDepuisLibelleExamen(session);
 
   const mercredi = isMercredi(dateCours);
-const prixBase = getPermisPriceForFormula(formule, reservationPermisPricing);
+const prixBase = getPermisPriceForFormula(formule, permisPricing);
 const nombreParticipants = typeCours === "commun" ? 2 : 1;
 const prix = prixBase * nombreParticipants;
 const dateAchat = new Date();
@@ -349,12 +328,6 @@ async function verifierAvantPaiement() {
     return;
   }
 
-  if (reservationPermisPricing.requiresExam && session === "Plus tard") {
-    setErreur("Veuillez choisir une date d'examen pour bénéficier de l'offre de lancement.");
-    setEnregistrementEnCours(false);
-    return;
-  }
-
   const erreurDateCours = getErreurDateCours(dateCours);
   if (erreurDateCours) {
     setErreur(erreurDateCours);
@@ -406,7 +379,7 @@ nom2: typeCours === "commun" ? nom2 : null,
         type_cours: typeCours || null,
         creneau: creneau || null,
 paiement_effectue: false,
-        pricing_type: reservationPermisPricing.pricingType,
+        pricing_type: permisPricing.pricingType,
         pricing_amount: prix,
       },
     ])
@@ -764,30 +737,6 @@ const recap = (
           <div className={`rounded-xl p-3 ${reservation ? "bg-green-600" : "bg-sky-800"}`}>3. Cours</div>
           <div className={`rounded-xl p-3 ${creneau || reservation === "plus tard" ? "bg-green-600" : "bg-sky-800"}`}>4. Paiement</div>
         </div>
-
-        {permisPricing.isPromotionActive && (
-          <section className="mb-8 rounded-2xl border border-yellow-200 bg-yellow-100 p-5 text-yellow-950 shadow-xl">
-            <h2 className="text-2xl font-bold">🔥 Offre de lancement</h2>
-            <p className="mt-2 font-semibold">
-              Plus que {permisPricing.promotionsRemaining} permis
-              promotionnels disponibles.
-            </p>
-            <p className="mt-1 text-sm font-semibold">
-              Une date d&apos;examen doit être choisie pour réserver avec ce
-              tarif.
-            </p>
-          </section>
-        )}
-
-        {permisPricing.pricingType === "salon_tourisme" && (
-          <section className="mb-8 rounded-2xl border border-cyan-200 bg-cyan-100 p-5 text-cyan-950 shadow-xl">
-            <h2 className="text-2xl font-bold">Tarifs Salon du Tourisme</h2>
-            <p className="mt-2 font-semibold">
-              Du 4 au 6 septembre 2026 inclus, les prix Internet s&apos;alignent
-              automatiquement sur les tarifs du salon.
-            </p>
-          </section>
-        )}
 
         {formule && (
           <button onClick={retour} className="mb-6 cursor-pointer bg-slate-700 hover:bg-slate-600 px-5 py-3 rounded-xl">
