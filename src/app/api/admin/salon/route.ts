@@ -84,9 +84,13 @@ export async function POST(request: Request) {
     }
     const created = Array.isArray(data) ? data[0] : data;
     if (!created?.sale_id || !created?.reservation_id) throw new Error("Résultat RPC incomplet.");
-    const reservationResult = await supabase.from("reservations").select("*").eq("id", created.reservation_id).single();
+    const [reservationResult, itemResult] = await Promise.all([
+      supabase.from("reservations").select("*").eq("id", created.reservation_id).single(),
+      supabase.from("salon_sale_items").select("valid_until").eq("id", created.item_id).single(),
+    ]);
     if (reservationResult.error || !reservationResult.data) throw reservationResult.error || new Error("Réservation introuvable.");
-    const invoice = buildPermisInvoicePdf(reservationResult.data);
+    if (itemResult.error || !itemResult.data?.valid_until) throw itemResult.error || new Error("Snapshot de validité introuvable.");
+    const invoice = buildPermisInvoicePdf(reservationResult.data, new Date(), { validUntil: itemResult.data.valid_until });
     const invoicePath = `factures/salon/${invoice.invoiceNumber}.pdf`;
     const upload = await supabase.storage.from("documents-permis").upload(invoicePath, invoice.pdf, { contentType: "application/pdf", upsert: true });
     if (upload.error) {

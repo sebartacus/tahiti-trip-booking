@@ -19,12 +19,13 @@ export async function POST(request: Request) {
   const body = await request.json() as { id?: unknown };
   const id = typeof body.id === "string" ? body.id : "";
   const supabase = getSalonAdminClient();
-  const sale = await supabase.from("salon_sales").select("id,salon_sale_items(reservation_id)").eq("id", id).single();
+  const sale = await supabase.from("salon_sales").select("id,salon_sale_items(reservation_id,valid_until)").eq("id", id).single();
   const item = Array.isArray(sale.data?.salon_sale_items) ? sale.data.salon_sale_items[0] : sale.data?.salon_sale_items;
   if (sale.error || !item?.reservation_id) return NextResponse.json({ error: "Vente Salon introuvable." }, { status: 404 });
   const reservation = await supabase.from("reservations").select("*").eq("id", item.reservation_id).single();
   if (reservation.error || !reservation.data) return NextResponse.json({ error: "Réservation Permis introuvable." }, { status: 404 });
-  const invoice = buildPermisInvoicePdf(reservation.data);
+  if (!item.valid_until) return NextResponse.json({ error: "Snapshot de validité introuvable." }, { status: 409 });
+  const invoice = buildPermisInvoicePdf(reservation.data, new Date(), { validUntil: item.valid_until });
   const invoicePath = `factures/salon/${invoice.invoiceNumber}.pdf`;
   const upload = await supabase.storage.from("documents-permis").upload(invoicePath, invoice.pdf, { contentType: "application/pdf", upsert: true });
   if (upload.error) return NextResponse.json({ error: "Impossible de générer la facture." }, { status: 500 });

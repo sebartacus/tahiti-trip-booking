@@ -1,4 +1,5 @@
 import { getPermisRequiredDocumentLabels } from "./permisDocuments";
+import { getInvoiceValidityText } from "./invoiceValidity";
 
 export type PermisInvoicePricingType =
   | "normal"
@@ -113,7 +114,8 @@ function filledRect(x: number, y: number, width: number, height: number) {
 
 export function buildPermisInvoicePdf(
   reservation: PermisInvoiceReservation,
-  paidAt = new Date()
+  paidAt = new Date(),
+  options: { validUntil?: string } = {}
 ) {
   const invoiceNumber = getPermisInvoiceNumber(reservation.id, paidAt);
   const amountTtc = reservation.pricing_amount ?? 0;
@@ -177,6 +179,9 @@ export function buildPermisInvoicePdf(
       : []),
     textLine(`Montant paye : ${money(amountTtc)}`, 42, 438, 10),
     textLine("Structure acompte : montant total, acompte, solde restant.", 42, 422, 9),
+    ...(options.validUntil
+      ? [boldLine(getInvoiceValidityText(options.validUntil), 42, 398, 11)]
+      : []),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),
     "0 0 0 rg",
