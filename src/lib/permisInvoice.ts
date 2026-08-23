@@ -1,10 +1,9 @@
 import { getPermisRequiredDocumentLabels } from "./permisDocuments";
 import { getInvoiceValidityText } from "./invoiceValidity";
+import { calculateSalonTax } from "./salonTax";
 
 export type PermisInvoicePricingType =
-  | "normal"
-  | "promo_internet"
-  | "salon_tourisme";
+  "normal" | "promo_internet" | "salon_tourisme";
 
 export type PermisInvoiceReservation = {
   id: string | number;
@@ -21,7 +20,6 @@ export type PermisInvoiceReservation = {
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
-const TVA_RATE = 0.05;
 
 const pricingLabels: Record<PermisInvoicePricingType, string> = {
   normal: "Tarif normal",
@@ -69,7 +67,7 @@ function invoiceSequenceFromId(id: string | number) {
 
 export function getPermisInvoiceNumber(
   reservationId: string | number,
-  date = new Date()
+  date = new Date(),
 ) {
   return `PER-${date.getFullYear()}-${invoiceSequenceFromId(reservationId)}`;
 }
@@ -87,13 +85,15 @@ function getPricingLabel(pricingType: string | null | undefined) {
 }
 
 function getPaymentLabel(mode: string | null | undefined) {
-  return {
-    payzen: "PayZen",
-    especes: "Especes",
-    cheque: "Cheque",
-    tpe: "Carte bancaire - TPE",
-    virement: "Virement",
-  }[mode || "payzen"] || "PayZen";
+  return (
+    {
+      payzen: "PayZen",
+      especes: "Especes",
+      cheque: "Cheque",
+      tpe: "Carte bancaire - TPE",
+      virement: "Virement",
+    }[mode || "payzen"] || "PayZen"
+  );
 }
 
 function textLine(text: string, x: number, y: number, size = 10) {
@@ -115,18 +115,21 @@ function filledRect(x: number, y: number, width: number, height: number) {
 export function buildPermisInvoicePdf(
   reservation: PermisInvoiceReservation,
   paidAt = new Date(),
-  options: { validUntil?: string } = {}
+  options: { validUntil?: string } = {},
 ) {
   const invoiceNumber = getPermisInvoiceNumber(reservation.id, paidAt);
   const amountTtc = reservation.pricing_amount ?? 0;
-  const amountHt = amountTtc / (1 + TVA_RATE);
-  const tva = amountTtc - amountHt;
+  const salonTax = options.validUntil ? calculateSalonTax(amountTtc) : null;
+  const amountHt = salonTax?.ht ?? amountTtc / 1.05;
+  const tva = salonTax?.tva ?? amountTtc - amountHt;
   const formula = safeText(reservation.formule, "Classique");
   const designation = `Permis cotier - Formule ${formula}`;
   const pricingLabel = getPricingLabel(reservation.pricing_type);
   const invoiceDate = paidAt.toLocaleDateString("fr-FR");
-  const documentLines = getPermisRequiredDocumentLabels(reservation.formule).map(
-    (document, index) => textLine(`[x] ${document}`, 42, 304 - index * 16, 10)
+  const documentLines = getPermisRequiredDocumentLabels(
+    reservation.formule,
+  ).map((document, index) =>
+    textLine(`[x] ${document}`, 42, 304 - index * 16, 10),
   );
 
   const content = [
@@ -173,12 +176,29 @@ export function buildPermisInvoicePdf(
     textLine(moneyAmount(amountTtc), 505, 558, 10),
     textLine("Tous les montants sont exprimés en F CFP.", 42, 512, 9),
     boldLine(`Type de tarif : ${pricingLabel}`, 42, 492, 11),
-    textLine(`Mode de reglement : ${getPaymentLabel(reservation.mode_paiement)}`, 42, 470, 10),
+    textLine(
+      `Mode de reglement : ${getPaymentLabel(reservation.mode_paiement)}`,
+      42,
+      470,
+      10,
+    ),
     ...(reservation.reference_paiement?.trim()
-      ? [textLine(`Reference : ${reservation.reference_paiement.trim()}`, 42, 454, 10)]
+      ? [
+          textLine(
+            `Reference : ${reservation.reference_paiement.trim()}`,
+            42,
+            454,
+            10,
+          ),
+        ]
       : []),
     textLine(`Montant paye : ${money(amountTtc)}`, 42, 438, 10),
-    textLine("Structure acompte : montant total, acompte, solde restant.", 42, 422, 9),
+    textLine(
+      "Structure acompte : montant total, acompte, solde restant.",
+      42,
+      422,
+      9,
+    ),
     ...(options.validUntil
       ? [boldLine(getInvoiceValidityText(options.validUntil), 42, 398, 11)]
       : []),
@@ -191,7 +211,7 @@ export function buildPermisInvoicePdf(
       "Ces documents sont disponibles au telechargement sur votre espace.",
       42,
       216,
-      10
+      10,
     ),
     boldLine("Merci pour votre confiance.", 42, 176, 13),
     textLine("Tahiti Trip Fishing", 42, 156, 10),
@@ -223,7 +243,7 @@ export function buildPermisInvoicePdf(
   }
 
   chunks.push(
-    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+    `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`,
   );
 
   return {

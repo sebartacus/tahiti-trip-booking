@@ -1,7 +1,4 @@
-import {
-  buildPermisInvoicePdf,
-  getPermisInvoiceNumber,
-} from "./permisInvoice";
+import { buildPermisInvoicePdf, getPermisInvoiceNumber } from "./permisInvoice";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -11,7 +8,10 @@ function assert(condition: boolean, message: string) {
 
 const paidAt = new Date("2026-08-15T12:00:00-10:00");
 const invoiceNumber = getPermisInvoiceNumber(1, paidAt);
-assert(invoiceNumber === "PER-2026-000001", "Le numero de facture doit etre sequentiel.");
+assert(
+  invoiceNumber === "PER-2026-000001",
+  "Le numero de facture doit etre sequentiel.",
+);
 
 const { pdf } = buildPermisInvoicePdf(
   {
@@ -24,17 +24,23 @@ const { pdf } = buildPermisInvoicePdf(
     pricing_type: "promo_internet",
     pricing_amount: 19000,
   },
-  paidAt
+  paidAt,
 );
 
 const content = pdf.toString("latin1");
 assert(content.startsWith("%PDF-1.4"), "La facture doit etre un PDF.");
 assert(
   (content.match(/\/Type \/Page\b/g) || []).length === 1,
-  "La facture doit tenir sur une seule page."
+  "La facture doit tenir sur une seule page.",
 );
-assert(content.includes("PER-2026-000001"), "Le PDF doit contenir le numero de facture.");
-assert(!content.includes("Validite de l'offre"), "La facture Permis normale ne doit pas afficher de validite Salon.");
+assert(
+  content.includes("PER-2026-000001"),
+  "Le PDF doit contenir le numero de facture.",
+);
+assert(
+  !content.includes("Validite de l'offre"),
+  "La facture Permis normale ne doit pas afficher de validite Salon.",
+);
 
 for (const salonCase of [
   { formule: "Classique", amount: 20900, payment: "tpe" },
@@ -53,10 +59,32 @@ for (const salonCase of [
       mode_paiement: salonCase.payment,
     },
     paidAt,
-    { validUntil: "2027-01-31" }
+    { validUntil: "2027-01-31" },
   ).pdf.toString("latin1");
-  assert(salonInvoice.includes(salonCase.amount === 20900 ? "20 900" : "28 900"), `Le tarif ${salonCase.formule} doit être conservé.`);
-  assert(salonInvoice.includes(salonCase.payment === "tpe" ? "Carte bancaire - TPE" : "Virement"), `Le paiement ${salonCase.payment} doit apparaître.`);
-  assert(salonInvoice.includes("Validite de l'offre : jusqu'au 31 janvier 2027"), `La validité ${salonCase.formule} doit apparaître.`);
+  assert(
+    salonInvoice.includes(salonCase.amount === 20900 ? "20 900" : "28 900"),
+    `Le tarif ${salonCase.formule} doit être conservé.`,
+  );
+  assert(
+    salonInvoice.includes(
+      salonCase.payment === "tpe" ? "Carte bancaire - TPE" : "Virement",
+    ),
+    `Le paiement ${salonCase.payment} doit apparaître.`,
+  );
+  assert(
+    salonInvoice.includes("Validite de l'offre : jusqu'au 31 janvier 2027"),
+    `La validité ${salonCase.formule} doit apparaître.`,
+  );
+  const expected =
+    salonCase.amount === 20900
+      ? { ht: "19 905", tva: "995" }
+      : { ht: "27 524", tva: "1 376" };
+  assert(
+    salonInvoice.includes(expected.ht),
+    `Le HT ${salonCase.formule} est incorrect.`,
+  );
+  assert(
+    salonInvoice.includes(expected.tva),
+    `La TVA ${salonCase.formule} est incorrecte.`,
+  );
 }
-

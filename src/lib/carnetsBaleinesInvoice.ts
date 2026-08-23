@@ -1,3 +1,5 @@
+import { calculateSalonTax } from "./salonTax";
+
 export type CarnetBaleinesInvoiceData = {
   id: string;
   code: string;
@@ -43,12 +45,15 @@ function boldLine(text: string, x: number, y: number, size = 10) {
 export function buildCarnetBaleinesInvoicePdf(
   carnet: CarnetBaleinesInvoiceData,
   paidAt = new Date(),
-  options: { salonValidity?: boolean } = {}
+  options: { salonValidity?: boolean } = {},
 ) {
   const invoiceNumber = `CBAL-${paidAt.getFullYear()}-${invoiceSequenceFromId(
-    carnet.id
+    carnet.id,
   )}`;
   const prix = `${Math.round(carnet.prix).toLocaleString("fr-FR")} F CFP`;
+  const tax = options.salonValidity ? calculateSalonTax(carnet.prix) : null;
+  const money = (value: number) =>
+    `${String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} F CFP`;
   const dateExpiration = carnet.dateExpiration
     ? new Intl.DateTimeFormat("fr-FR", {
         day: "numeric",
@@ -73,15 +78,28 @@ export function buildCarnetBaleinesInvoicePdf(
     boldLine(`Carnet Baleines ${carnet.credits} sorties`, 42, 590, 14),
     textLine(`Code carnet : ${carnet.code}`, 42, 562, 11),
     textLine(`Credits : ${carnet.credits}`, 42, 540, 11),
-    textLine(options.salonValidity ? `Validite de l'offre : jusqu'au ${dateExpiration}` : `Validite : ${dateExpiration}`, 42, 518, 11),
+    textLine(
+      options.salonValidity
+        ? `Validite de l'offre : jusqu'au ${dateExpiration}`
+        : `Validite : ${dateExpiration}`,
+      42,
+      518,
+      11,
+    ),
     textLine(
       `Mode de reglement : ${carnet.modePaiement || "PayZen"}`,
       42,
       496,
-      11
+      11,
     ),
     boldLine(`Montant paye : ${prix}`, 42, 454, 14),
-    textLine("TVA non applicable.", 42, 428, 9),
+    ...(tax
+      ? [
+          textLine(`Total HT : ${money(tax.ht)}`, 42, 428, 10),
+          textLine(`TVA 5 % : ${money(tax.tva)}`, 42, 410, 10),
+          boldLine(`Total TTC : ${money(tax.ttc)}`, 42, 390, 11),
+        ]
+      : [textLine("TVA non applicable.", 42, 428, 9)]),
     boldLine("Merci pour votre confiance.", 42, 350, 13),
     textLine("Tahiti Trip Fishing", 42, 330, 10),
   ].join("\n");
@@ -93,7 +111,7 @@ export function buildCarnetBaleinesInvoicePdf(
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
     `<< /Length ${Buffer.byteLength(
       content,
-      "latin1"
+      "latin1",
     )} >>\nstream\n${content}\nendstream`,
   ];
   const chunks = ["%PDF-1.4\n"];
@@ -115,7 +133,7 @@ export function buildCarnetBaleinesInvoicePdf(
   chunks.push(
     `trailer\n<< /Size ${
       objects.length + 1
-    } /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+    } /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`,
   );
 
   return {
