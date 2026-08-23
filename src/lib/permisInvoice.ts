@@ -91,6 +91,7 @@ function getPaymentLabel(mode: string | null | undefined) {
     especes: "Especes",
     cheque: "Cheque",
     tpe: "Carte bancaire - TPE",
+    virement: "Virement",
   }[mode || "payzen"] || "PayZen";
 }
 

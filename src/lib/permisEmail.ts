@@ -57,6 +57,7 @@ function paymentLabel(value: string | null | undefined) {
     especes: "Espèces",
     cheque: "Chèque",
     tpe: "Carte bancaire – TPE",
+    virement: "Virement",
   }[value || "payzen"] || "PayZen";
 }
 

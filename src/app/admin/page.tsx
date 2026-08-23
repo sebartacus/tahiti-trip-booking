@@ -1234,6 +1234,12 @@ export default function AdminPage() {
           aria-label="Modules d’administration"
         >
           <AdminModuleCard
+            href="/admin/salon"
+            icon="🏷️"
+            title="Admin Salon"
+            description="Enregistrer les ventes Salon, réservations et factures."
+          />
+          <AdminModuleCard
             href="/admin/carnets-baleines"
             icon="🐋"
             title="Carnets Baleines"

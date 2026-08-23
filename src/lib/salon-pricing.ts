@@ -1,7 +1,7 @@
 export const SALON_PRICING = {
   permis: {
-    classique: { salon: 20_900, normal: 25_000 },
-    serenite: { salon: 28_900, normal: 33_000 },
+    classique: { offerCode: "permis_classique", salon: 20_900, normal: 25_000 },
+    serenite: { offerCode: "permis_serenite", salon: 28_900, normal: 33_000 },
     validite: "31 janvier 2027",
   },
   peche: {
