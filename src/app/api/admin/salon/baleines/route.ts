@@ -8,6 +8,7 @@ import {
   type SalonBaleinesCategory,
 } from "@/lib/salonBaleines";
 import { isSalonPaymentMethod } from "@/lib/salonSales";
+import { calculateSalonPayment, isSalonBaleinesDepositEligible, isSalonPaymentType } from "@/lib/salonPayment";
 import {
   SAISON_DEBUT,
   SAISON_FIN,
@@ -158,6 +159,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
   try {
     const body = (await request.json()) as Record<string, unknown>;
+    if (["unit_price", "total_price", "montant_total", "price", "total", "deposit", "acompte", "balance", "solde"].some((key) => key in body))
+      return NextResponse.json({ error: "Les montants sont déterminés exclusivement par le serveur." }, { status: 400 });
     const kind = body.kind === "five_plus_one" ? "five_plus_one" : "individual";
     const offer = calculateSalonBaleinesSale(kind, body.composition);
     if (!offer)
@@ -179,6 +182,10 @@ export async function POST(request: Request) {
         { error: "Moyen de paiement invalide." },
         { status: 400 },
       );
+    const paymentType = body.paymentType ?? "full";
+    if (!isSalonPaymentType(paymentType) || (paymentType === "deposit" && !isSalonBaleinesDepositEligible(offer.total)))
+      return NextResponse.json({ error: "Type de paiement invalide pour cette offre." }, { status: 400 });
+    const payment = calculateSalonPayment(offer.total, paymentType);
     const bookLater = body.bookLater === true;
     const date = bookLater ? "" : text(body.date);
     const depart = bookLater ? "" : text(body.depart);
@@ -198,7 +205,7 @@ export async function POST(request: Request) {
       ? `${offer.label} — à réserver`
       : `${offer.label} — ${date} · ${depart}`;
     const supabase = getSalonAdminClient();
-    const creation = await supabase.rpc("create_salon_baleines_sale", {
+    const creation = await supabase.rpc("create_salon_baleines_sale_with_payment", {
       p_offer_code: offer.offerCode,
       p_label: snapshotLabel,
       p_composition: offer.composition,
@@ -214,6 +221,7 @@ export async function POST(request: Request) {
       p_date_sortie: date || null,
       p_depart: depart || null,
       p_participants: participants,
+      p_payment_type: paymentType,
     });
     if (creation.error) {
       const conflict = /capacite|indisponible/i.test(creation.error.message);
@@ -235,6 +243,8 @@ export async function POST(request: Request) {
         reservationId: result.reservation_id,
         rightId: result.right_id,
         total: offer.total,
+        paid: payment.paid,
+        balance: payment.balance,
         label: snapshotLabel,
         counts,
       },

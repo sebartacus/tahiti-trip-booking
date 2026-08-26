@@ -100,6 +100,8 @@ export function buildBaleinesInvoicePdf(
     paymentMethod?: string;
     salon?: boolean;
     validUntil?: string | null;
+    amountPaid?: number;
+    balance?: number;
   } = {},
 ) {
   const invoiceNumber = getBaleinesInvoiceNumber(reservation.id, paidAt);
@@ -184,9 +186,15 @@ export function buildBaleinesInvoicePdf(
       ? [textLine(`Composition : ${options.composition}`, 42, 438, 9)]
       : []),
     textLine(`Mode de reglement : ${paymentMethod}`, 42, 420, 10),
-    textLine(`Montant paye : ${money(amountTtc)}`, 42, 402, 10),
+    ...(options.balance
+      ? [
+          textLine(`Acompte encaisse : ${money(options.amountPaid || 0)}`, 42, 402, 10),
+          textLine(`Solde restant : ${money(options.balance)}`, 42, 384, 10),
+          textLine("Solde a regler le jour de la prestation.", 42, 366, 10),
+        ]
+      : [textLine(`Montant paye : ${money(amountTtc)}`, 42, 402, 10)]),
     ...(options.validUntil
-      ? [boldLine(getInvoiceValidityText(options.validUntil), 42, 382, 10)]
+      ? [boldLine(getInvoiceValidityText(options.validUntil), 42, options.balance ? 346 : 382, 10)]
       : []),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),

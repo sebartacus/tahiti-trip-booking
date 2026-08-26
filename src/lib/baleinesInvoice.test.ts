@@ -23,6 +23,8 @@ const pdf = buildBaleinesInvoicePdf(
     composition: "6 mises à l'eau sur la même sortie",
     paymentMethod: "Carte bancaire - TPE",
     validUntil: "2026-11-20",
+    amountPaid: 18_750,
+    balance: 43_750,
   },
 ).pdf.toString("latin1");
 assert(pdf.includes("Offre Salon 5+1"), "Désignation 5+1 absente.");
@@ -33,6 +35,9 @@ assert(
 assert(pdf.includes("59 524"), "HT 5+1 incorrect.");
 assert(pdf.includes("2 976"), "TVA 5+1 incorrecte.");
 assert(pdf.includes("62 500"), "TTC 5+1 incorrect.");
+assert(pdf.includes("18 750"), "Acompte 5+1 incorrect.");
+assert(pdf.includes("43 750"), "Solde 5+1 incorrect.");
+assert(pdf.includes("Solde a regler le jour de la prestation."), "Mention de solde absente.");
 assert(pdf.includes("Carte bancaire - TPE"), "Paiement Salon absent.");
 assert(
   pdf.includes("Validite de l'offre : jusqu'au 20 novembre 2026"),

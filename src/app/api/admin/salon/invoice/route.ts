@@ -142,6 +142,8 @@ export async function POST(request: Request) {
       paymentMethod:
         SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod],
       validUntil: item.valid_until,
+      amountPaid: sale.data.montant_encaisse,
+      balance: sale.data.montant_solde,
     });
   } else if (item.activity === "peche") {
     let reservation: Record<string, unknown>;
@@ -234,7 +236,7 @@ export async function POST(request: Request) {
         facture_numero: invoice.invoiceNumber,
         facture_url: invoicePath,
         facture_generee_at: now,
-        statut: "paid",
+        statut: sale.data.montant_solde > 0 ? "partial" : "paid",
       })
       .eq("id", id),
     linkedUpdate,

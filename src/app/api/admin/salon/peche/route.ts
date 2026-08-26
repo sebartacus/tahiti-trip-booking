@@ -4,7 +4,7 @@ import { getSalonAdminClient } from "@/lib/salonAdmin";
 import { isSalonPaymentMethod } from "@/lib/salonSales";
 import { SALON_PECHE_VALID_UNTIL, validateSalonPechePurchase } from "@/lib/salonPeche";
 import { getTahitiToday } from "@/lib/tahiti-date";
-import { calculateSalonPayment,isSalonPaymentType } from "@/lib/salonPayment";
+import { calculateSalonPayment,isSalonPaymentType,isSalonPecheDepositEligible } from "@/lib/salonPayment";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const firstName = text(body.firstName), lastName = text(body.lastName), phone = text(body.phone), email = text(body.email).toLowerCase();
     if (!firstName || !lastName || !phone || (email && !EMAIL.test(email))) return NextResponse.json({ error: "Coordonnées client invalides." }, { status: 400 });
     if (!isSalonPaymentMethod(body.paymentMethod)) return NextResponse.json({ error: "Moyen de paiement invalide." }, { status: 400 });
-    const paymentType=body.paymentType??"full";if(!isSalonPaymentType(paymentType)||paymentType==="deposit"&&validation.offer.kind!=="privatisation")return NextResponse.json({error:"Type de paiement invalide pour cette offre."},{status:400});const payment=calculateSalonPayment(validation.offer.price,paymentType);
+    const paymentType=body.paymentType??"full";if(!isSalonPaymentType(paymentType)||paymentType==="deposit"&&!isSalonPecheDepositEligible(validation.offer.kind))return NextResponse.json({error:"Type de paiement invalide pour cette offre."},{status:400});const payment=calculateSalonPayment(validation.offer.price,paymentType);
     const date = bookLater ? "" : text(body.date);
     if (!bookLater && (!ISO_DATE.test(date) || date < getTahitiToday() || date > SALON_PECHE_VALID_UNTIL)) return NextResponse.json({ error: "Date de sortie Pêche invalide." }, { status: 400 });
     const creation = await getSalonAdminClient().rpc("create_salon_peche_sale_with_payment", {

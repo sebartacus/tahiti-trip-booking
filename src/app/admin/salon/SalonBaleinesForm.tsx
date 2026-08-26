@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SALON_PRICING, formatSalonPrice } from "@/lib/salon-pricing";
 import {
   SALON_BALEINES_OFFERS,
@@ -10,6 +10,7 @@ import {
   type SalonBaleinesCategory,
 } from "@/lib/salonBaleines";
 import { SALON_PAYMENT_LABELS } from "@/lib/salonSales";
+import { calculateSalonPayment } from "@/lib/salonPayment";
 import {
   POINTURES_PALMES,
   SAISON_DEBUT,
@@ -48,6 +49,7 @@ export function SalonBaleinesForm({
     emptySalonBaleinesComposition(),
   );
   const [bookLater, setBookLater] = useState(true);
+  const [paymentType, setPaymentType] = useState<"full" | "deposit">("full");
   const [date, setDate] = useState("");
   const [depart, setDepart] = useState("07:00");
   const [participants, setParticipants] = useState<Participant[]>([]);
@@ -77,6 +79,10 @@ export function SalonBaleinesForm({
     () => calculateSalonBaleinesSale(kind, composition),
     [kind, composition],
   );
+  const payment = offer ? calculateSalonPayment(offer.total, paymentType) : null;
+  useEffect(() => {
+    if (offer?.total === 0) setPaymentType("full");
+  }, [offer?.total]);
 
   function selectKind(value: "individual" | "five_plus_one") {
     setKind(value);
@@ -146,6 +152,7 @@ export function SalonBaleinesForm({
           date,
           depart,
           participants,
+          paymentType,
           ...client,
         }),
       });
@@ -285,6 +292,13 @@ export function SalonBaleinesForm({
       <p className="font-bold text-amber-800">
         Valable jusqu’au {getSalonBaleinesValidityLabel()}
       </p>
+      {offer && offer.total > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="rounded-xl border p-4 font-bold"><input type="radio" checked={paymentType === "full"} onChange={() => setPaymentType("full")} className="mr-2"/>Paiement intégral</label>
+          <label className="rounded-xl border p-4 font-bold"><input type="radio" checked={paymentType === "deposit"} onChange={() => setPaymentType("deposit")} className="mr-2"/>Acompte 30 % · {formatSalonPrice(calculateSalonPayment(offer.total, "deposit").paid)}</label>
+        </div>
+      )}
+      {paymentType === "deposit" && payment && <p className="rounded-xl bg-amber-50 p-4 font-bold text-amber-900">Solde à régler le jour de la prestation : {formatSalonPrice(payment.balance)}</p>}
       <div className="grid gap-4 md:grid-cols-2">
         {(["firstName", "lastName", "phone", "email"] as const).map((name) => (
           <label key={name} className="font-bold">

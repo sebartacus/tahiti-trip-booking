@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   if (!verifyAdminSession(request)) return NextResponse.json({ error: "Accès admin refusé." }, { status: 401 });
   try {
     const body = await request.json() as Record<string, unknown>;
+    if (body.paymentType === "deposit") return NextResponse.json({ error: "L’acompte est interdit pour les Carnets Baleines." }, { status: 400 });
     const offer = getSalonCarnetOffer(body.offerCode);
     const firstName = text(body.firstName); const lastName = text(body.lastName);
     const phone = text(body.phone); const email = text(body.email).toLowerCase();
