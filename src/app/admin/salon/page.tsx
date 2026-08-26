@@ -28,6 +28,8 @@ type Sale = {
   client_nom: string;
   payment_method: keyof typeof SALON_PAYMENT_LABELS;
   montant_total: number;
+  montant_encaisse: number;
+  montant_solde: number;
   statut: string;
   facture_url: string | null;
   salon_sale_items: Array<{
@@ -801,7 +803,7 @@ function SalesHistory({
               <span>{item.libelle}</span>
               {item.activity === "peche" && <span>{item.sortie_date ? new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" }) : "Date à fixer"} · {item.fulfillment_status || "reserved"}</span>}
               {item.activity === "charter" && <span>{item.participants} participant{item.participants===1?"":"s"} · {item.sortie_date?new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString("fr-FR",{timeZone:"UTC"}):"Date à fixer"} · {item.fulfillment_status}</span>}
-              <span>{formatSalonPrice(sale.montant_total)}</span>
+              <span>{sale.montant_solde>0?<>Total : {formatSalonPrice(sale.montant_total)}<br/>Encaissé : {formatSalonPrice(sale.montant_encaisse)}<br/>Solde : {formatSalonPrice(sale.montant_solde)}</>:formatSalonPrice(sale.montant_total)}</span>
               <span>
                 {SALON_PAYMENT_LABELS[sale.payment_method] ||
                   sale.payment_method}

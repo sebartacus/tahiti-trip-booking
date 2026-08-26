@@ -112,10 +112,10 @@ function filledRect(x: number, y: number, width: number, height: number) {
 export function buildPecheInvoicePdf(
   reservation: PecheInvoiceReservation,
   paidAt = new Date(),
-  options?: { designation?: string; paymentMethod?: string; validUntil?: string | null }
+  options?: { designation?: string; paymentMethod?: string; validUntil?: string | null; totalTtc?: number; amountPaid?: number; balance?: number }
 ) {
   const invoiceNumber = getPecheInvoiceNumber(reservation.id, paidAt);
-  const amountTtc = reservation.montant_paye ?? 0;
+  const amountTtc = options?.totalTtc ?? reservation.montant_paye ?? 0;
   const amountHt = amountTtc / (1 + TVA_RATE);
   const tva = amountTtc - amountHt;
   const designation = options?.designation || `Pêche au gros - ${formulaLabel(reservation.formule)}`;
@@ -171,7 +171,7 @@ export function buildPecheInvoicePdf(
         ]
       : [boldLine("Date de sortie : À fixer", 42, 492, 11)]),
     textLine(`Mode de règlement : ${safeText(options?.paymentMethod, "PayZen")}`, 42, 454, 10),
-    textLine(`Montant payé : ${money(amountTtc)}`, 42, 438, 10),
+    ...(options?.balance ? [textLine(`Acompte encaissé : ${money(options.amountPaid||0)}`,42,434,10),textLine(`Solde restant : ${money(options.balance)}`,42,416,10),textLine("Solde à régler le jour de la prestation.",42,398,10)] : [textLine(`Montant payé : ${money(amountTtc)}`, 42, 438, 10)]),
     ...(options?.validUntil ? [textLine(`Validité de l’offre : jusqu’au ${new Date(`${options.validUntil}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })}`, 42, 418, 10)] : []),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),

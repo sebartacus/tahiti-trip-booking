@@ -23,6 +23,8 @@ test("facture Salon Pêche calcule la TVA à 5 %", () => {
   assert.match(pdf, /Validité de l\\222offre/);
 });
 
+test("facture privatisation Pêche avec acompte",()=>{const invoice=buildPecheInvoicePdf({id:"deposit",date_sortie:null,formule:"morning",slots:null,nombre_personnes:4,responsable_prenom:"A",responsable_nom:"B",responsable_email:null,responsable_telephone:"1",montant_paye:23700},new Date(),{designation:"Privatisation",totalTtc:79000,amountPaid:23700,balance:55300});const pdf=invoice.pdf.toString("latin1");assert.match(pdf,/79 000/);assert.match(pdf,/23 700/);assert.match(pdf,/55 300/);assert.match(pdf,/Solde à régler/)});
+
 test("facture Pêche réservée conserve la date et le créneau", () => {
   const invoice = buildPecheInvoicePdf({ id: "reserved-test", date_sortie: "2026-12-10", formule: "afternoon", slots: ["afternoon"], nombre_personnes: 1, responsable_prenom: "Élodie", responsable_nom: "Test", responsable_email: null, responsable_telephone: "000", montant_paye: 33_000 });
   const pdf = invoice.pdf.toString("latin1");
