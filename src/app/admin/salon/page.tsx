@@ -781,33 +781,58 @@ function SalesHistory({
   deleteItem: (saleId: string, itemId: string) => Promise<void>;
   loading: boolean;
 }) {
+  const activityLabels: Record<string, string> = {
+    charter: "Charter",
+    peche: "Pêche",
+    baleines: "Baleines",
+    permis: "Permis",
+    carnet_baleines: "Baleines / Carnet",
+  };
+  const statusLabels: Record<string, string> = {
+    unused: "À utiliser",
+    redeemed: "Utilisé",
+    paid: "Payé",
+    paye: "Payé",
+    deposit_paid: "Acompte payé",
+    reserved: "Réservé",
+  };
   return (
     <section className="rounded-3xl bg-white p-5 shadow md:p-8">
       <h2 className="text-2xl font-black">Historique des ventes Salon</h2>
-      <div className="mt-5 grid gap-3">
+      <div className="mt-5 overflow-x-auto">
+        <div className="hidden min-w-[1180px] grid-cols-[90px_150px_100px_minmax(280px,1fr)_150px_230px_110px_180px] gap-3 border-b px-3 pb-3 text-xs font-black uppercase text-slate-500 md:grid"><span>Date</span><span>Client</span><span>Activité</span><span>Offre / date</span><span>Paiement</span><span>Montants</span><span>Validité</span><span>Actions</span></div>
+        <div className="grid gap-3 md:min-w-[1180px]">
         {sales.flatMap((sale) =>
           sale.salon_sale_items.map((item) => (
             <article
               key={item.id}
-              className="grid gap-3 rounded-2xl border p-4 md:grid-cols-[repeat(7,minmax(0,1fr))_auto] md:items-center"
+              className="grid gap-2 rounded-xl border p-3 text-sm md:grid-cols-[90px_150px_100px_minmax(280px,1fr)_150px_230px_110px_180px] md:items-center"
             >
               <span>{new Date(sale.sold_at).toLocaleDateString("fr-FR")}</span>
-              <strong>
-                {sale.client_prenom} {sale.client_nom}
-              </strong>
+              <strong>{sale.client_prenom} {sale.client_nom}</strong>
+              <span>{activityLabels[item.activity] || item.activity}</span>
               <span>
-                {item.activity === "carnet_baleines"
-                  ? "Baleines / Carnet"
-                  : item.activity}
+                <strong>{item.libelle}</strong>
+                {item.activity === "charter" && <> · {item.participants} pers.</>}
+                {(item.activity === "charter" || item.activity === "peche") && (
+                  <>
+                    {" · "}
+                    {item.sortie_date
+                      ? new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString(
+                          "fr-FR",
+                          { timeZone: "UTC" },
+                        )
+                      : "Date à fixer"}
+                    {item.fulfillment_status && statusLabels[item.fulfillment_status] && (
+                      <span className="ml-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-bold">
+                        {statusLabels[item.fulfillment_status]}
+                      </span>
+                    )}
+                  </>
+                )}
               </span>
-              <span>{item.libelle}</span>
-              {item.activity === "peche" && <span>{item.sortie_date ? new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" }) : "Date à fixer"} · {item.fulfillment_status || "reserved"}</span>}
-              {item.activity === "charter" && <span>{item.participants} participant{item.participants===1?"":"s"} · {item.sortie_date?new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString("fr-FR",{timeZone:"UTC"}):"Date à fixer"} · {item.fulfillment_status}</span>}
-              <span>{sale.montant_solde>0?<>Total : {formatSalonPrice(sale.montant_total)}<br/>Encaissé : {formatSalonPrice(sale.montant_encaisse)}<br/>Solde : {formatSalonPrice(sale.montant_solde)}</>:formatSalonPrice(sale.montant_total)}</span>
-              <span>
-                {SALON_PAYMENT_LABELS[sale.payment_method] ||
-                  sale.payment_method}
-              </span>
+              <span>{SALON_PAYMENT_LABELS[sale.payment_method]||sale.payment_method}{sale.montant_solde>0&&<span className="mt-1 block w-fit rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">Acompte payé</span>}</span>
+              <span className="whitespace-nowrap">Total {formatSalonPrice(sale.montant_total)}{sale.montant_solde>0&&<> · Encaissé {formatSalonPrice(sale.montant_encaisse)} · Solde {formatSalonPrice(sale.montant_solde)}</>}</span>
               <span>
                 {item.valid_until
                   ? new Date(
@@ -815,7 +840,7 @@ function SalesHistory({
                     ).toLocaleDateString("fr-FR", { timeZone: "UTC" })
                   : "—"}
               </span>
-              <div className="flex flex-wrap gap-2 md:justify-end">
+              <div className="flex flex-wrap gap-2">
                 <button
                   disabled={!sale.facture_url}
                   onClick={() => void openInvoice(sale.id)}
@@ -837,6 +862,7 @@ function SalesHistory({
         {sales.length === 0 && (
           <p className="text-slate-500">Aucune vente Salon enregistrée.</p>
         )}
+        </div>
       </div>
     </section>
   );

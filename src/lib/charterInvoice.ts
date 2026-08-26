@@ -1,6 +1,7 @@
 ﻿import { CHARTER_FORMULA_DETAILS, formatXpf } from "./charter-pricing";
 import { isCharterFormula } from "./charter-availability";
 import { calculateSalonTax } from "./salonTax";
+import { formatInvoiceValidityDate } from "./invoiceValidity";
 
 export type CharterInvoiceReservation = {
   id: string;
@@ -24,8 +25,8 @@ const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
 
 function escapePdfText(value: string) {
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "")
-    .replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+  const winAnsi:Record<string,string>={"Œ":"\\214","œ":"\\234","‘":"\\221","’":"\\222","“":"\\223","”":"\\224","–":"\\226","—":"\\227","…":"\\205"};
+  return Array.from(value,character=>{if(winAnsi[character])return winAnsi[character];if(character==="\\")return"\\\\";if(character==="(")return"\\(";if(character===")")return"\\)";const code=character.charCodeAt(0);return code>=0x20&&code<=0xff?character:"?"}).join("");
 }
 
 function line(text: string, x: number, y: number, size = 10, bold = false) {
@@ -62,40 +63,42 @@ export function buildCharterInvoicePdf(
   options?: { salon?: boolean; paymentMethod?: string; validUntil?: string }
 ) {
   const invoiceNumber = getCharterInvoiceNumber(reservation.id, paidAt);
-  const paymentLabel = reservation.type_paiement === "deposit" ? "Acompte 30 %" : "Paiement integral";
+  const paymentLabel = reservation.type_paiement === "deposit" ? "Acompte 30 %" : "Paiement intégral";
   const dates = reservation.date_fin === reservation.date_debut
     ? reservation.date_debut
     : `${reservation.date_debut} au ${reservation.date_fin}`;
+  const dateText=reservation.date_debut==="Date à fixer"?"À fixer":dates;
+  const validity=options?.validUntil?/^\d{4}-\d{2}-\d{2}$/.test(options.validUntil)?formatInvoiceValidityDate(options.validUntil):options.validUntil:"-";
+  const salonAmounts=options?.salon?calculateSalonTax(reservation.montant_total):null;
   const content = [
     "0.03 0.32 0.36 rg", `0 ${PAGE_HEIGHT - 100} ${PAGE_WIDTH} 100 re f`, "1 1 1 rg",
-    line("TAHITI TRIP", 42, 790, 22, true), line("Charters prives - Marina Taina", 42, 768, 11),
+    line("TAHITI TRIP", 42, 790, 22, true), line("Charters privés - Marina Taina", 42, 768, 11),
     "0 0 0 rg", line("FACTURE", 42, 710, 24, true),
-    line(`Numero : ${invoiceNumber}`, 42, 686, 11),
+    line(`Numéro : ${invoiceNumber}`, 42, 686, 11),
     line(`Date : ${paidAt.toLocaleDateString("fr-FR")}`, 42, 668, 11),
     line("Client", 340, 710, 13, true),
     line(`Nom : ${reservation.responsable_nom}`, 340, 686),
-    line(`Prenom : ${reservation.responsable_prenom}`, 340, 670),
-    line(`Telephone : ${reservation.responsable_tel}`, 340, 654),
-    line(`Email : ${reservation.responsable_email}`, 340, 638),
+    line(`Prénom : ${reservation.responsable_prenom}`, 340, 670),
+    line(`Téléphone : ${reservation.responsable_tel}`, 340, 654),
+    line(`E-mail : ${reservation.responsable_email}`, 340, 638),
     "0.86 0.96 0.96 rg", "42 560 511 40 re f", "0 0 0 rg",
     line("Charter", 54, 576, 12, true),
-    line(`Formule : ${formulaLabel(reservation.formule)}`, 54, 538, 11),
-    ...(options?.salon ? [line("Catamaran privatisé",54,520,11)] : []),
-    line(`Dates : ${dates}`, 54, 516, 11),
-    line(`Participants : ${reservation.nombre_personnes}`, 54, 494, 11),
-    ...(drinkLabel(reservation) ? [line(drinkLabel(reservation), 54, 472, 11)] : []),
-    ...(options?.salon ? (()=>{const tax=calculateSalonTax(reservation.montant_total);return [line(`Total HT : ${formatXpf(tax.ht)}`,54,420,11),line(`TVA 5 % : ${formatXpf(tax.tva)}`,54,398,11),line(`Total TTC : ${formatXpf(tax.ttc)}`,54,376,12,true),...(reservation.montant_solde>0?[line(`Acompte encaissé : ${formatXpf(reservation.montant_paye)}`,54,354,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,336,11),line("Solde à régler au plus tard la veille du départ.",54,318,10)]:[]),line(`Mode de paiement : ${options.paymentMethod||"-"}`,54,reservation.montant_solde>0?300:354,11),line(`Validité de l'offre : jusqu'au ${options.validUntil||"-"}`,54,332,10)]})() : [line(`Montant total : ${formatXpf(reservation.montant_total)}`, 54, 420, 12, true),line(`Type de paiement : ${paymentLabel}`, 54, 396, 11),line(`Montant paye : ${formatXpf(reservation.montant_paye)}`, 54, 374, 11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`, 54, 352, 11)]),
-    line("Tous les montants sont exprimes en F CFP.", 54, 322, 9),
-    line("Merci pour votre confiance.", 42, 260, 13, true),
-    line("Tahiti Trip - Marina Taina, Punaauia", 42, 238, 10),
+    line(`Formule : ${formulaLabel(reservation.formule)}`, 54, 548, 11),
+    ...(options?.salon ? [line("Catamaran privatisé",54,526,11)] : []),
+    line(`Participants : ${reservation.nombre_personnes}`, 54, 504, 11),
+    line(`Date de sortie : ${dateText}`,54,482,11),
+    ...(drinkLabel(reservation) ? [line(drinkLabel(reservation), 54, 460, 11)] : []),
+    ...(salonAmounts?[line(`Total HT : ${formatXpf(salonAmounts.ht)}`,54,430,11),line(`TVA 5 % : ${formatXpf(salonAmounts.tva)}`,54,408,11),line(`Total TTC : ${formatXpf(salonAmounts.ttc)}`,54,386,12,true),...(reservation.montant_solde>0?[line(`Acompte encaissé : ${formatXpf(reservation.montant_paye)}`,54,342,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,320,11),line("Solde à régler au plus tard la veille du départ.",54,298,10)]:[]),line(`Mode de paiement : ${options?.paymentMethod||"-"}`,54,reservation.montant_solde>0?252:342,11),line(`Validité de l’offre : jusqu’au ${validity}`,54,reservation.montant_solde>0?230:320,10),line("Tous les montants sont exprimés en F CFP.",54,reservation.montant_solde>0?208:298,9)]:[line(`Montant total : ${formatXpf(reservation.montant_total)}`,54,420,12,true),line(`Type de paiement : ${paymentLabel}`,54,396,11),line(`Montant payé : ${formatXpf(reservation.montant_paye)}`,54,374,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,352,11),line("Tous les montants sont exprimés en F CFP.",54,322,9)]),
+    line("Merci pour votre confiance.", 42, 158, 13, true),
+    line("Tahiti Trip - Marina Taina, Punaauia", 42, 136, 10),
   ].join("\n");
 
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
     `<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}\nendstream`,
   ];
   const chunks = ["%PDF-1.4\n"];
