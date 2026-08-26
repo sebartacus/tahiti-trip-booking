@@ -9,11 +9,13 @@ export const SALON_PRICING = {
     offreTrois: { demiJournee: 66_000, journee: 80_000 },
     privatisation: {
       demiJournee: {
+        offerCode: "peche_privatisation_demi_journee",
         salon: 79_000,
         normal: 95_000,
         equivalentParPersonne: 19_750,
       },
       journee: {
+        offerCode: "peche_privatisation_journee",
         salon: 110_000,
         normal: 135_000,
         equivalentParPersonne: 27_500,

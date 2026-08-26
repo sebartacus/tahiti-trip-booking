@@ -4,6 +4,7 @@ import { getSalonAdminClient } from "@/lib/salonAdmin";
 import { buildPermisInvoicePdf } from "@/lib/permisInvoice";
 import { buildCarnetBaleinesInvoicePdf } from "@/lib/carnetsBaleinesInvoice";
 import { buildBaleinesInvoicePdf } from "@/lib/baleinesInvoice";
+import { buildPecheInvoicePdf } from "@/lib/pecheInvoice";
 import {
   SALON_PAYMENT_LABELS,
   type SalonPaymentMethod,
@@ -63,7 +64,8 @@ export async function POST(request: Request) {
     );
   let invoice:
     | ReturnType<typeof buildPermisInvoicePdf>
-    | ReturnType<typeof buildBaleinesInvoicePdf>;
+    | ReturnType<typeof buildBaleinesInvoicePdf>
+    | ReturnType<typeof buildPecheInvoicePdf>;
   if (item.activity === "carnet_baleines") {
     const carnet = await supabase
       .from("carnets_baleines")
@@ -140,6 +142,18 @@ export async function POST(request: Request) {
         SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod],
       validUntil: item.valid_until,
     });
+  } else if (item.activity === "peche") {
+    let reservation: Record<string, unknown>;
+    if (item.reservation_type === "reservations_peche") {
+      const lookup = await supabase.from("reservations_peche").select("*").eq("id", item.reservation_id).single();
+      if (lookup.error || !lookup.data) return NextResponse.json({ error: "Réservation Pêche introuvable." }, { status: 404 });
+      reservation = lookup.data;
+    } else {
+      const right = await supabase.from("salon_peche_rights").select("formule,nombre_personnes,montant_paye").eq("id", item.reservation_id).single();
+      if (right.error || !right.data) return NextResponse.json({ error: "Droit Pêche introuvable." }, { status: 404 });
+      reservation = { id: item.reservation_id, date_sortie: null, formule: right.data.formule === "full_day" ? "full_day" : "morning", slots: null, nombre_personnes: right.data.nombre_personnes, responsable_prenom: sale.data.client_prenom, responsable_nom: sale.data.client_nom, responsable_email: sale.data.client_email, responsable_telephone: sale.data.client_telephone, montant_paye: right.data.montant_paye };
+    }
+    invoice = buildPecheInvoicePdf(reservation as Parameters<typeof buildPecheInvoicePdf>[0], new Date(), { designation: item.libelle, paymentMethod: SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod], validUntil: item.valid_until });
   } else {
     const reservation = await supabase
       .from("reservations")
@@ -177,6 +191,10 @@ export async function POST(request: Request) {
             facture_url: invoicePath,
           })
           .eq("id", item.reservation_id)
+      : item.activity === "peche" && item.reservation_type === "reservations_peche"
+        ? supabase.from("reservations_peche").update({ facture_numero: invoice.invoiceNumber, facture_url: invoicePath }).eq("id", item.reservation_id)
+      : item.activity === "peche"
+        ? Promise.resolve({ error: null })
       : item.activity === "baleines" &&
           item.reservation_type === "reservations_baleines"
         ? supabase

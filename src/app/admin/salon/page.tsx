@@ -11,6 +11,7 @@ import {
 import { getTahitiToday, getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 import { SalonCarnetForm } from "./SalonCarnetForm";
 import { SalonBaleinesForm } from "./SalonBaleinesForm";
+import { SalonPecheForm } from "./SalonPecheForm";
 
 const slots = [
   "07h00 - 09h00",
@@ -34,6 +35,8 @@ type Sale = {
     libelle: string;
     reservation_id: string;
     valid_until: string;
+    sortie_date?: string | null;
+    fulfillment_status?: string;
   }>;
 };
 type Created = {
@@ -256,6 +259,17 @@ export default function AdminSalonPage() {
         Vérification de la session admin…
       </main>
     );
+  if (activity === "peche")
+    return (
+      <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8">
+        <div className="mx-auto max-w-6xl space-y-7">
+          <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="mt-2 text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><Link href="/admin" className="rounded-xl border bg-white px-4 py-3 font-bold">Tableau de bord</Link></nav></header>
+          <SalonPecheForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>
+          {error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}{message&&<p className="rounded-xl bg-emerald-100 p-4 font-bold text-emerald-800">{message}</p>}
+          <SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading}/>
+        </div>
+      </main>
+    );
   if (activity === "carnet_baleines")
     return (
       <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8">
@@ -301,7 +315,8 @@ export default function AdminSalonPage() {
                 Individuels · 5+1 · Carnets
               </p>
             </article>
-            {["Pêche", "Charter"].map((name) => (
+            <button onClick={() => setActivity("peche")} className="rounded-2xl border-2 border-slate-200 bg-white p-5 text-left"><p className="text-2xl">🎣</p><h2 className="mt-2 text-xl font-black">Pêche</h2><p className="text-sm font-bold text-emerald-700">Disponible</p></button>
+            {["Charter"].map((name) => (
               <article
                 key={name}
                 className="rounded-2xl border bg-slate-50 p-5 opacity-70"
@@ -391,7 +406,8 @@ export default function AdminSalonPage() {
               Individuels · 5+1 · Carnets
             </p>
           </button>
-          {["Pêche", "Charter"].map((name) => (
+          <button onClick={() => setActivity("peche")} className={`rounded-2xl border-2 bg-white p-5 text-left ${activity === "peche" ? "border-emerald-500" : "border-slate-200"}`}><p className="text-2xl">🎣</p><h2 className="mt-2 text-xl font-black">Pêche</h2><p className="text-sm font-bold text-emerald-700">Disponible</p></button>
+          {["Charter"].map((name) => (
             <article
               key={name}
               className="rounded-2xl border bg-slate-50 p-5 opacity-70"
@@ -795,6 +811,7 @@ function SalesHistory({
                   : item.activity}
               </span>
               <span>{item.libelle}</span>
+              {item.activity === "peche" && <span>{item.sortie_date ? new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" }) : "Date à fixer"} · {item.fulfillment_status || "reserved"}</span>}
               <span>{formatSalonPrice(sale.montant_total)}</span>
               <span>
                 {SALON_PAYMENT_LABELS[sale.payment_method] ||

@@ -60,8 +60,24 @@ export async function GET(request: Request) {
     ]);
     if (sales.error) throw sales.error;
     if (blockedExams.error) throw blockedExams.error;
+    const rows = sales.data || [];
+    const items = rows.flatMap((sale) => sale.salon_sale_items || []);
+    const pecheReservationIds = items.filter((item) => item.activity === "peche" && item.reservation_type === "reservations_peche").map((item) => item.reservation_id);
+    const pecheRightIds = items.filter((item) => item.activity === "peche" && item.reservation_type === "salon_peche_rights").map((item) => item.reservation_id);
+    const [pecheReservations, pecheRights] = await Promise.all([
+      pecheReservationIds.length ? supabase.from("reservations_peche").select("id,date_sortie,statut_paiement").in("id", pecheReservationIds) : Promise.resolve({ data: [], error: null }),
+      pecheRightIds.length ? supabase.from("salon_peche_rights").select("id,status").in("id", pecheRightIds) : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (pecheReservations.error || pecheRights.error) throw pecheReservations.error || pecheRights.error;
+    const reservationsById = new Map((pecheReservations.data || []).map((row) => [row.id, row]));
+    const rightsById = new Map((pecheRights.data || []).map((row) => [row.id, row]));
+    for (const item of items) if (item.activity === "peche") {
+      const reservation = reservationsById.get(item.reservation_id);
+      const right = rightsById.get(item.reservation_id);
+      Object.assign(item, { sortie_date: reservation?.date_sortie || null, fulfillment_status: reservation?.statut_paiement || right?.status || "reserved" });
+    }
     return NextResponse.json({
-      sales: sales.data || [],
+      sales: rows,
       blockedExams: (blockedExams.data || []).map((row) => row.date_examen),
     });
   } catch (error) {
@@ -104,6 +120,8 @@ export async function DELETE(request: Request) {
     const deletion = await supabase.rpc(
       itemLookup.data?.activity === "baleines"
         ? "admin_delete_salon_baleines_item"
+        : itemLookup.data?.activity === "peche"
+          ? "admin_delete_salon_peche_item"
         : "admin_delete_salon_sale_item",
       {
       p_sale_id: saleId,

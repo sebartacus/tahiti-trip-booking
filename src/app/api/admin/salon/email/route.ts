@@ -69,6 +69,8 @@ export async function POST(request: Request) {
       invoicePdf,
       idempotencySuffix: `salon-${id}`,
     });
+  } else if (item.activity === "peche") {
+    result = await sendResendEmail({ from: process.env.EMAIL_FROM || "Tahiti Trip Fishing <onboarding@resend.dev>", to: [sale.data.client_email], subject: "Votre achat Pêche Salon", html: `<div style="font-family:Arial,sans-serif"><h1>Votre achat Pêche Salon</h1><p>Bonjour ${sale.data.client_prenom},</p><p>Votre achat <strong>${item.libelle}</strong> est enregistré.</p><p>${item.reservation_type === "salon_peche_rights" ? "Contactez-nous pour fixer votre date avant le 31 janvier 2027." : "Votre sortie est réservée."}</p><p>Votre facture est jointe.</p></div>`, attachments: [{ filename: `${sale.data.facture_numero}.pdf`, content: invoicePdf.toString("base64") }] }, fetch, `salon-peche-${id}`);
   } else if (item.activity === "baleines") {
     result = await sendResendEmail(
       {
@@ -118,6 +120,10 @@ export async function POST(request: Request) {
           .from("carnets_baleines")
           .update({ email_sent: true, email_sent_at: now })
           .eq("id", item.reservation_id)
+      : item.activity === "peche" && item.reservation_type === "reservations_peche"
+        ? supabase.from("reservations_peche").update({ email_sent: true, email_sent_at: now }).eq("id", item.reservation_id)
+      : item.activity === "peche"
+        ? Promise.resolve({ error: null })
       : item.activity === "baleines" &&
           item.reservation_type === "reservations_baleines"
         ? supabase
