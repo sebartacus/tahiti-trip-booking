@@ -26,13 +26,15 @@ const PAGE_HEIGHT = 842;
 const TVA_RATE = 0.05;
 
 function escapePdfText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x20-\x7E]/g, "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
+  const winAnsi: Record<string, string> = { "Œ": "\\214", "œ": "\\234", "‘": "\\221", "’": "\\222", "“": "\\223", "”": "\\224", "–": "\\226", "—": "\\227", "…": "\\205" };
+  return Array.from(value, (character) => {
+    if (winAnsi[character]) return winAnsi[character];
+    if (character === "\\") return "\\\\";
+    if (character === "(") return "\\(";
+    if (character === ")") return "\\)";
+    const code = character.charCodeAt(0);
+    return code >= 0x20 && code <= 0xff ? character : "?";
+  }).join("");
 }
 
 function money(value: number) {
@@ -102,6 +104,7 @@ export function buildBaleinesInvoicePdf(
     validUntil?: string | null;
     amountPaid?: number;
     balance?: number;
+    showSalonBookingAccess?: boolean;
   } = {},
 ) {
   const invoiceNumber = getBaleinesInvoiceNumber(reservation.id, paidAt);
@@ -196,6 +199,17 @@ export function buildBaleinesInvoicePdf(
     ...(options.validUntil
       ? [boldLine(getInvoiceValidityText(options.validUntil), 42, options.balance ? 346 : 382, 10)]
       : []),
+    ...(options.showSalonBookingAccess
+      ? [
+          "0.88 0.97 0.98 rg",
+          filledRect(42, 246, 511, 72),
+          "0.05 0.30 0.40 rg",
+          boldLine("POUR CHOISIR VOTRE DATE", 58, 296, 14),
+          boldLine("https://www.tahiti-trip.com/reprendre-offre", 58, 276, 11),
+          textLine("Munissez-vous de votre numéro de facture et du téléphone", 58, 260, 9),
+          textLine("ou de l’e-mail utilisé lors de l’achat.", 58, 248, 9),
+        ]
+      : []),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),
     "0 0 0 rg",
@@ -207,8 +221,8 @@ export function buildBaleinesInvoicePdf(
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
     `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>",
     `<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}\nendstream`,
   ];
 

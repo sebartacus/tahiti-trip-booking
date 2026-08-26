@@ -144,6 +144,7 @@ export async function POST(request: Request) {
       validUntil: item.valid_until,
       amountPaid: sale.data.montant_encaisse,
       balance: sale.data.montant_solde,
+      showSalonBookingAccess: item.reservation_type === "salon_baleines_rights",
     });
   } else if (item.activity === "peche") {
     let reservation: Record<string, unknown>;
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
       if (right.error || !right.data) return NextResponse.json({ error: "Droit Pêche introuvable." }, { status: 404 });
       reservation = { id: item.reservation_id, date_sortie: null, formule: right.data.formule === "full_day" ? "full_day" : "morning", slots: null, nombre_personnes: right.data.nombre_personnes, responsable_prenom: sale.data.client_prenom, responsable_nom: sale.data.client_nom, responsable_email: sale.data.client_email, responsable_telephone: sale.data.client_telephone, montant_paye: right.data.montant_paye };
     }
-    invoice = buildPecheInvoicePdf(reservation as Parameters<typeof buildPecheInvoicePdf>[0], new Date(), { designation: item.libelle, paymentMethod: SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod], validUntil: item.valid_until,totalTtc:sale.data.montant_total,amountPaid:sale.data.montant_encaisse,balance:sale.data.montant_solde });
+    invoice = buildPecheInvoicePdf(reservation as Parameters<typeof buildPecheInvoicePdf>[0], new Date(), { designation: item.libelle, paymentMethod: SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod], validUntil: item.valid_until,totalTtc:sale.data.montant_total,amountPaid:sale.data.montant_encaisse,balance:sale.data.montant_solde,showSalonBookingAccess:item.reservation_type==="salon_peche_rights" });
   } else if (item.activity === "charter") {
     let reservation: Record<string, unknown>;
     if (item.reservation_type === "reservations_charter") {
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
       const right=await supabase.from("salon_charter_rights").select("nombre_personnes,montant_paye").eq("id",item.reservation_id).single();
       if(right.error||!right.data)return NextResponse.json({error:"Droit Charter introuvable."},{status:404});reservation={id:item.reservation_id,date_debut:"Date à fixer",date_fin:"Date à fixer",formule:"tetiaroa_2j_1n",nombre_personnes:right.data.nombre_personnes,responsable_prenom:sale.data.client_prenom,responsable_nom:sale.data.client_nom,responsable_email:sale.data.client_email||"",responsable_tel:sale.data.client_telephone,montant_total:item.total_price,montant_paye:sale.data.montant_encaisse,montant_solde:sale.data.montant_solde,type_paiement:sale.data.montant_solde>0?"deposit":"full",sunset_drink:null,champagne_supplement:false};
     }
-    invoice=buildCharterInvoicePdf(reservation as Parameters<typeof buildCharterInvoicePdf>[0],new Date(),{salon:true,paymentMethod:SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod],validUntil:item.valid_until});
+    invoice=buildCharterInvoicePdf(reservation as Parameters<typeof buildCharterInvoicePdf>[0],new Date(),{salon:true,paymentMethod:SALON_PAYMENT_LABELS[sale.data.payment_method as SalonPaymentMethod],validUntil:item.valid_until,showSalonBookingAccess:item.reservation_type==="salon_charter_rights"});
   } else {
     const reservation = await supabase
       .from("reservations")

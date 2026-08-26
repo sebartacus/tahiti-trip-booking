@@ -60,7 +60,7 @@ function drinkLabel(reservation: CharterInvoiceReservation) {
 export function buildCharterInvoicePdf(
   reservation: CharterInvoiceReservation,
   paidAt = new Date(),
-  options?: { salon?: boolean; paymentMethod?: string; validUntil?: string }
+  options?: { salon?: boolean; paymentMethod?: string; validUntil?: string; showSalonBookingAccess?: boolean }
 ) {
   const invoiceNumber = getCharterInvoiceNumber(reservation.id, paidAt);
   const paymentLabel = reservation.type_paiement === "deposit" ? "Acompte 30 %" : "Paiement intégral";
@@ -89,8 +89,15 @@ export function buildCharterInvoicePdf(
     line(`Date de sortie : ${dateText}`,54,482,11),
     ...(drinkLabel(reservation) ? [line(drinkLabel(reservation), 54, 460, 11)] : []),
     ...(salonAmounts?[line(`Total HT : ${formatXpf(salonAmounts.ht)}`,54,430,11),line(`TVA 5 % : ${formatXpf(salonAmounts.tva)}`,54,408,11),line(`Total TTC : ${formatXpf(salonAmounts.ttc)}`,54,386,12,true),...(reservation.montant_solde>0?[line(`Acompte encaissé : ${formatXpf(reservation.montant_paye)}`,54,342,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,320,11),line("Solde à régler au plus tard la veille du départ.",54,298,10)]:[]),line(`Mode de paiement : ${options?.paymentMethod||"-"}`,54,reservation.montant_solde>0?252:342,11),line(`Validité de l’offre : jusqu’au ${validity}`,54,reservation.montant_solde>0?230:320,10),line("Tous les montants sont exprimés en F CFP.",54,reservation.montant_solde>0?208:298,9)]:[line(`Montant total : ${formatXpf(reservation.montant_total)}`,54,420,12,true),line(`Type de paiement : ${paymentLabel}`,54,396,11),line(`Montant payé : ${formatXpf(reservation.montant_paye)}`,54,374,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,352,11),line("Tous les montants sont exprimés en F CFP.",54,322,9)]),
-    line("Merci pour votre confiance.", 42, 158, 13, true),
-    line("Tahiti Trip - Marina Taina, Punaauia", 42, 136, 10),
+    ...(options?.showSalonBookingAccess ? [
+      "0.88 0.97 0.98 rg", "42 102 511 82 re f", "0.03 0.32 0.36 rg",
+      line("POUR CHOISIR VOTRE DATE",58,164,14,true),
+      line("https://www.tahiti-trip.com/reprendre-offre",58,142,11,true),
+      line("Munissez-vous de votre numéro de facture et du téléphone",58,124,9),
+      line("ou de l’e-mail utilisé lors de l’achat.",58,110,9),
+    ] : []),
+    line("Merci pour votre confiance.", 42, options?.showSalonBookingAccess ? 76 : 158, 13, true),
+    line("Tahiti Trip - Marina Taina, Punaauia", 42, options?.showSalonBookingAccess ? 54 : 136, 10),
   ].join("\n");
 
   const objects = [

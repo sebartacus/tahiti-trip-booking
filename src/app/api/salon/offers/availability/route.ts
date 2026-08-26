@@ -4,6 +4,7 @@ import { getCharterSlotRequirements, isValidIsoDate } from "@/lib/charter-availa
 import { getTahitiToday } from "@/lib/tahiti-date";
 import { loadAuthorizedSalonOffer } from "@/lib/salonPublicOffers";
 import { verifySalonPublicAccessToken } from "@/lib/salonPublicAccess";
+import { baleinesDayStatus, charterDayStatus, monthDates, pecheDayStatus, type SalonCalendarStatus } from "@/lib/salonCalendarAvailability";
 
 function bearer(request: Request) {
   const value = request.headers.get("authorization") || "";
@@ -16,9 +17,46 @@ export async function GET(request: Request) {
   const authorized = await loadAuthorizedSalonOffer(payload);
   if (!authorized) return NextResponse.json({ error: "Offre introuvable." }, { status: 404 });
   if (authorized.right.status !== "unused") return NextResponse.json({ error: "Cette offre a déjà été réservée.", offer: authorized.offer }, { status: 409 });
-  const date = new URL(request.url).searchParams.get("date") || "";
-  if (!isValidIsoDate(date) || date < getTahitiToday() || date > authorized.offer.validUntil) return NextResponse.json({ error: "Date hors validité." }, { status: 400 });
+  const parameters = new URL(request.url).searchParams;
+  const month = parameters.get("month") || "";
   const supabase = getSalonAdminClient();
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    const { dates, first, last, charterLast } = monthDates(month);
+    const today = getTahitiToday();
+    const days: Record<string, SalonCalendarStatus> = {};
+    for (const value of dates) days[value] = value < today || value > authorized.offer.validUntil ? "outside" : "unavailable";
+    if (payload.activity === "baleines") {
+      const [reservations, calendar] = await Promise.all([
+        supabase.from("reservations_baleines").select("date_sortie,depart,nombre_mise_eau,nombre_observateurs").gte("date_sortie", first).lte("date_sortie", last).or("paye.eq.true,statut_paiement.in.(paid,paye,deposit_paid)"),
+        supabase.from("boat_calendar_slots").select("date,slot,status,activity").gte("date", first).lte("date", last),
+      ]);
+      if (reservations.error || calendar.error) return NextResponse.json({ error: "Disponibilités indisponibles." }, { status: 500 });
+      for (const value of dates) {
+        if (days[value] === "outside") continue;
+        const slots = ["07:00", "13:15"].map((depart) => ({ miseEau: (reservations.data || []).filter((row) => row.date_sortie === value && row.depart === depart).reduce((sum, row) => sum + Number(row.nombre_mise_eau || 0), 0), observateurs: (reservations.data || []).filter((row) => row.date_sortie === value && row.depart === depart).reduce((sum, row) => sum + Number(row.nombre_observateurs || 0), 0), boatAvailable: !(calendar.data || []).some((row) => row.date === value && row.slot === (depart === "07:00" ? "morning" : "afternoon") && row.status !== "available" && row.activity !== "baleines") }));
+        days[value] = baleinesDayStatus(slots, Number(authorized.offer.composition?.mise_eau || 0), authorized.offer.participants);
+      }
+    } else if (payload.activity === "peche") {
+      const [reservations, calendar] = await Promise.all([
+        supabase.from("reservations_peche").select("date_sortie,slots,nombre_personnes").gte("date_sortie", first).lte("date_sortie", last).not("statut_paiement", "in", "(cancelled,failed)"),
+        supabase.from("boat_calendar_slots").select("date,slot,status,activity").gte("date", first).lte("date", last),
+      ]);
+      if (reservations.error || calendar.error) return NextResponse.json({ error: "Disponibilités indisponibles." }, { status: 500 });
+      for (const value of dates) {
+        if (days[value] === "outside") continue;
+        const slots = ["morning", "afternoon"].map((slot) => ({ used: (reservations.data || []).filter((row) => row.date_sortie === value && Array.isArray(row.slots) && row.slots.includes(slot)).reduce((sum, row) => sum + Number(row.nombre_personnes || 0), 0), boatAvailable: !(calendar.data || []).some((row) => row.date === value && row.slot === slot && row.status !== "available" && row.activity !== "peche") }));
+        days[value] = pecheDayStatus(slots, authorized.offer.participants, authorized.offer.offerType === "privatisation", authorized.offer.formula === "full_day");
+      }
+    } else {
+      const calendar = await supabase.from("boat_calendar_slots").select("date,slot,status,expires_at").gte("date", first).lte("date", charterLast);
+      if (calendar.error) return NextResponse.json({ error: "Disponibilités indisponibles." }, { status: 500 });
+      const now = Date.now();
+      for (const value of dates) if (days[value] !== "outside") days[value] = charterDayStatus(value, calendar.data || [], authorized.offer.validUntil, now);
+    }
+    return NextResponse.json({ days });
+  }
+  const date = parameters.get("date") || "";
+  if (!isValidIsoDate(date) || date < getTahitiToday() || date > authorized.offer.validUntil) return NextResponse.json({ error: "Date hors validité." }, { status: 400 });
 
   if (payload.activity === "baleines") {
     const [reservations, calendar] = await Promise.all([

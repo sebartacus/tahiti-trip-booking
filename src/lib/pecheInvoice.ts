@@ -112,7 +112,7 @@ function filledRect(x: number, y: number, width: number, height: number) {
 export function buildPecheInvoicePdf(
   reservation: PecheInvoiceReservation,
   paidAt = new Date(),
-  options?: { designation?: string; paymentMethod?: string; validUntil?: string | null; totalTtc?: number; amountPaid?: number; balance?: number }
+  options?: { designation?: string; paymentMethod?: string; validUntil?: string | null; totalTtc?: number; amountPaid?: number; balance?: number; showSalonBookingAccess?: boolean }
 ) {
   const invoiceNumber = getPecheInvoiceNumber(reservation.id, paidAt);
   const amountTtc = options?.totalTtc ?? reservation.montant_paye ?? 0;
@@ -173,6 +173,13 @@ export function buildPecheInvoicePdf(
     textLine(`Mode de règlement : ${safeText(options?.paymentMethod, "PayZen")}`, 42, 454, 10),
     ...(options?.balance ? [textLine(`Acompte encaissé : ${money(options.amountPaid||0)}`,42,434,10),textLine(`Solde restant : ${money(options.balance)}`,42,416,10),textLine("Solde à régler le jour de la prestation.",42,398,10)] : [textLine(`Montant payé : ${money(amountTtc)}`, 42, 438, 10)]),
     ...(options?.validUntil ? [textLine(`Validité de l’offre : jusqu’au ${new Date(`${options.validUntil}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })}`, 42, 418, 10)] : []),
+    ...(options?.showSalonBookingAccess ? [
+      "0.88 0.97 0.98 rg", filledRect(42, 246, 511, 72), "0.05 0.30 0.40 rg",
+      boldLine("POUR CHOISIR VOTRE DATE",58,296,14),
+      boldLine("https://www.tahiti-trip.com/reprendre-offre",58,276,11),
+      textLine("Munissez-vous de votre numéro de facture et du téléphone",58,260,9),
+      textLine("ou de l’e-mail utilisé lors de l’achat.",58,248,9),
+    ] : []),
     "0.05 0.30 0.40 rg",
     filledRect(42, 356, 511, 1),
     "0 0 0 rg",
