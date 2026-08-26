@@ -8,4 +8,25 @@ test("facture Salon Pêche calcule la TVA à 5 %", () => {
   const invoice = buildPecheInvoicePdf({ id: "sale-test", date_sortie: null, formule: "morning", slots: null, nombre_personnes: 4, responsable_prenom: "Test", responsable_nom: "Salon", responsable_email: null, responsable_telephone: "000", montant_paye: 79_000 }, new Date("2026-08-25T00:00:00Z"), { designation: "Privatisation du bateau — demi-journée", paymentMethod: "TPE", validUntil: "2027-01-31" });
   const pdf = invoice.pdf.toString("latin1");
   assert.match(pdf, /TVA 5 %/); assert.match(pdf, /79 000/); assert.match(pdf, /31\/01\/2027/);
+  assert.match(pdf, /\/Encoding \/WinAnsiEncoding/);
+  assert.match(pdf, /Numéro/);
+  assert.match(pdf, /Prénom/);
+  assert.match(pdf, /Téléphone/);
+  assert.match(pdf, /Désignation/);
+  assert.match(pdf, /Quantité/);
+  assert.match(pdf, /demi-journée/);
+  assert.match(pdf, /Tous les montants sont exprimés en F CFP\./);
+  assert.match(pdf, /Date de sortie : À fixer/);
+  assert.doesNotMatch(pdf, /Créneau : -/);
+  assert.match(pdf, /Mode de règlement/);
+  assert.match(pdf, /Montant payé/);
+  assert.match(pdf, /Validité de l\\222offre/);
+});
+
+test("facture Pêche réservée conserve la date et le créneau", () => {
+  const invoice = buildPecheInvoicePdf({ id: "reserved-test", date_sortie: "2026-12-10", formule: "afternoon", slots: ["afternoon"], nombre_personnes: 1, responsable_prenom: "Élodie", responsable_nom: "Test", responsable_email: null, responsable_telephone: "000", montant_paye: 33_000 });
+  const pdf = invoice.pdf.toString("latin1");
+  assert.match(pdf, /Date de sortie : 2026-12-10/);
+  assert.match(pdf, /Créneau : Après-midi/);
+  assert.doesNotMatch(pdf, /À fixer/);
 });
