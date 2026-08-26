@@ -799,62 +799,106 @@ function SalesHistory({
   return (
     <section className="rounded-3xl bg-white p-5 shadow md:p-8">
       <h2 className="text-2xl font-black">Historique des ventes Salon</h2>
-      <div className="mt-5 overflow-x-auto">
-        <div className="hidden min-w-[1180px] grid-cols-[90px_150px_100px_minmax(280px,1fr)_150px_230px_110px_180px] gap-3 border-b px-3 pb-3 text-xs font-black uppercase text-slate-500 md:grid"><span>Date</span><span>Client</span><span>Activité</span><span>Offre / date</span><span>Paiement</span><span>Montants</span><span>Validité</span><span>Actions</span></div>
-        <div className="grid gap-3 md:min-w-[1180px]">
+      <div className="mt-5 grid gap-3">
         {sales.flatMap((sale) =>
           sale.salon_sale_items.map((item) => (
             <article
               key={item.id}
-              className="grid gap-2 rounded-xl border p-3 text-sm md:grid-cols-[90px_150px_100px_minmax(280px,1fr)_150px_230px_110px_180px] md:items-center"
+              className="rounded-2xl border border-slate-200 p-4 text-sm"
             >
-              <span>{new Date(sale.sold_at).toLocaleDateString("fr-FR")}</span>
-              <strong>{sale.client_prenom} {sale.client_nom}</strong>
-              <span>{activityLabels[item.activity] || item.activity}</span>
-              <span>
-                <strong>{item.libelle}</strong>
-                {item.activity === "charter" && <> · {item.participants} pers.</>}
-                {(item.activity === "charter" || item.activity === "peche") && (
-                  <>
-                    {" · "}
-                    {item.sortie_date
-                      ? new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString(
-                          "fr-FR",
-                          { timeZone: "UTC" },
-                        )
-                      : "Date à fixer"}
-                    {item.fulfillment_status && statusLabels[item.fulfillment_status] && (
-                      <span className="ml-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-bold">
-                        {statusLabels[item.fulfillment_status]}
-                      </span>
+              <div className="grid gap-3 md:grid-cols-[minmax(140px,0.8fr)_100px_minmax(260px,2fr)_auto] md:items-center">
+                <div>
+                  <p className="font-black text-slate-950">
+                    {sale.client_prenom} {sale.client_nom}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {new Date(sale.sold_at).toLocaleDateString("fr-FR")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500 md:hidden">Activité</p>
+                  <p className="font-bold">{activityLabels[item.activity] || item.activity}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase text-slate-500 md:hidden">Offre / date</p>
+                  <p className="font-bold text-slate-950">
+                    {item.libelle}
+                    {item.activity === "charter" && <> · {item.participants} pers.</>}
+                    {(item.activity === "charter" || item.activity === "peche") && (
+                      <>
+                        {" · "}
+                        {item.sortie_date
+                          ? new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString(
+                              "fr-FR",
+                              { timeZone: "UTC" },
+                            )
+                          : "Date à fixer"}
+                      </>
                     )}
-                  </>
-                )}
-              </span>
-              <span>{SALON_PAYMENT_LABELS[sale.payment_method]||sale.payment_method}{sale.montant_solde>0&&<span className="mt-1 block w-fit rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">Acompte payé</span>}</span>
-              <span className="whitespace-nowrap">Total {formatSalonPrice(sale.montant_total)}{sale.montant_solde>0&&<> · Encaissé {formatSalonPrice(sale.montant_encaisse)} · Solde {formatSalonPrice(sale.montant_solde)}</>}</span>
-              <span>
-                {item.valid_until
-                  ? new Date(
-                      `${item.valid_until}T00:00:00Z`,
-                    ).toLocaleDateString("fr-FR", { timeZone: "UTC" })
-                  : "—"}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  disabled={!sale.facture_url}
-                  onClick={() => void openInvoice(sale.id)}
-                  className="rounded-lg border px-3 py-2 font-bold disabled:opacity-40"
-                >
-                  {sale.facture_url ? "Facture" : sale.statut}
-                </button>
-                <button
-                  disabled={loading}
-                  onClick={() => void deleteItem(sale.id, item.id)}
-                  className="rounded-lg bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-40"
-                >
-                  Supprimer
-                </button>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500 md:hidden">Statut</p>
+                  <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
+                    {(item.fulfillment_status && statusLabels[item.fulfillment_status]) ||
+                      (sale.montant_solde > 0 ? "Acompte payé" : "Payé")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 md:grid-cols-[minmax(150px,1fr)_minmax(180px,1.2fr)_minmax(145px,0.8fr)_minmax(190px,auto)] md:items-start">
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500">Paiement</p>
+                  <p className="mt-1 font-bold">
+                    {SALON_PAYMENT_LABELS[sale.payment_method] || sale.payment_method}
+                  </p>
+                  {sale.montant_solde > 0 && (
+                    <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">
+                      Acompte payé
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500">Montants</p>
+                  <dl className="mt-1 space-y-0.5 tabular-nums">
+                    <div className="flex justify-between gap-3"><dt>Total :</dt><dd className="font-bold">{formatSalonPrice(sale.montant_total)}</dd></div>
+                    {sale.montant_solde > 0 && (
+                      <>
+                        <div className="flex justify-between gap-3"><dt>Encaissé :</dt><dd className="font-bold">{formatSalonPrice(sale.montant_encaisse)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt>Solde :</dt><dd className="font-bold">{formatSalonPrice(sale.montant_solde)}</dd></div>
+                      </>
+                    )}
+                  </dl>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500">Validité</p>
+                  <p className="mt-1 font-bold">
+                    {item.valid_until
+                      ? `Valable jusqu'au ${new Date(
+                          `${item.valid_until}T00:00:00Z`,
+                        ).toLocaleDateString("fr-FR", { timeZone: "UTC" })}`
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase text-slate-500">Actions</p>
+                  <div className="mt-1 flex flex-wrap gap-2 md:flex-nowrap">
+                    <button
+                      disabled={!sale.facture_url}
+                      onClick={() => void openInvoice(sale.id)}
+                      className="min-h-11 rounded-lg border px-4 py-2 font-bold disabled:opacity-40"
+                    >
+                      {sale.facture_url ? "Facture" : "Facture à générer"}
+                    </button>
+                    <button
+                      disabled={loading}
+                      onClick={() => void deleteItem(sale.id, item.id)}
+                      className="min-h-11 rounded-lg bg-red-700 px-4 py-2 font-bold text-white disabled:opacity-40"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
               </div>
             </article>
           )),
@@ -862,7 +906,6 @@ function SalesHistory({
         {sales.length === 0 && (
           <p className="text-slate-500">Aucune vente Salon enregistrée.</p>
         )}
-        </div>
       </div>
     </section>
   );
