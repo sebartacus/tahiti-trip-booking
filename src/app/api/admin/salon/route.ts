@@ -63,24 +63,26 @@ export async function GET(request: Request) {
     const rows = sales.data || [];
     const items = rows.flatMap((sale) => sale.salon_sale_items || []);
     const pecheReservationIds = items.filter((item) => item.activity === "peche" && item.reservation_type === "reservations_peche").map((item) => item.reservation_id);
-    const pecheRightIds = items.filter((item) => item.activity === "peche" && item.reservation_type === "salon_peche_rights").map((item) => item.reservation_id);
     const charterReservationIds=items.filter(item=>item.activity==="charter"&&item.reservation_type==="reservations_charter").map(item=>item.reservation_id);
-    const charterRightIds=items.filter(item=>item.activity==="charter"&&item.reservation_type==="salon_charter_rights").map(item=>item.reservation_id);
-    const [pecheReservations, pecheRights] = await Promise.all([
-      pecheReservationIds.length ? supabase.from("reservations_peche").select("id,date_sortie,statut_paiement").in("id", pecheReservationIds) : Promise.resolve({ data: [], error: null }),
-      pecheRightIds.length ? supabase.from("salon_peche_rights").select("id,status").in("id", pecheRightIds) : Promise.resolve({ data: [], error: null }),
+    const baleinesReservationIds=items.filter(item=>item.activity==="baleines"&&item.reservation_type==="reservations_baleines").map(item=>item.reservation_id);
+    const [pecheReservations, pecheRights, baleinesReservations, baleinesRights] = await Promise.all([
+      pecheReservationIds.length ? supabase.from("reservations_peche").select("id,date_sortie,slots,statut_paiement").in("id", pecheReservationIds) : Promise.resolve({ data: [], error: null }),
+      supabase.from("salon_peche_rights").select("id,status,reservation_id,offer_type,formule,nombre_personnes,valid_until"),
+      baleinesReservationIds.length ? supabase.from("reservations_baleines").select("id,date_sortie,depart,statut_paiement").in("id",baleinesReservationIds) : Promise.resolve({data:[],error:null}),
+      supabase.from("salon_baleines_rights").select("id,status,reservation_id,composition,valid_until"),
     ]);
-    if (pecheReservations.error || pecheRights.error) throw pecheReservations.error || pecheRights.error;
-    const [charterReservations,charterRights]=await Promise.all([charterReservationIds.length?supabase.from("reservations_charter").select("id,date_debut,nombre_personnes,statut_paiement").in("id",charterReservationIds):Promise.resolve({data:[],error:null}),charterRightIds.length?supabase.from("salon_charter_rights").select("id,nombre_personnes,status").in("id",charterRightIds):Promise.resolve({data:[],error:null})]);
+    if (pecheReservations.error || pecheRights.error || baleinesReservations.error || baleinesRights.error) throw pecheReservations.error || pecheRights.error || baleinesReservations.error || baleinesRights.error;
+    const [charterReservations,charterRights]=await Promise.all([charterReservationIds.length?supabase.from("reservations_charter").select("id,date_debut,date_fin,nombre_personnes,statut_paiement").in("id",charterReservationIds):Promise.resolve({data:[],error:null}),supabase.from("salon_charter_rights").select("id,nombre_personnes,status,reservation_id,valid_until")]);
     if(charterReservations.error||charterRights.error)throw charterReservations.error||charterRights.error;
     const reservationsById = new Map((pecheReservations.data || []).map((row) => [row.id, row]));
     const rightsById = new Map((pecheRights.data || []).map((row) => [row.id, row]));
     for (const item of items) if (item.activity === "peche") {
       const reservation = reservationsById.get(item.reservation_id);
-      const right = rightsById.get(item.reservation_id);
-      Object.assign(item, { sortie_date: reservation?.date_sortie || null, fulfillment_status: reservation?.statut_paiement || right?.status || "reserved" });
+      const right = rightsById.get(item.reservation_id) || (pecheRights.data||[]).find(row=>row.reservation_id===item.reservation_id);
+      Object.assign(item, { sortie_date: reservation?.date_sortie || null, sortie_slot:reservation?.slots?.join(" + ")||null, fulfillment_status: reservation ? "reserved" : right?.status || "reserved", right_id:right?.id, participants:right?.nombre_personnes, formula:right?.formule, offer_type:right?.offer_type, planned_from_right:Boolean(reservation&&right) });
     }
-    const charterReservationsById=new Map((charterReservations.data||[]).map(row=>[row.id,row]));const charterRightsById=new Map((charterRights.data||[]).map(row=>[row.id,row]));for(const item of items)if(item.activity==="charter"){const reservation=charterReservationsById.get(item.reservation_id);const right=charterRightsById.get(item.reservation_id);Object.assign(item,{sortie_date:reservation?.date_debut||null,fulfillment_status:reservation?.statut_paiement||right?.status||"reserved",participants:reservation?.nombre_personnes||right?.nombre_personnes});}
+    const baleinesReservationsById=new Map((baleinesReservations.data||[]).map(row=>[row.id,row]));const baleinesRightsById=new Map((baleinesRights.data||[]).map(row=>[row.id,row]));for(const item of items)if(item.activity==="baleines"){const reservation=baleinesReservationsById.get(item.reservation_id);const right=baleinesRightsById.get(item.reservation_id)||(baleinesRights.data||[]).find(row=>row.reservation_id===item.reservation_id);Object.assign(item,{sortie_date:reservation?.date_sortie||null,sortie_slot:reservation?.depart||null,fulfillment_status:reservation?"reserved":right?.status||"reserved",right_id:right?.id,composition:right?.composition,participants:right?Object.values(right.composition as Record<string,number>).reduce((sum,count)=>sum+Number(count),0):undefined,planned_from_right:Boolean(reservation&&right)});}
+    const charterReservationsById=new Map((charterReservations.data||[]).map(row=>[row.id,row]));const charterRightsById=new Map((charterRights.data||[]).map(row=>[row.id,row]));for(const item of items)if(item.activity==="charter"){const reservation=charterReservationsById.get(item.reservation_id);const right=charterRightsById.get(item.reservation_id)||(charterRights.data||[]).find(row=>row.reservation_id===item.reservation_id);Object.assign(item,{sortie_date:reservation?.date_debut||null,sortie_date_fin:reservation?.date_fin||null,fulfillment_status:reservation?"reserved":right?.status||"reserved",participants:reservation?.nombre_personnes||right?.nombre_personnes,right_id:right?.id,planned_from_right:Boolean(reservation&&right)});}
     return NextResponse.json({
       sales: rows,
       blockedExams: (blockedExams.data || []).map((row) => row.date_examen),

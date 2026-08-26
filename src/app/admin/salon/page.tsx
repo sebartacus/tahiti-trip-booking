@@ -13,6 +13,7 @@ import { SalonCarnetForm } from "./SalonCarnetForm";
 import { SalonBaleinesForm } from "./SalonBaleinesForm";
 import { SalonPecheForm } from "./SalonPecheForm";
 import { SalonCharterForm } from "./SalonCharterForm";
+import { SalonPlanningPanel } from "./SalonPlanningPanel";
 
 const slots = [
   "07h00 - 09h00",
@@ -35,12 +36,20 @@ type Sale = {
   salon_sale_items: Array<{
     id: string;
     activity: string;
+    offer_code: string;
     libelle: string;
     reservation_id: string;
     valid_until: string;
     sortie_date?: string | null;
     fulfillment_status?: string;
     participants?: number;
+    formula?: string;
+    offer_type?: string;
+    sortie_slot?: string | null;
+    sortie_date_fin?: string | null;
+    composition?: Record<string, number>;
+    right_id?: string;
+    planned_from_right?: boolean;
   }>;
 };
 type Created = {
@@ -270,12 +279,12 @@ export default function AdminSalonPage() {
           <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="mt-2 text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><Link href="/admin" className="rounded-xl border bg-white px-4 py-3 font-bold">Tableau de bord</Link></nav></header>
           <SalonPecheForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>
           {error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}{message&&<p className="rounded-xl bg-emerald-100 p-4 font-bold text-emerald-800">{message}</p>}
-          <SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading}/>
+          <SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading} onRefresh={load}/>
         </div>
       </main>
     );
   if (activity === "charter")
-    return <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8"><div className="mx-auto max-w-6xl space-y-7"><header className="flex justify-between"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><button onClick={()=>setActivity("peche")} className="rounded-xl border bg-white px-4 py-3 font-bold">Pêche</button></nav></header><SalonCharterForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>{error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}<SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading}/></div></main>;
+    return <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8"><div className="mx-auto max-w-6xl space-y-7"><header className="flex justify-between"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><button onClick={()=>setActivity("peche")} className="rounded-xl border bg-white px-4 py-3 font-bold">Pêche</button></nav></header><SalonCharterForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>{error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}<SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading} onRefresh={load}/></div></main>;
   if (activity === "carnet_baleines")
     return (
       <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8">
@@ -351,6 +360,7 @@ export default function AdminSalonPage() {
             openInvoice={openInvoice}
             deleteItem={deleteItem}
             loading={loading}
+            onRefresh={load}
           />
         </div>
       </main>
@@ -775,12 +785,18 @@ function SalesHistory({
   openInvoice,
   deleteItem,
   loading,
+  onRefresh,
 }: {
   sales: Sale[];
   openInvoice: (id: string) => Promise<void>;
   deleteItem: (saleId: string, itemId: string) => Promise<void>;
   loading: boolean;
+  onRefresh: () => Promise<void>;
 }) {
+  const [planning, setPlanning] = useState<{
+    sale: Sale;
+    item: Sale["salon_sale_items"][number];
+  } | null>(null);
   const activityLabels: Record<string, string> = {
     charter: "Charter",
     peche: "Pêche",
@@ -789,14 +805,15 @@ function SalesHistory({
     carnet_baleines: "Baleines / Carnet",
   };
   const statusLabels: Record<string, string> = {
-    unused: "À utiliser",
-    redeemed: "Utilisé",
+    unused: "Date à fixer",
+    redeemed: "Réservé",
     paid: "Payé",
     paye: "Payé",
     deposit_paid: "Acompte payé",
     reserved: "Réservé",
   };
   return (
+    <>
     <section className="rounded-3xl bg-white p-5 shadow md:p-8">
       <h2 className="text-2xl font-black">Historique des ventes Salon</h2>
       <div className="mt-5 grid gap-3">
@@ -832,8 +849,15 @@ function SalesHistory({
                               "fr-FR",
                               { timeZone: "UTC" },
                             )
-                          : "Date à fixer"}
+                           : "Date à fixer"}
+                        {item.sortie_date && item.sortie_slot ? ` · ${item.sortie_slot === "morning" ? "Matin" : item.sortie_slot === "afternoon" ? "Après-midi" : "Journée complète"}` : ""}
                       </>
+                    )}
+                    {item.activity === "baleines" && item.sortie_date && (
+                      <> · Réservé : {new Date(`${item.sortie_date}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })} · {item.sortie_slot}</>
+                    )}
+                    {item.activity === "charter" && item.sortie_date_fin && (
+                      <> → {new Date(`${item.sortie_date_fin}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })}</>
                     )}
                   </p>
                 </div>
@@ -883,6 +907,16 @@ function SalesHistory({
                 <div>
                   <p className="text-xs font-bold uppercase text-slate-500">Actions</p>
                   <div className="mt-1 flex flex-wrap gap-2 md:flex-nowrap">
+                    {item.fulfillment_status === "unused" &&
+                      ["baleines", "peche", "charter"].includes(item.activity) && (
+                        <button
+                          disabled={loading}
+                          onClick={() => setPlanning({ sale, item })}
+                          className="min-h-11 rounded-lg bg-cyan-800 px-4 py-2 font-black text-white disabled:opacity-40"
+                        >
+                          Planifier
+                        </button>
+                      )}
                     <button
                       disabled={!sale.facture_url}
                       onClick={() => void openInvoice(sale.id)}
@@ -891,7 +925,7 @@ function SalesHistory({
                       {sale.facture_url ? "Facture" : "Facture à générer"}
                     </button>
                     <button
-                      disabled={loading}
+                      disabled={loading || item.planned_from_right}
                       onClick={() => void deleteItem(sale.id, item.id)}
                       className="min-h-11 rounded-lg bg-red-700 px-4 py-2 font-bold text-white disabled:opacity-40"
                     >
@@ -908,5 +942,14 @@ function SalesHistory({
         )}
       </div>
     </section>
+    {planning && (
+      <SalonPlanningPanel
+        sale={planning.sale}
+        item={planning.item}
+        onClose={() => setPlanning(null)}
+        onSuccess={onRefresh}
+      />
+    )}
+    </>
   );
 }
