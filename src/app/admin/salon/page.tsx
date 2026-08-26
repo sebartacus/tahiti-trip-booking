@@ -50,6 +50,7 @@ type Sale = {
     composition?: Record<string, number>;
     right_id?: string;
     planned_from_right?: boolean;
+    public_code?: string;
   }>;
 };
 type Created = {
@@ -859,6 +860,7 @@ function SalesHistory({
                     {item.activity === "charter" && item.sortie_date_fin && (
                       <> → {new Date(`${item.sortie_date_fin}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })}</>
                     )}
+                    {item.public_code && <> · Code offre : <span className="font-black">{item.public_code}</span></>}
                   </p>
                 </div>
                 <div>
