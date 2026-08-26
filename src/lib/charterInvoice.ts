@@ -1,5 +1,6 @@
 import { CHARTER_FORMULA_DETAILS, formatXpf } from "./charter-pricing";
 import { isCharterFormula } from "./charter-availability";
+import { calculateSalonTax } from "./salonTax";
 
 export type CharterInvoiceReservation = {
   id: string;
@@ -57,7 +58,8 @@ function drinkLabel(reservation: CharterInvoiceReservation) {
 
 export function buildCharterInvoicePdf(
   reservation: CharterInvoiceReservation,
-  paidAt = new Date()
+  paidAt = new Date(),
+  options?: { salon?: boolean; paymentMethod?: string; validUntil?: string }
 ) {
   const invoiceNumber = getCharterInvoiceNumber(reservation.id, paidAt);
   const paymentLabel = reservation.type_paiement === "deposit" ? "Acompte 30 %" : "Paiement integral";
@@ -78,13 +80,11 @@ export function buildCharterInvoicePdf(
     "0.86 0.96 0.96 rg", "42 560 511 40 re f", "0 0 0 rg",
     line("Charter", 54, 576, 12, true),
     line(`Formule : ${formulaLabel(reservation.formule)}`, 54, 538, 11),
+    ...(options?.salon ? [line("Catamaran privatisé",54,520,11)] : []),
     line(`Dates : ${dates}`, 54, 516, 11),
     line(`Participants : ${reservation.nombre_personnes}`, 54, 494, 11),
     ...(drinkLabel(reservation) ? [line(drinkLabel(reservation), 54, 472, 11)] : []),
-    line(`Montant total : ${formatXpf(reservation.montant_total)}`, 54, 420, 12, true),
-    line(`Type de paiement : ${paymentLabel}`, 54, 396, 11),
-    line(`Montant paye : ${formatXpf(reservation.montant_paye)}`, 54, 374, 11),
-    line(`Solde restant : ${formatXpf(reservation.montant_solde)}`, 54, 352, 11),
+    ...(options?.salon ? (()=>{const tax=calculateSalonTax(reservation.montant_total);return [line(`Total HT : ${formatXpf(tax.ht)}`,54,420,11),line(`TVA 5 % : ${formatXpf(tax.tva)}`,54,398,11),line(`Total TTC : ${formatXpf(tax.ttc)}`,54,376,12,true),line(`Mode de paiement : ${options.paymentMethod||"-"}`,54,354,11),line(`Validité de l'offre : jusqu'au ${options.validUntil||"-"}`,54,332,10)]})() : [line(`Montant total : ${formatXpf(reservation.montant_total)}`, 54, 420, 12, true),line(`Type de paiement : ${paymentLabel}`, 54, 396, 11),line(`Montant paye : ${formatXpf(reservation.montant_paye)}`, 54, 374, 11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`, 54, 352, 11)]),
     line("Tous les montants sont exprimes en F CFP.", 54, 322, 9),
     line("Merci pour votre confiance.", 42, 260, 13, true),
     line("Tahiti Trip - Marina Taina, Punaauia", 42, 238, 10),

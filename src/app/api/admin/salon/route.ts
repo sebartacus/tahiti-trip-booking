@@ -64,11 +64,15 @@ export async function GET(request: Request) {
     const items = rows.flatMap((sale) => sale.salon_sale_items || []);
     const pecheReservationIds = items.filter((item) => item.activity === "peche" && item.reservation_type === "reservations_peche").map((item) => item.reservation_id);
     const pecheRightIds = items.filter((item) => item.activity === "peche" && item.reservation_type === "salon_peche_rights").map((item) => item.reservation_id);
+    const charterReservationIds=items.filter(item=>item.activity==="charter"&&item.reservation_type==="reservations_charter").map(item=>item.reservation_id);
+    const charterRightIds=items.filter(item=>item.activity==="charter"&&item.reservation_type==="salon_charter_rights").map(item=>item.reservation_id);
     const [pecheReservations, pecheRights] = await Promise.all([
       pecheReservationIds.length ? supabase.from("reservations_peche").select("id,date_sortie,statut_paiement").in("id", pecheReservationIds) : Promise.resolve({ data: [], error: null }),
       pecheRightIds.length ? supabase.from("salon_peche_rights").select("id,status").in("id", pecheRightIds) : Promise.resolve({ data: [], error: null }),
     ]);
     if (pecheReservations.error || pecheRights.error) throw pecheReservations.error || pecheRights.error;
+    const [charterReservations,charterRights]=await Promise.all([charterReservationIds.length?supabase.from("reservations_charter").select("id,date_debut,nombre_personnes,statut_paiement").in("id",charterReservationIds):Promise.resolve({data:[],error:null}),charterRightIds.length?supabase.from("salon_charter_rights").select("id,nombre_personnes,status").in("id",charterRightIds):Promise.resolve({data:[],error:null})]);
+    if(charterReservations.error||charterRights.error)throw charterReservations.error||charterRights.error;
     const reservationsById = new Map((pecheReservations.data || []).map((row) => [row.id, row]));
     const rightsById = new Map((pecheRights.data || []).map((row) => [row.id, row]));
     for (const item of items) if (item.activity === "peche") {
@@ -76,6 +80,7 @@ export async function GET(request: Request) {
       const right = rightsById.get(item.reservation_id);
       Object.assign(item, { sortie_date: reservation?.date_sortie || null, fulfillment_status: reservation?.statut_paiement || right?.status || "reserved" });
     }
+    const charterReservationsById=new Map((charterReservations.data||[]).map(row=>[row.id,row]));const charterRightsById=new Map((charterRights.data||[]).map(row=>[row.id,row]));for(const item of items)if(item.activity==="charter"){const reservation=charterReservationsById.get(item.reservation_id);const right=charterRightsById.get(item.reservation_id);Object.assign(item,{sortie_date:reservation?.date_debut||null,fulfillment_status:reservation?.statut_paiement||right?.status||"reserved",participants:reservation?.nombre_personnes||right?.nombre_personnes});}
     return NextResponse.json({
       sales: rows,
       blockedExams: (blockedExams.data || []).map((row) => row.date_examen),
@@ -122,6 +127,8 @@ export async function DELETE(request: Request) {
         ? "admin_delete_salon_baleines_item"
         : itemLookup.data?.activity === "peche"
           ? "admin_delete_salon_peche_item"
+        : itemLookup.data?.activity === "charter"
+          ? "admin_delete_salon_charter_item"
         : "admin_delete_salon_sale_item",
       {
       p_sale_id: saleId,
