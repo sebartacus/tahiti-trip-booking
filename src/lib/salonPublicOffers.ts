@@ -4,7 +4,7 @@ import type { SalonPublicAccessPayload, SalonPublicActivity } from "@/lib/salonP
 
 type RightRow = Record<string, unknown> & { id: string; status: string; reservation_id?: string | null };
 type SaleRow = {
-  id: string; client_telephone: string; client_email: string | null;
+  id: string; client_prenom: string; client_nom: string; client_telephone: string; client_email: string | null; payment_method: string;
   montant_total: number; montant_encaisse: number; montant_solde: number;
   facture_numero: string | null;
 };
@@ -39,7 +39,7 @@ async function itemAndSale(activity: SalonPublicActivity, right: RightRow) {
   else itemQuery = itemQuery.eq("id", String(right.sale_item_id));
   const item = await itemQuery.maybeSingle();
   if (item.error || !item.data) return null;
-  const sale = await supabase.from("salon_sales").select("id,client_telephone,client_email,montant_total,montant_encaisse,montant_solde,facture_numero").eq("id", item.data.sale_id).maybeSingle();
+  const sale = await supabase.from("salon_sales").select("id,client_prenom,client_nom,client_telephone,client_email,payment_method,montant_total,montant_encaisse,montant_solde,facture_numero").eq("id", item.data.sale_id).maybeSingle();
   if (sale.error || !sale.data) return null;
   return { item: item.data, sale: sale.data as SaleRow };
 }
