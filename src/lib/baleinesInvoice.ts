@@ -93,6 +93,14 @@ function filledRect(x: number, y: number, width: number, height: number) {
   return `${x} ${y} ${width} ${height} re f`;
 }
 
+function salonBookingLayout(previousLineY: number) {
+  const blockTop = previousLineY - 24;
+  const blockHeight = 80;
+  const blockBottom = blockTop - blockHeight;
+  const footerLineY = blockBottom - 24;
+  return { blockTop, blockBottom, blockHeight, footerLineY, thankYouY: footerLineY - 30, brandY: footerLineY - 50 };
+}
+
 export function buildBaleinesInvoicePdf(
   reservation: BaleinesInvoiceReservation,
   paidAt = new Date(),
@@ -118,6 +126,8 @@ export function buildBaleinesInvoicePdf(
     (reservation.source_paiement === "carnet_baleines"
       ? "Carnet Baleines"
       : "PayZen");
+  const lastContentY = options.validUntil ? (options.balance ? 346 : 382) : (options.balance ? 366 : 402);
+  const bookingLayout = salonBookingLayout(lastContentY);
 
   const content = [
     "0.05 0.30 0.40 rg",
@@ -202,19 +212,19 @@ export function buildBaleinesInvoicePdf(
     ...(options.showSalonBookingAccess
       ? [
           "0.88 0.97 0.98 rg",
-          filledRect(42, 246, 511, 72),
+          filledRect(42, bookingLayout.blockBottom, 511, bookingLayout.blockHeight),
           "0.05 0.30 0.40 rg",
-          boldLine("POUR CHOISIR VOTRE DATE", 58, 296, 14),
-          boldLine("https://www.tahiti-trip.com/reprendre-offre", 58, 276, 11),
-          textLine("Munissez-vous de votre numéro de facture et du téléphone", 58, 260, 9),
-          textLine("ou de l’e-mail utilisé lors de l’achat.", 58, 248, 9),
+          boldLine("POUR CHOISIR VOTRE DATE", 58, bookingLayout.blockTop - 22, 14),
+          boldLine("https://www.tahiti-trip.com/reprendre-offre", 58, bookingLayout.blockTop - 42, 11),
+          textLine("Munissez-vous de votre numéro de facture et du téléphone", 58, bookingLayout.blockTop - 58, 9),
+          textLine("ou de l’e-mail utilisé lors de l’achat.", 58, bookingLayout.blockTop - 72, 9),
         ]
       : []),
     "0.05 0.30 0.40 rg",
-    filledRect(42, 356, 511, 1),
+    filledRect(42, options.showSalonBookingAccess ? bookingLayout.footerLineY : 356, 511, 1),
     "0 0 0 rg",
-    boldLine("Merci pour votre confiance.", 42, 326, 13),
-    textLine("Tahiti Trip Fishing", 42, 306, 10),
+    boldLine("Merci pour votre confiance.", 42, options.showSalonBookingAccess ? bookingLayout.thankYouY : 326, 13),
+    textLine("Tahiti Trip Fishing", 42, options.showSalonBookingAccess ? bookingLayout.brandY : 306, 10),
   ].join("\n");
 
   const objects = [

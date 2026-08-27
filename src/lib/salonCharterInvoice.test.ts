@@ -39,6 +39,7 @@ test("facture Charter Salon avec accents, TVA 5 % et date à fixer", () => {
     salon: true,
     paymentMethod: "TPE",
     validUntil: "2027-01-31",
+    showSalonBookingAccess: true,
   }).pdf.toString("latin1");
 
   assert.match(pdf, /\/Encoding \/WinAnsiEncoding/);
@@ -54,6 +55,7 @@ test("facture Charter Salon avec accents, TVA 5 % et date à fixer", () => {
   assert.doesNotMatch(pdf, /Solde restant/);
   assert.doesNotMatch(pdf, /310 000/);
   assert.doesNotMatch(pdf, /PayZen/);
+  assert.match(pdf,/42 194 511 80 re f/);assert.match(pdf,/42 170 511 1 re f/);assert.match(pdf,/42 144 Td \(Merci pour votre confiance\./);assert.match(pdf,/42 124 Td \(Tahiti Trip Fishing\)/);
 });
 
 test("facture Charter Salon avec dates réservées", () => {
@@ -65,6 +67,7 @@ test("facture Charter Salon avec dates réservées", () => {
 
   assert.match(pdf, /Date de sortie : 2026-12-10 au 2026-12-11/);
   assert.doesNotMatch(pdf, /Date de sortie : À fixer/);
+  assert.doesNotMatch(pdf,/reprendre-offre/);
 });
 
 test("facture Charter Salon avec acompte sans chevauchement vertical", () => {
@@ -76,7 +79,7 @@ test("facture Charter Salon avec acompte sans chevauchement vertical", () => {
       type_paiement: "deposit",
     },
     new Date("2026-08-25"),
-    { salon: true, paymentMethod: "TPE", validUntil: "31 janvier 2027" },
+    { salon: true, paymentMethod: "TPE", validUntil: "31 janvier 2027", showSalonBookingAccess: true },
   ).pdf.toString("latin1");
 
   assert.match(pdf, /Acompte encaissé : 87 000 F CFP/);
@@ -100,4 +103,5 @@ test("facture Charter Salon avec acompte sans chevauchement vertical", () => {
     verticalPositions,
     [...verticalPositions].sort((left, right) => right - left),
   );
+  assert.match(pdf,/42 104 511 80 re f/);assert.match(pdf,/42 80 511 1 re f/);assert.match(pdf,/42 54 Td \(Merci pour votre confiance\./);assert.match(pdf,/42 34 Td \(Tahiti Trip Fishing\)/);
 });

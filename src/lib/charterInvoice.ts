@@ -33,6 +33,14 @@ function line(text: string, x: number, y: number, size = 10, bold = false) {
   return `BT /${bold ? "F2" : "F1"} ${size} Tf ${x} ${y} Td (${escapePdfText(text)}) Tj ET`;
 }
 
+function salonBookingLayout(previousLineY: number) {
+  const blockTop = previousLineY - 24;
+  const blockHeight = 80;
+  const blockBottom = blockTop - blockHeight;
+  const footerLineY = blockBottom - 24;
+  return { blockTop, blockBottom, blockHeight, footerLineY, thankYouY: footerLineY - 26, brandY: footerLineY - 46 };
+}
+
 function invoiceSequence(id: string) {
   const numeric = id.replace(/\D/g, "");
   if (numeric) return numeric.slice(-6).padStart(6, "0");
@@ -70,6 +78,8 @@ export function buildCharterInvoicePdf(
   const dateText=reservation.date_debut==="Date à fixer"?"À fixer":dates;
   const validity=options?.validUntil?/^\d{4}-\d{2}-\d{2}$/.test(options.validUntil)?formatInvoiceValidityDate(options.validUntil):options.validUntil:"-";
   const salonAmounts=options?.salon?calculateSalonTax(reservation.montant_total):null;
+  const lastContentY=salonAmounts?(reservation.montant_solde>0?208:298):322;
+  const bookingLayout=salonBookingLayout(lastContentY);
   const content = [
     "0.03 0.32 0.36 rg", `0 ${PAGE_HEIGHT - 100} ${PAGE_WIDTH} 100 re f`, "1 1 1 rg",
     line("TAHITI TRIP", 42, 790, 22, true), line("Charters privés - Marina Taina", 42, 768, 11),
@@ -90,14 +100,15 @@ export function buildCharterInvoicePdf(
     ...(drinkLabel(reservation) ? [line(drinkLabel(reservation), 54, 460, 11)] : []),
     ...(salonAmounts?[line(`Total HT : ${formatXpf(salonAmounts.ht)}`,54,430,11),line(`TVA 5 % : ${formatXpf(salonAmounts.tva)}`,54,408,11),line(`Total TTC : ${formatXpf(salonAmounts.ttc)}`,54,386,12,true),...(reservation.montant_solde>0?[line(`Acompte encaissé : ${formatXpf(reservation.montant_paye)}`,54,342,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,320,11),line("Solde à régler au plus tard la veille du départ.",54,298,10)]:[]),line(`Mode de paiement : ${options?.paymentMethod||"-"}`,54,reservation.montant_solde>0?252:342,11),line(`Validité de l’offre : jusqu’au ${validity}`,54,reservation.montant_solde>0?230:320,10),line("Tous les montants sont exprimés en F CFP.",54,reservation.montant_solde>0?208:298,9)]:[line(`Montant total : ${formatXpf(reservation.montant_total)}`,54,420,12,true),line(`Type de paiement : ${paymentLabel}`,54,396,11),line(`Montant payé : ${formatXpf(reservation.montant_paye)}`,54,374,11),line(`Solde restant : ${formatXpf(reservation.montant_solde)}`,54,352,11),line("Tous les montants sont exprimés en F CFP.",54,322,9)]),
     ...(options?.showSalonBookingAccess ? [
-      "0.88 0.97 0.98 rg", "42 102 511 82 re f", "0.03 0.32 0.36 rg",
-      line("POUR CHOISIR VOTRE DATE",58,164,14,true),
-      line("https://www.tahiti-trip.com/reprendre-offre",58,142,11,true),
-      line("Munissez-vous de votre numéro de facture et du téléphone",58,124,9),
-      line("ou de l’e-mail utilisé lors de l’achat.",58,110,9),
+      "0.88 0.97 0.98 rg", `42 ${bookingLayout.blockBottom} 511 ${bookingLayout.blockHeight} re f`, "0.03 0.32 0.36 rg",
+      line("POUR CHOISIR VOTRE DATE",58,bookingLayout.blockTop-22,14,true),
+      line("https://www.tahiti-trip.com/reprendre-offre",58,bookingLayout.blockTop-42,11,true),
+      line("Munissez-vous de votre numéro de facture et du téléphone",58,bookingLayout.blockTop-58,9),
+      line("ou de l’e-mail utilisé lors de l’achat.",58,bookingLayout.blockTop-72,9),
     ] : []),
-    line("Merci pour votre confiance.", 42, options?.showSalonBookingAccess ? 76 : 158, 13, true),
-    line("Tahiti Trip - Marina Taina, Punaauia", 42, options?.showSalonBookingAccess ? 54 : 136, 10),
+    ...(options?.showSalonBookingAccess ? ["0.03 0.32 0.36 rg", `42 ${bookingLayout.footerLineY} 511 1 re f`, "0 0 0 rg"] : []),
+    line("Merci pour votre confiance.", 42, options?.showSalonBookingAccess ? bookingLayout.thankYouY : 158, 13, true),
+    line("Tahiti Trip Fishing", 42, options?.showSalonBookingAccess ? bookingLayout.brandY : 136, 10),
   ].join("\n");
 
   const objects = [
