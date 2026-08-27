@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       supabase
         .from("salon_sales")
         .select(
-          "id,sold_at,client_prenom,client_nom,payment_method,montant_total,montant_encaisse,montant_solde,statut,facture_numero,facture_url,salon_sale_items(id,activity,offer_code,libelle,reservation_type,reservation_id,valid_until)",
+          "id,sold_at,client_prenom,client_nom,client_email,payment_method,montant_total,montant_encaisse,montant_solde,statut,facture_numero,facture_url,facture_envoyee_at,salon_sale_items(id,activity,offer_code,libelle,reservation_type,reservation_id,valid_until)",
         )
         .order("sold_at", { ascending: false })
         .limit(100),

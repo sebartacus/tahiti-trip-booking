@@ -27,12 +27,14 @@ type Sale = {
   sold_at: string;
   client_prenom: string;
   client_nom: string;
+  client_email: string | null;
   payment_method: keyof typeof SALON_PAYMENT_LABELS;
   montant_total: number;
   montant_encaisse: number;
   montant_solde: number;
   statut: string;
   facture_url: string | null;
+  facture_envoyee_at: string | null;
   salon_sale_items: Array<{
     id: string;
     activity: string;
@@ -280,12 +282,12 @@ export default function AdminSalonPage() {
           <header className="flex flex-wrap items-end justify-between gap-4"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="mt-2 text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><Link href="/admin" className="rounded-xl border bg-white px-4 py-3 font-bold">Tableau de bord</Link></nav></header>
           <SalonPecheForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>
           {error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}{message&&<p className="rounded-xl bg-emerald-100 p-4 font-bold text-emerald-800">{message}</p>}
-          <SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading} onRefresh={load}/>
+           <SalesHistory sales={sales} openInvoice={openInvoice} sendInvoice={sendInvoice} deleteItem={deleteItem} loading={loading} onRefresh={load}/>
         </div>
       </main>
     );
   if (activity === "charter")
-    return <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8"><div className="mx-auto max-w-6xl space-y-7"><header className="flex justify-between"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><button onClick={()=>setActivity("peche")} className="rounded-xl border bg-white px-4 py-3 font-bold">Pêche</button></nav></header><SalonCharterForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>{error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}<SalesHistory sales={sales} openInvoice={openInvoice} deleteItem={deleteItem} loading={loading} onRefresh={load}/></div></main>;
+    return <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8"><div className="mx-auto max-w-6xl space-y-7"><header className="flex justify-between"><div><p className="font-black uppercase tracking-[.2em] text-cyan-700">Administration</p><h1 className="text-4xl font-black">ADMIN SALON</h1></div><nav className="flex gap-2"><button onClick={()=>setActivity("permis")} className="rounded-xl border bg-white px-4 py-3 font-bold">Permis</button><button onClick={()=>setActivity("carnet_baleines")} className="rounded-xl border bg-white px-4 py-3 font-bold">Baleines</button><button onClick={()=>setActivity("peche")} className="rounded-xl border bg-white px-4 py-3 font-bold">Pêche</button></nav></header><SalonCharterForm onRefresh={load} openInvoice={openInvoice} generateInvoice={generateInvoice} sendInvoice={sendInvoice}/>{error&&<p className="rounded-xl bg-red-100 p-4 font-bold text-red-800">{error}</p>}<SalesHistory sales={sales} openInvoice={openInvoice} sendInvoice={sendInvoice} deleteItem={deleteItem} loading={loading} onRefresh={load}/></div></main>;
   if (activity === "carnet_baleines")
     return (
       <main className="min-h-screen bg-slate-100 p-4 text-slate-950 md:p-8">
@@ -356,9 +358,10 @@ export default function AdminSalonPage() {
               {message}
             </p>
           )}
-          <SalesHistory
-            sales={sales}
-            openInvoice={openInvoice}
+           <SalesHistory
+             sales={sales}
+             openInvoice={openInvoice}
+             sendInvoice={sendInvoice}
             deleteItem={deleteItem}
             loading={loading}
             onRefresh={load}
@@ -385,12 +388,12 @@ export default function AdminSalonPage() {
             >
               Tableau de bord
             </Link>
-            <button
+                     <button
               onClick={() => void logout()}
               className="rounded-xl border bg-white px-4 py-3 font-bold"
             >
               Déconnexion
-            </button>
+                     </button>
           </nav>
         </header>
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -732,13 +735,16 @@ export default function AdminSalonPage() {
                       sale.payment_method}
                   </span>
                   <div className="flex flex-wrap gap-2 md:justify-end">
-                    <button
-                      disabled={!sale.facture_url}
+                     <button
+                       disabled={!sale.facture_url}
                       onClick={() => void openInvoice(sale.id)}
                       className="rounded-lg border px-3 py-2 font-bold disabled:opacity-40"
                     >
-                      {sale.facture_url ? "Facture" : sale.statut}
-                    </button>
+                       {sale.facture_url ? "Facture" : sale.statut}
+                     </button>
+                     {sale.facture_url && sale.client_email ? (
+                       <button disabled={loading} onClick={() => void sendInvoice(sale.id)} className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white disabled:opacity-40">{sale.facture_envoyee_at ? "Renvoyer la facture" : "Envoyer la facture"}</button>
+                     ) : !sale.client_email ? <span className="self-center text-xs font-bold text-slate-500">E-mail non renseigné</span> : null}
                     <button
                       disabled={loading}
                       onClick={() => void deleteItem(sale.id, item.id)}
@@ -784,12 +790,14 @@ function Data({ label, value }: { label: string; value: string }) {
 function SalesHistory({
   sales,
   openInvoice,
+  sendInvoice,
   deleteItem,
   loading,
   onRefresh,
 }: {
   sales: Sale[];
   openInvoice: (id: string) => Promise<void>;
+  sendInvoice: (id: string) => Promise<boolean>;
   deleteItem: (saleId: string, itemId: string) => Promise<void>;
   loading: boolean;
   onRefresh: () => Promise<void>;
@@ -911,21 +919,24 @@ function SalesHistory({
                   <div className="mt-1 flex flex-wrap gap-2 md:flex-nowrap">
                     {item.fulfillment_status === "unused" &&
                       ["baleines", "peche", "charter"].includes(item.activity) && (
-                        <button
+                     <button
                           disabled={loading}
                           onClick={() => setPlanning({ sale, item })}
                           className="min-h-11 rounded-lg bg-cyan-800 px-4 py-2 font-black text-white disabled:opacity-40"
                         >
                           Planifier
-                        </button>
+                     </button>
                       )}
-                    <button
-                      disabled={!sale.facture_url}
+                     <button
+                       disabled={!sale.facture_url}
                       onClick={() => void openInvoice(sale.id)}
                       className="min-h-11 rounded-lg border px-4 py-2 font-bold disabled:opacity-40"
                     >
-                      {sale.facture_url ? "Facture" : "Facture à générer"}
-                    </button>
+                       {sale.facture_url ? "Facture" : "Facture à générer"}
+                     </button>
+                     {sale.facture_url && sale.client_email ? (
+                       <button disabled={loading} onClick={() => void sendInvoice(sale.id)} className="min-h-11 rounded-lg bg-emerald-700 px-4 py-2 font-black text-white disabled:opacity-40">{sale.facture_envoyee_at ? "Renvoyer la facture" : "Envoyer la facture"}</button>
+                     ) : !sale.client_email ? <span className="self-center text-xs font-bold text-slate-500">E-mail non renseigné</span> : null}
                     <button
                       disabled={loading || item.planned_from_right}
                       onClick={() => void deleteItem(sale.id, item.id)}
