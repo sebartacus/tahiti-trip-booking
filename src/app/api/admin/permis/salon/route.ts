@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/adminSession";
 import { getAdminSupabaseClient } from "@/lib/adminCarnetsBaleines";
 import { getPermisPriceForFormula, getPermisSalonPricing } from "@/lib/permisPricing";
+import { createPaymentIntentToken } from "@/lib/payment-intent";
 import { buildPermisInvoicePdf } from "@/lib/permisInvoice";
 import { sendPermisReservationEmails } from "@/lib/permisEmail";
 
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
     if (modePaiement === "payzen") {
       const payzen = await fetch(new URL("/api/payzen", request.url), {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ montant: amount, email, reservationId: String(creation.data.id), reservationTable: "reservations", activity: "permis", returnUrl: "/paiement-retour" }),
+        body: JSON.stringify({ email, reservationId: String(creation.data.id), reservationTable: "reservations", activity: "permis", returnUrl: "/paiement-retour", paymentToken: createPaymentIntentToken({ reservationId: String(creation.data.id), reservationTable: "reservations", amount }) }),
       });
       const payment = await payzen.json();
       if (!payzen.ok) {

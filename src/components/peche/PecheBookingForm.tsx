@@ -5,13 +5,14 @@ import { PaymentChoiceCard } from "@/components/booking/PaymentChoiceCard";
 import { pecheBookingTranslations, type Locale } from "@/lib/i18n";
 import {
   formatPechePrice,
-  PECHE_FORMULAS,
+  getPublicPecheFormulas,
   type BoatSlotName,
   type FormulaId,
   type PaymentType,
 } from "./constants";
 import { PecheAvailabilityCalendar } from "./PecheAvailabilityCalendar";
 import { WhatsAppButton } from "./WhatsAppButton";
+import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 
 type BoatSlotStatus = "available" | "hold" | "reserved" | "blocked";
 
@@ -54,6 +55,11 @@ async function readJsonOrText(response: Response) {
 }
 
 export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
+  const salonActive = useSalonActive();
+  const pecheFormulas = useMemo(() => {
+    void salonActive;
+    return getPublicPecheFormulas(salonEvaluationDate(salonActive));
+  }, [salonActive]);
   const t = pecheBookingTranslations[locale];
   const [date, setDate] = useState("");
   const [formulaId, setFormulaId] = useState<FormulaId>("morning");
@@ -74,13 +80,13 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
 
   const selectedFormula = useMemo(
     () =>
-      PECHE_FORMULAS.find((formula) => formula.id === formulaId) ||
-      PECHE_FORMULAS[0],
-    [formulaId]
+      pecheFormulas.find((formula) => formula.id === formulaId) ||
+      pecheFormulas[0],
+    [formulaId, pecheFormulas]
   );
 
   const formulaAvailability = useMemo(() => {
-    return PECHE_FORMULAS.reduce<Record<FormulaId, boolean>>(
+    return pecheFormulas.reduce<Record<FormulaId, boolean>>(
       (availability, formula) => {
         availability[formula.id] = formula.slots.every((slot) =>
           isSlotAvailable(boatSlots[slot])
@@ -89,14 +95,14 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
       },
       { morning: true, afternoon: true, full_day: true }
     );
-  }, [boatSlots]);
+  }, [boatSlots, pecheFormulas]);
 
   const hasUnavailableFormula =
     Boolean(date) &&
-    PECHE_FORMULAS.some((formula) => !formulaAvailability[formula.id]);
+    pecheFormulas.some((formula) => !formulaAvailability[formula.id]);
   const allFormulasUnavailable =
     Boolean(date) &&
-    PECHE_FORMULAS.every((formula) => !formulaAvailability[formula.id]);
+    pecheFormulas.every((formula) => !formulaAvailability[formula.id]);
 
   useEffect(() => {
     async function loadBoatCalendar() {
@@ -187,11 +193,6 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
 
     setSending(true);
 
-    const paidAmount =
-      paymentType === "deposit"
-        ? Math.round(selectedFormula.price * 0.3)
-        : selectedFormula.price;
-
     const reservationResponse = await fetch("/api/peche/reservation", {
       method: "POST",
       headers: {
@@ -230,11 +231,11 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        montant: paidAmount,
         email: email.trim(),
         reservationId: reservation.reservationId,
         reservationTable: "reservations_peche",
         activity: "peche",
+        paymentToken: reservation.paymentToken,
         returnUrl,
       }),
     });
@@ -296,7 +297,7 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
           </label>
 
           <div className="grid gap-3">
-            {PECHE_FORMULAS.map((formula) => {
+            {pecheFormulas.map((formula) => {
               const available = formulaAvailability[formula.id];
               const unavailable = Boolean(date) && !available;
 
@@ -336,6 +337,7 @@ export function PecheBookingForm({ locale = "fr" }: PecheBookingFormProps) {
                       {formatPechePrice(formula.price)}
                     </p>
                   </div>
+                  {salonActive && <p className="mt-2 text-xs font-black uppercase text-amber-700">Offre Salon · <span className="line-through">{formatPechePrice(formula.id === "full_day" ? 135000 : 95000)}</span></p>}
                   {unavailable && (
                     <p className="mt-3 text-sm font-black">
                       {unavailableFormulaMessage(formula.id)}

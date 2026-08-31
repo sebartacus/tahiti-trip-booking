@@ -1,4 +1,5 @@
 import type { CharterFormula } from "./charter-availability";
+import { getCharterPublicPrice } from "./public-pricing";
 
 export type CharterPaymentType = "deposit" | "full";
 export type SunsetDrink = "white_wine" | "champagne_included";
@@ -46,7 +47,8 @@ export const CHARTER_FORMULA_DETAILS: Record<CharterFormula, CharterFormulaDetai
 export function getCharterPrice(
   formula: CharterFormula,
   participants: number,
-  champagneSupplement = false
+  champagneSupplement = false,
+  now: Date = new Date()
 ) {
   const { maxParticipants } = CHARTER_FORMULA_DETAILS[formula];
   if (!Number.isInteger(participants) || participants < 1 || participants > maxParticipants) {
@@ -54,7 +56,7 @@ export function getCharterPrice(
   }
 
   let amount: number;
-  if (formula === "tetiaroa_2j_1n") amount = 310000;
+  if (formula === "tetiaroa_2j_1n") amount = getCharterPublicPrice(formula, 310000, now).amount;
   else if (formula === "tetiaroa_3j_2n") amount = 429000;
   else if (formula === "moorea_matin") amount = 95000 + Math.max(0, participants - 4) * 5000;
   else if (formula === "moorea_journee") amount = 145000 + Math.max(0, participants - 6) * 5000;

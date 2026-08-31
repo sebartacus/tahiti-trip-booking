@@ -26,11 +26,16 @@ export function getExpectedCharterPayment(reservation: CharterPaymentReservation
   }
 
   const participants = Number(reservation.nombre_personnes);
-  const total = getCharterPrice(
+  const normalTotal = getCharterPrice(
     reservation.formule,
     participants,
-    reservation.champagne_supplement === true
+    reservation.champagne_supplement === true,
+    new Date("2026-01-01T00:00:00Z")
   );
+  const storedTotal = Number(reservation.montant_total);
+  const salonTotal = reservation.formule === "tetiaroa_2j_1n" ? 290000 : normalTotal;
+  if (storedTotal !== normalTotal && storedTotal !== salonTotal) throw new Error("Montant total Charter invalide.");
+  const total = storedTotal;
   const payment = getCharterPaymentAmounts(total, reservation.type_paiement);
 
   if (

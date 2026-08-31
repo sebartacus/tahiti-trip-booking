@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { supabase } from "@/lib/supabase";
+import { verifyPaymentIntentToken } from "@/lib/payment-intent";
 
 function signerPayzen(champs: Record<string, string>, cle: string) {
   const ordre = Object.keys(champs)
@@ -34,13 +35,6 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   let montant = Number(body.montant || 0);
-
-  if (!montant || montant <= 0) {
-    return NextResponse.json(
-      { error: "Montant invalide" },
-      { status: 400 }
-    );
-  }
 
   const siteId = process.env.NEXT_PUBLIC_PAYZEN_SITE_ID;
   const productionKey = process.env.PAYZEN_PRODUCTION_KEY;
@@ -85,30 +79,47 @@ export async function POST(request: Request) {
       ? body.activity.trim()
       : "";
 
-  if (activity === "permis") {
-    if (reservationTable !== "reservations" || !reservationId) {
+  const serverAmountSource = ({
+    permis: { table: "reservations", column: "pricing_amount", statusColumns: "paiement_effectue" },
+    peche: { table: "reservations_peche", column: "montant_paye", statusColumns: "paye,statut_paiement" },
+    baleines: { table: "reservations_baleines", column: "montant_total", statusColumns: "paye,statut_paiement" },
+  } as Record<string, { table: string; column: string; statusColumns: string }>)[activity];
+
+  if (serverAmountSource) {
+    if (reservationTable !== serverAmountSource.table || !reservationId) {
       return NextResponse.json(
-        { error: "Réservation Permis invalide" },
+        { error: "Réservation de paiement invalide" },
         { status: 400 }
       );
     }
 
     const reservationResponse = await supabase
-      .from("reservations")
-      .select("pricing_amount")
+      .from(serverAmountSource.table)
+      .select(`${serverAmountSource.column},${serverAmountSource.statusColumns}`)
       .eq("id", reservationId)
       .single();
-    const reservationAmount = Number(reservationResponse.data?.pricing_amount || 0);
+    const reservationRecord = reservationResponse.data as unknown as Record<string, unknown> | null;
+    const reservationAmount = Number(reservationRecord?.[serverAmountSource.column] || 0);
 
     if (reservationResponse.error || !Number.isSafeInteger(reservationAmount) || reservationAmount <= 0) {
       console.error(reservationResponse.error);
       return NextResponse.json(
-        { error: "Montant de la réservation Permis invalide" },
+        { error: "Montant serveur de la réservation invalide" },
         { status: 400 }
       );
     }
 
     montant = reservationAmount;
+    if (reservationRecord?.paiement_effectue === true || reservationRecord?.paye === true || reservationRecord?.statut_paiement === "paid" || reservationRecord?.statut_paiement === "paye") {
+      return NextResponse.json({ error: "Cette réservation est déjà payée." }, { status: 409 });
+    }
+    if (!verifyPaymentIntentToken(body.paymentToken, { reservationId, reservationTable, amount: montant })) {
+      return NextResponse.json({ error: "Jeton de paiement invalide." }, { status: 403 });
+    }
+  }
+
+  if (!Number.isSafeInteger(montant) || montant <= 0) {
+    return NextResponse.json({ error: "Montant invalide" }, { status: 400 });
   }
 
   const champs: Record<string, string> = {

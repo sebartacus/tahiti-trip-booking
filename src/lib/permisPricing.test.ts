@@ -36,6 +36,6 @@ const salonPricing = getPermisPricing({
   now: new Date("2026-09-05T12:00:00-10:00"),
 });
 assert(salonPricing.pricingType === "salon_tourisme", "Le salon doit remplacer les autres tarifs.");
-assert(salonPricing.prices.Classique === 21000, "Le tarif salon Classique doit être 21 000 XPF.");
-assert(salonPricing.prices.Sérénité === 29000, "Le tarif salon Sérénité doit être 29 000 XPF.");
+assert(salonPricing.prices.Classique === 20900, "Le tarif salon Classique doit être 20 900 XPF.");
+assert(salonPricing.prices.Sérénité === 28900, "Le tarif salon Sérénité doit être 28 900 XPF.");
 assert(!salonPricing.isPromotionActive, "La promotion Internet ne doit pas être active pendant le salon.");

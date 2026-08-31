@@ -15,6 +15,7 @@ type ParticipantsStepProps = {
   peutAjouterObservateur: boolean;
   responsableEmail: string;
   responsableTelephone: string;
+  salonActive?: boolean;
   onAddParticipant: () => void;
   onParticipantChange: (
     index: number,
@@ -38,6 +39,7 @@ export function ParticipantsStep({
   peutAjouterObservateur,
   responsableEmail,
   responsableTelephone,
+  salonActive = false,
   onAddParticipant,
   onParticipantChange,
   onParticipantAgeBlur,
@@ -97,6 +99,7 @@ export function ParticipantsStep({
           <ParticipantForm
             key={index}
             participant={participant}
+            salonActive={salonActive}
             index={index}
             canRemove={participants.length > 1}
             canSwitchToMiseEau={

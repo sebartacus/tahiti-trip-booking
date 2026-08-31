@@ -1,6 +1,7 @@
 export type BoatSlotName = "morning" | "afternoon";
 export type FormulaId = "morning" | "afternoon" | "full_day";
 export type PaymentType = "deposit" | "full";
+import { getPechePublicPrice } from "@/lib/public-pricing";
 
 export type PecheFormula = {
   id: FormulaId;
@@ -37,6 +38,10 @@ export const PECHE_FORMULAS: PecheFormula[] = [
     slots: ["morning", "afternoon"],
   },
 ];
+
+export function getPublicPecheFormulas(now: Date = new Date()): PecheFormula[] {
+  return PECHE_FORMULAS.map((formula) => ({ ...formula, price: getPechePublicPrice(formula.id, now).amount }));
+}
 
 export const WHATSAPP_URL =
   "https://wa.me/68987321631?text=Ia%20orana%2C%20je%20souhaite%20une%20demande%20peche%20au%20gros%20a%20Tahiti.";

@@ -13,6 +13,7 @@ import {
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
+import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 
 const joursFeriesPolynesie = [
   "2026-01-01",
@@ -146,6 +147,7 @@ function isMercredi(date: Date | null) {
 }
 
 export default function PermisPage() {
+  const salonActive = useSalonActive();
   const [formule, setFormule] = useState("");
   const [session, setSession] = useState("");
   const [limiteDossier, setLimiteDossier] = useState("");
@@ -186,7 +188,7 @@ useEffect(() => {
   chargerDonneesPermis();
 }, []);
 
-const permisPricing = getPermisPublicPricing();
+const permisPricing = getPermisPublicPricing(salonEvaluationDate(salonActive));
 
 const examens = genererExamens().filter(
   (examen) =>
@@ -363,10 +365,10 @@ async function verifierAvantPaiement() {
 
   setErreur("");
 
-  const { data: reservationCreee, error } = await supabase
-    .from("reservations")
-    .insert([
-      {
+  const reservationResponse = await fetch("/api/permis/reservation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
         prenom,
         nom,
 prenom2: typeCours === "commun" ? prenom2 : null,
@@ -379,15 +381,13 @@ nom2: typeCours === "commun" ? nom2 : null,
         type_cours: typeCours || null,
         creneau: creneau || null,
 paiement_effectue: false,
-        pricing_type: permisPricing.pricingType,
-        pricing_amount: prix,
-      },
-    ])
-    .select("id")
-    .single();
+        nombreParticipants,
+      }),
+  });
+  const reservationCreee = await reservationResponse.json();
 
-  if (error) {
-    console.error(error);
+  if (!reservationResponse.ok || !reservationCreee.id) {
+    console.error(reservationCreee);
     setErreur("Erreur lors de l'enregistrement.");
     setEnregistrementEnCours(false);
     return;
@@ -399,11 +399,11 @@ paiement_effectue: false,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-  montant: prix,
   email,
   reservationId: String(reservationCreee.id),
   reservationTable: "reservations",
   activity: "permis",
+  paymentToken: reservationCreee.paymentToken,
 }),
 });
 
@@ -751,6 +751,7 @@ const recap = (
               <p className="text-4xl font-bold mb-4">
                 {formatXpf(permisPricing.prices.Classique)}
               </p>
+              {permisPricing.isSalonActive && <p className="mb-3 font-black uppercase text-amber-200">Offre Salon · <span className="line-through">{formatXpf(25000)}</span></p>}
               <p>Application de code, cours pratique, dossier, examen.</p>
               <p className="mt-4 text-red-200">Timbres fiscaux à fournir.</p>
             </button>
@@ -760,6 +761,7 @@ const recap = (
               <p className="text-4xl font-bold mb-4">
                 {formatXpf(permisPricing.prices.Sérénité)}
               </p>
+              {permisPricing.isSalonActive && <p className="mb-3 font-black uppercase text-amber-100">Offre Salon · <span className="line-through">{formatXpf(33000)}</span></p>}
               <p>Application de code, cours pratique, dossier, examen.</p>
               <p className="mt-4 text-green-200">Tahiti Trip Fishing s&apos;occupe des timbres fiscaux.</p>
             </button>

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { GoogleReviews } from "@/components/GoogleReviews";
 import { CharterAvailabilityCalendar } from "./CharterAvailabilityCalendar";
+import { CharterOfferPrice } from "./CharterOfferPrice";
 import {
   CharterReservationProvider,
   CharterReserveButton,
@@ -185,8 +186,8 @@ export default function CharterPage() {
           <p className="mt-4 max-w-2xl font-semibold leading-7 text-cyan-100">Jusqu’à 9 personnes — le prix concerne la privatisation du catamaran.</p>
           <div className="mt-9 grid gap-5 lg:grid-cols-2">
             {[
-              { title: "Tetiaroa — 2 jours / 1 nuit", price: "310 000 F CFP", timing: "Rendez-vous à 5h00 · retour vers 18h30 / 19h le lendemain", nights: "Nuit à bord", formula: "tetiaroa_2j_1n" as const },
-              { title: "Tetiaroa — 3 jours / 2 nuits", price: "429 000 F CFP", timing: "Un séjour prolongé à Tetiaroa", nights: "Deux nuits à bord", formula: "tetiaroa_3j_2n" as const },
+              { title: "Tetiaroa — 2 jours / 1 nuit", price: 310000, timing: "Rendez-vous à 5h00 · retour vers 18h30 / 19h le lendemain", nights: "Nuit à bord", formula: "tetiaroa_2j_1n" as const },
+              { title: "Tetiaroa — 3 jours / 2 nuits", price: 429000, timing: "Un séjour prolongé à Tetiaroa", nights: "Deux nuits à bord", formula: "tetiaroa_3j_2n" as const },
             ].map((offer, index) => (
               <article key={offer.title} className={`rounded-[2rem] p-6 sm:p-8 ${index === 0 ? "bg-white text-slate-950" : "border border-cyan-700 bg-cyan-900/60"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -194,7 +195,7 @@ export default function CharterPage() {
                   <span className={`rounded-full px-3 py-1 text-xs font-black ${index === 0 ? "bg-teal-100 text-teal-900" : "bg-white/10 text-cyan-100"}`}>9 personnes max.</span>
                 </div>
                 <p className={`mt-8 text-xs font-black uppercase tracking-widest ${index === 0 ? "text-teal-700" : "text-cyan-200"}`}>Le catamaran privatisé</p>
-                <p className="mt-1 text-4xl font-black tracking-tight sm:text-5xl">{offer.price}</p>
+                <CharterOfferPrice formula={offer.formula} normalAmount={offer.price} />
                 <p className={`mt-4 text-sm font-semibold leading-6 ${index === 0 ? "text-slate-600" : "text-cyan-100"}`}>{offer.timing}</p>
                 <ul className="mt-7 grid gap-3 sm:grid-cols-2">
                   {["Catamaran privatisé", "Skipper", "Carburant", "Repas", offer.nights].map((item) => (

@@ -25,6 +25,7 @@ import {
   markReservationPaymentFailed,
   type PaymentReservationTable,
 } from "@/lib/paymentReturn";
+import { getPayzenKey, verifyPayzenSignature } from "@/lib/charter-payment";
 
 const ACCEPTED_STATUSES = new Set(["AUTHORISED"]);
 
@@ -169,6 +170,13 @@ function emailResultLabel(
 export async function POST(request: Request) {
   const formData = await request.formData();
 
+  const fields: Record<string, string> = {};
+  formData.forEach((value, name) => { fields[name] = String(value); });
+  const key = getPayzenKey(fields.vads_ctx_mode || "");
+  if (fields.vads_ctx_mode !== "PRODUCTION" || !key || !verifyPayzenSignature(fields, String(formData.get("signature") || ""), key)) {
+    return NextResponse.json({ error: "Signature PayZen invalide." }, { status: 400 });
+  }
+
   const statutPaiement = String(formData.get("vads_trans_status") || "");
   const email = String(formData.get("vads_cust_email") || "");
   const transactionId = String(formData.get("vads_trans_id") || "");
@@ -176,6 +184,25 @@ export async function POST(request: Request) {
   const reservationTable = String(
     formData.get("vads_ext_info_reservation_table") || ""
   );
+  const receivedAmount = Number(fields.vads_amount || 0);
+  if (fields.vads_currency !== "953" || !Number.isSafeInteger(receivedAmount) || receivedAmount <= 0) {
+    return NextResponse.json({ error: "Devise ou montant PayZen invalide." }, { status: 400 });
+  }
+
+  const amountSource = reservationTable === "reservations"
+    ? { table: "reservations", column: "pricing_amount" }
+    : reservationTable === "reservations_peche"
+      ? { table: "reservations_peche", column: "montant_paye" }
+      : reservationTable === "reservations_baleines"
+        ? { table: "reservations_baleines", column: "montant_total" }
+        : null;
+  if (!amountSource || !reservationId) return NextResponse.json({ error: "Réservation PayZen invalide." }, { status: 400 });
+  const amountQuery = await supabase.from(amountSource.table).select(amountSource.column).eq("id", reservationId).single();
+  const amountRecord = amountQuery.data as unknown as Record<string, unknown> | null;
+  const expectedAmount = Number(amountRecord?.[amountSource.column] || 0);
+  if (amountQuery.error || !Number.isSafeInteger(expectedAmount) || receivedAmount !== expectedAmount) {
+    return NextResponse.json({ error: "Montant PayZen incohérent." }, { status: 409 });
+  }
 
   console.log("Notification PayZen recue", {
     statutPaiement,

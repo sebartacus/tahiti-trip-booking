@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import type { CharterFormula } from "@/lib/charter-availability";
+import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 import {
   CHARTER_FORMULA_DETAILS,
   formatXpf,
@@ -65,6 +66,7 @@ function EnglishFormula({ formula }: { formula: CharterFormula }) {
 }
 
 export function CharterBookingForm({ formula, startDate, endDate, onAvailabilityConflict, locale = "fr" }: Props) {
+  const salonActive = useSalonActive();
   const en = locale === "en";
   const details = CHARTER_FORMULA_DETAILS[formula];
   const [firstName, setFirstName] = useState("");
@@ -83,8 +85,11 @@ export function CharterBookingForm({ formula, startDate, endDate, onAvailability
   const [reservation, setReservation] = useState<ReservationResponse | null>(null);
 
   const total = useMemo(
-    () => getCharterPrice(formula, participants, champagneSupplement),
-    [champagneSupplement, formula, participants]
+    () => {
+      void salonActive;
+      return getCharterPrice(formula, participants, champagneSupplement, salonEvaluationDate(salonActive));
+    },
+    [champagneSupplement, formula, participants, salonActive]
   );
   const payment = getCharterPaymentAmounts(total, paymentType);
   const needsSleepingAcceptance = details.isTetiaroa && participants === 9;

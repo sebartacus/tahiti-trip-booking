@@ -18,10 +18,15 @@ const NORMAL_PRICES: PermisPrices = {
   Sérénité: 33000,
 };
 
-export function getPermisPublicPricing() {
+import { getPermisPublicPrice } from "./public-pricing";
+
+export function getPermisPublicPricing(now: Date = new Date()) {
+  const classique = getPermisPublicPrice("Classique", now);
+  const serenite = getPermisPublicPrice("Sérénité", now);
   return {
-    prices: NORMAL_PRICES,
-    pricingType: "normal" as const,
+    prices: { Classique: classique.amount, Sérénité: serenite.amount },
+    pricingType: (classique.salonActive ? "salon_tourisme" : "normal") as PermisPricingType,
+    isSalonActive: classique.salonActive,
     isPromotionActive: false,
     promotionReservationsSold: 0,
     promotionsRemaining: 0,
@@ -35,8 +40,8 @@ const PROMOTION_PRICES: PermisPrices = {
 };
 
 const SALON_PRICES: PermisPrices = {
-  Classique: 21000,
-  Sérénité: 29000,
+  Classique: 20900,
+  Sérénité: 28900,
 };
 
 export function getPermisSalonPricing() {
@@ -48,20 +53,6 @@ export function getPermisSalonPricing() {
     promotionsRemaining: 0,
     requiresExam: false,
   };
-}
-
-function getTahitiDateKey(date: Date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Pacific/Tahiti",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function isSalonTourismePeriod(date: Date) {
-  const dateKey = getTahitiDateKey(date);
-  return dateKey >= "2026-09-04" && dateKey <= "2026-09-06";
 }
 
 export function getPermisPricing(options: GetPermisPricingOptions = {}) {
@@ -79,7 +70,7 @@ export function getPermisPricing(options: GetPermisPricingOptions = {}) {
     PROMOTION_LIMIT - rawPromotionReservationsSold
   );
   const isPromotionAvailable = promotionsRemaining > 0;
-  const isSalon = isSalonTourismePeriod(now);
+  const isSalon = getPermisPublicPrice("Classique", now).salonActive;
 
   if (isSalon) {
     return {

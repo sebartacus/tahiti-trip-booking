@@ -1,4 +1,5 @@
 import type { Demandes, Participant, Role } from "./types";
+import { getBaleinesParticipantPrice } from "@/lib/public-pricing";
 
 export const SAISON_DEBUT = "2026-07-20";
 export const SAISON_FIN = "2026-11-20";
@@ -44,16 +45,8 @@ export function nouveauParticipant(role: Role = "mise_eau"): Participant {
   };
 }
 
-export function prixParticipant(participant: Participant) {
-  const age = Number(participant.age);
-
-  if (age > 0 && age < AGE_MINIMUM_MISE_EAU) {
-    return TARIF_ENFANT_OBSERVATEUR;
-  }
-
-  if (participant.role === "mise_eau") return TARIF_MISE_EAU;
-
-  return TARIF_OBSERVATEUR;
+export function prixParticipant(participant: Participant, now: Date = new Date()) {
+  return getBaleinesParticipantPrice(participant, now).amount;
 }
 
 export function formatPrix(montant: number) {

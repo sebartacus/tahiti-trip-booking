@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
-  PECHE_FORMULAS,
+  getPublicPecheFormulas,
   type FormulaId,
   type PaymentType,
 } from "@/components/peche/constants";
+import { createPaymentIntentToken } from "@/lib/payment-intent";
 
 type ReservationBody = {
   date?: unknown;
@@ -27,7 +28,7 @@ function isIsoDate(value: unknown): value is string {
 
 function findFormula(value: unknown) {
   if (typeof value !== "string") return null;
-  return PECHE_FORMULAS.find((formula) => formula.id === value) || null;
+  return getPublicPecheFormulas().find((formula) => formula.id === value) || null;
 }
 
 function normalizePaymentType(value: unknown): PaymentType | null {
@@ -130,6 +131,7 @@ export async function POST(request: Request) {
       type_paiement: paymentType,
       statut_paiement: "pending",
       paye: false,
+      origine: formula.price === (formula.id === "full_day" ? 135000 : 95000) ? "public" : "salon_tourisme_public",
       created_at: new Date().toISOString(),
     })
     .select("id")
@@ -183,5 +185,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ reservationId: data.id }, { status: 201 });
+  return NextResponse.json({ reservationId: data.id, paymentToken: createPaymentIntentToken({ reservationId: String(data.id), reservationTable: "reservations_peche", amount: paidAmount }) }, { status: 201 });
 }

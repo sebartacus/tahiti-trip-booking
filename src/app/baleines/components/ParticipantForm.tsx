@@ -8,6 +8,7 @@ import {
   formatPrix,
   prixParticipant,
 } from "../lib/rules";
+import { salonEvaluationDate } from "@/hooks/useSalonActive";
 
 type ParticipantFormProps = {
   participant: Participant;
@@ -17,6 +18,7 @@ type ParticipantFormProps = {
   canSwitchToObservateur: boolean;
   responsableEmail: string;
   responsableTelephone: string;
+  salonActive?: boolean;
   onParticipantChange: (
     index: number,
     field: keyof Participant,
@@ -37,6 +39,7 @@ export function ParticipantForm({
   canSwitchToObservateur,
   responsableEmail,
   responsableTelephone,
+  salonActive = false,
   onParticipantChange,
   onParticipantAgeBlur,
   onEmailChange,
@@ -220,7 +223,7 @@ export function ParticipantForm({
       )}
 
       <p className="mt-4 text-right text-lg font-black text-cyan-900">
-        {formatPrix(prixParticipant(participant))}
+        {formatPrix(prixParticipant(participant, salonEvaluationDate(salonActive)))}
       </p>
     </article>
   );

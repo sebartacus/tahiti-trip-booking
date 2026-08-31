@@ -8,6 +8,7 @@ import {
   formatPrix,
   prixParticipant,
 } from "../lib/rules";
+import { salonEvaluationDate } from "@/hooks/useSalonActive";
 
 export type BaleinesPaymentMode = "payzen" | "carnet";
 
@@ -23,6 +24,7 @@ type SummaryStepProps = {
   codeCarnet: string;
   soldeCarnet: number | null;
   verificationCarnet: boolean;
+  salonActive?: boolean;
   onModePaiementChange: (mode: BaleinesPaymentMode) => void;
   onCodeCarnetChange: (code: string) => void;
   onVerifyCarnet: () => void;
@@ -42,6 +44,7 @@ export function SummaryStep({
   codeCarnet,
   soldeCarnet,
   verificationCarnet,
+  salonActive = false,
   onModePaiementChange,
   onCodeCarnetChange,
   onVerifyCarnet,
@@ -88,7 +91,7 @@ export function SummaryStep({
                   {participant.nom || t.summary.lastName}
                 </span>
                 <strong className="text-cyan-900">
-                  {formatPrix(prixParticipant(participant))}
+                  {formatPrix(prixParticipant(participant, salonEvaluationDate(salonActive)))}
                 </strong>
               </div>
               <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-slate-500">

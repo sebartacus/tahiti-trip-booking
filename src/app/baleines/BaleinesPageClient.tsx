@@ -36,6 +36,7 @@ import {
   prixParticipant,
   nettoyerParticipant,
 } from "./lib/rules";
+import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 import type { Depart, Participant, Role } from "./lib/types";
 
 type BaleinesPageClientProps = {
@@ -93,6 +94,7 @@ function bateauDisponiblePourBaleines(slot: BoatCalendarSlot | undefined) {
 }
 
 export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
+  const salonActive = useSalonActive();
   const t = whaleWatchingTranslations[locale];
   const [date, setDate] = useState("");
   const dateRef = useRef("");
@@ -146,11 +148,12 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
     };
   }, [boatSlots, capacitesDepart]);
   const total = useMemo(() => {
+    void salonActive;
     return participants.reduce(
-      (somme, participant) => somme + prixParticipant(participant),
+      (somme, participant) => somme + prixParticipant(participant, salonEvaluationDate(salonActive)),
       0
     );
-  }, [participants]);
+  }, [participants, salonActive]);
   const creditsCarnetNecessaires = calculerCreditsCarnet(participants);
 
   useEffect(() => {
@@ -575,11 +578,27 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
       created_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from("reservations_baleines")
-      .insert(reservation)
-      .select("id")
-      .single();
+    let data: { id: string; paymentToken?: string } | null = null;
+    let error: { message?: string } | null = null;
+    if (modePaiement === "carnet") {
+      const result = await supabase.from("reservations_baleines").insert(reservation).select("id").single();
+      data = result.data;
+      error = result.error;
+    } else {
+      const response = await fetch("/api/baleines/reservation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date_sortie: selectedDate, depart,
+          responsable_prenom: responsable.prenom.trim(), responsable_nom: responsable.nom.trim(),
+          responsable_email: responsableEmail.trim(), responsable_telephone: responsableTelephone.trim(),
+          participants,
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) data = { id: String(result.id), paymentToken: String(result.paymentToken) };
+      else error = { message: result.error };
+    }
 
     if (error || !data?.id) {
       setErreur(error?.message || t.errors.saveReservation);
@@ -730,11 +749,11 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        montant: total,
         email: responsableEmail.trim(),
         reservationId: data.id,
         reservationTable: "reservations_baleines",
         activity: "baleines",
+        paymentToken: data.paymentToken,
         returnUrl: `/baleines/success?reservationId=${data.id}&locale=${locale}`,
       }),
     });
@@ -769,6 +788,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
   return (
     <main className="min-h-screen bg-white text-slate-950">
       <BaleinesHero t={t} />
+      {salonActive && <div className="mx-auto mt-6 max-w-5xl rounded-2xl bg-amber-100 px-5 py-4 text-center font-black uppercase text-amber-950">Offre Salon · mise à l’eau 12 500 F CFP au lieu de <span className="line-through">15 000 F CFP</span></div>}
       <BookingModeChoice locale={locale} />
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 pt-6">
         <Link
@@ -835,6 +855,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
             peutAjouterObservateur={peutAjouterObservateur}
             responsableEmail={responsableEmail}
             responsableTelephone={responsableTelephone}
+            salonActive={salonActive}
             onAddParticipant={handleAddParticipant}
             onParticipantChange={modifierParticipant}
             onParticipantAgeBlur={finaliserAgeParticipant}
@@ -858,6 +879,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
             codeCarnet={codeCarnet}
             soldeCarnet={soldeCarnet}
             verificationCarnet={verificationCarnet}
+            salonActive={salonActive}
             onModePaiementChange={modifierModePaiement}
             onCodeCarnetChange={modifierCodeCarnet}
             onVerifyCarnet={verifierCarnet}
