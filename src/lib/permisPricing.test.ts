@@ -6,8 +6,8 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-const publicPricing = getPermisPublicPricing();
-assert(publicPricing.pricingType === "normal", "Le site public doit toujours utiliser le tarif normal.");
+const publicPricing = getPermisPublicPricing(new Date("2026-09-02T12:00:00-10:00"));
+assert(publicPricing.pricingType === "normal", "Le site public doit utiliser le tarif normal avant le Salon.");
 assert(publicPricing.prices.Classique === 25000, "Le tarif public Classique doit être 25 000 XPF.");
 assert(publicPricing.prices.Sérénité === 33000, "Le tarif public Sérénité doit être 33 000 XPF.");
 assert(!publicPricing.isPromotionActive, "Aucune promotion ne doit être active sur le site public.");

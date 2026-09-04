@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { isSalonActive, SALON_END, SALON_START } from "@/lib/salon-period";
 
 export function useSalonActive() {
-  const [active, setActive] = useState(false);
+  const [active, setActive] = useState(() => isSalonActive());
   useEffect(() => {
     let timer: number | undefined;
     const updateAndSchedule = () => {

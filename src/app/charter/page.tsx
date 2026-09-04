@@ -9,6 +9,8 @@ import {
   CharterReserveButton,
 } from "./CharterReservationNavigation";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Charter catamaran Tahiti & Tetiaroa | Tahiti Trip",
   description:

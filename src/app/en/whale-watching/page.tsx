@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { BaleinesPageClient } from "@/app/baleines/BaleinesPageClient";
 import { whaleWatchingTranslations } from "@/lib/i18n";
 
+export const dynamic = "force-dynamic";
+
 const t = whaleWatchingTranslations.en;
 
 export const metadata: Metadata = {

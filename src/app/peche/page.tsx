@@ -11,6 +11,8 @@ import { PecheSpecies } from "@/components/peche/PecheSpecies";
 import { PecheVideo } from "@/components/peche/PecheVideo";
 import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Pêche au gros à Tahiti",
   description:

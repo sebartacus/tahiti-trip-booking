@@ -3,6 +3,8 @@ import Link from "next/link";
 import { PecheBookingForm } from "@/components/peche/PecheBookingForm";
 import { WhatsAppChannelCard } from "@/components/WhatsAppChannelCard";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: {
     absolute: "Tahiti Fishing Charter | Big Game Fishing with Tahiti Trip",

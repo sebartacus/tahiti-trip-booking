@@ -4,8 +4,10 @@ function assertEqual(actual: number, expected: number, message: string) {
   if (actual !== expected) throw new Error(`${message}: ${actual} !== ${expected}`);
 }
 
-assertEqual(getCharterPrice("tetiaroa_2j_1n", 2), 310000, "Tetiaroa 2 personnes");
-assertEqual(getCharterPrice("tetiaroa_2j_1n", 9), 310000, "Tetiaroa 9 personnes");
+const beforeSalon = new Date("2026-09-02T12:00:00-10:00");
+
+assertEqual(getCharterPrice("tetiaroa_2j_1n", 2, false, beforeSalon), 310000, "Tetiaroa 2 personnes");
+assertEqual(getCharterPrice("tetiaroa_2j_1n", 9, false, beforeSalon), 310000, "Tetiaroa 9 personnes");
 assertEqual(getCharterPrice("moorea_matin", 4), 95000, "Moorea matin 4 personnes");
 assertEqual(getCharterPrice("moorea_matin", 5), 100000, "Moorea matin 5 personnes");
 assertEqual(getCharterPrice("moorea_matin", 12), 135000, "Moorea matin 12 personnes");
