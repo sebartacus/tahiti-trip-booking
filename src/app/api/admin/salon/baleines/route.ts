@@ -224,6 +224,12 @@ export async function POST(request: Request) {
       p_payment_type: paymentType,
     });
     if (creation.error) {
+      console.error("Création vente Baleines Salon", {
+        code: creation.error.code,
+        message: creation.error.message,
+        details: creation.error.details,
+        hint: creation.error.hint,
+      });
       const conflict = /capacite|indisponible/i.test(creation.error.message);
       return NextResponse.json(
         {
