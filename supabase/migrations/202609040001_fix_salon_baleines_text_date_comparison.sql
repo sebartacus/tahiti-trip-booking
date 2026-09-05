@@ -68,7 +68,8 @@ begin
 
     insert into public.boat_calendar_slots(date, slot, status, activity, reservation_id, reservation_table, expires_at)
     values(p_date_sortie, v_slot, 'reserved', 'baleines', v_reservation_id, 'reservations_baleines', null)
-    on conflict(date, slot) do update set status = 'reserved', activity = 'baleines', expires_at = null
+    on conflict(date, slot) do update set status = 'reserved', activity = 'baleines',
+      reservation_id = v_reservation_id, reservation_table = 'reservations_baleines', expires_at = null
     where boat_calendar_slots.status = 'available' or boat_calendar_slots.activity = 'baleines'
     returning id into v_calendar_id;
     if v_calendar_id is null then raise exception 'Creneau bateau indisponible' using errcode = 'P0001'; end if;
