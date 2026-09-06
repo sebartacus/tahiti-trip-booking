@@ -11,6 +11,8 @@ import type { Depart, Role } from "@/app/baleines/lib/types";
 import { PECHE_FORMULAS, type FormulaId } from "@/components/peche/constants";
 import { getPermisPricing } from "@/lib/permisPricing";
 import { useAdminSession } from "@/hooks/useAdminSession";
+import SuiviPermis from "./components/SuiviPermis";
+import { originePermis } from "@/lib/permisPlanning";
 
 type AdminReservation = {
   id: number;
@@ -1505,6 +1507,8 @@ export default function AdminPage() {
         </p>
       </section>
 
+      <SuiviPermis reservations={reservations} />
+
       <div className="mb-6 bg-white rounded-xl p-4 shadow">
         <label className="mr-3 font-semibold">Filtrer par statut :</label>
 
@@ -1572,7 +1576,7 @@ export default function AdminPage() {
               <strong>Paiement :</strong>{" "}
               {reservation.paiement_effectue ? "Payé" : "Non payé"}
             </p>
-            <p><strong>Origine :</strong> {reservation.origine_reservation === "salon_admin" ? "Salon" : "Site"}</p>
+            <p><strong>Origine :</strong> {originePermis(reservation.origine_reservation)}</p>
             <p><strong>Mode :</strong> {formatPermisPaymentMode(reservation.mode_paiement)}</p>
             {reservation.reference_paiement && <p><strong>Référence :</strong> {reservation.reference_paiement}</p>}
 
@@ -1714,7 +1718,7 @@ export default function AdminPage() {
                   {reservation.paiement_effectue ? "Payé" : "Non payé"}
                 </td>
                 <td className="p-3">
-                  <div>{reservation.origine_reservation === "salon_admin" ? "Salon" : "Site"}</div>
+                  <div>{originePermis(reservation.origine_reservation)}</div>
                   <div className="text-xs text-slate-500">{formatPermisPaymentMode(reservation.mode_paiement)}</div>
                   {reservation.reference_paiement && <div className="text-xs text-slate-500">Réf. {reservation.reference_paiement}</div>}
                 </td>
