@@ -4,7 +4,6 @@ import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import { formatXpf, getPermisPriceForFormula, getPermisSalonPricing } from "@/lib/permisPricing";
-import { supabase } from "@/lib/supabase";
 import { getTahitiToday, getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 
 const individualSlots = ["07h00 - 09h00", "09h00 - 11h00", "11h00 - 13h00", "13h00 - 15h00", "15h00 - 17h00"];
@@ -58,8 +57,14 @@ export default function NewPermisSalonReservationPage() {
   async function loadAvailability(date: string) {
     setReservedSlots([]);
     if (!date) return;
-    const result = await supabase.from("reservations").select("creneau").eq("date_cours", new Date(`${date}T12:00:00`).toLocaleDateString("fr-FR"));
-    if (!result.error) setReservedSlots((result.data || []).map((item) => item.creneau).filter(Boolean) as string[]);
+    try {
+      const response = await fetch(`/api/permis/disponibilites?date=${encodeURIComponent(date)}`, { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error);
+      setReservedSlots(payload.occupiedSlots || []);
+    } catch {
+      setError("Impossible de charger les créneaux.");
+    }
   }
 
   function sendToPayzen(payment: { url: string; champs: Record<string, string> }) {
@@ -80,13 +85,24 @@ export default function NewPermisSalonReservationPage() {
     } catch { setError("Impossible de joindre le serveur."); } finally { setLoading(false); }
   }
 
-  async function downloadInvoice(path: string) {
-    const result = await supabase.storage.from("documents-permis").createSignedUrl(path, 600);
-    if (result.data?.signedUrl) window.open(result.data.signedUrl, "_blank"); else setError("Impossible d’ouvrir la facture.");
+  async function downloadInvoice() {
+    if (!created?.id) return;
+    try {
+      const response = await fetch("/api/admin/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: created.id, field: "facture_url" }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error);
+      window.open(payload.signedUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      setError("Impossible d'ouvrir la facture.");
+    }
   }
 
   if (checking || !authenticated) return <main className="min-h-screen bg-slate-100 p-8 text-center font-bold">Vérification de la session admin…</main>;
-  if (created) return <main className="min-h-screen bg-slate-100 p-4 md:p-10"><section className="mx-auto max-w-3xl rounded-3xl bg-white p-6 shadow-xl md:p-10"><p className="text-sm font-black uppercase tracking-widest text-green-700">Réservation créée et paiement enregistré</p><h1 className="mt-3 text-3xl font-black">{created.prenom} {created.nom}</h1>{warning && <p className="mt-4 rounded-xl bg-amber-100 p-4 font-bold text-amber-900">{warning}</p>}<dl className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2"><div><dt className="text-sm text-slate-500">Formule</dt><dd className="font-bold">{String(created.formule)}</dd></div><div><dt className="text-sm text-slate-500">Montant</dt><dd className="font-bold">{formatXpf(Number(created.pricing_amount))}</dd></div><div><dt className="text-sm text-slate-500">Paiement</dt><dd className="font-bold">{paymentLabels[String(created.mode_paiement)]}</dd></div><div><dt className="text-sm text-slate-500">Examen</dt><dd className="font-bold">{String(created.examen)}</dd></div><div><dt className="text-sm text-slate-500">Cours pratique</dt><dd className="font-bold">{created.date_cours ? `${created.date_cours} · ${created.creneau}` : "À choisir plus tard"}</dd></div></dl><div className="mt-8 flex flex-col gap-3 sm:flex-row"><button onClick={() => downloadInvoice(String(created.facture_url))} className="rounded-xl bg-sky-700 px-5 py-3 font-bold text-white">Télécharger la facture</button><Link href="/admin#reservations-permis" className="rounded-xl border border-slate-300 px-5 py-3 text-center font-bold">Retour au tableau de bord</Link></div></section></main>;
+  if (created) return <main className="min-h-screen bg-slate-100 p-4 md:p-10"><section className="mx-auto max-w-3xl rounded-3xl bg-white p-6 shadow-xl md:p-10"><p className="text-sm font-black uppercase tracking-widest text-green-700">Réservation créée et paiement enregistré</p><h1 className="mt-3 text-3xl font-black">{created.prenom} {created.nom}</h1>{warning && <p className="mt-4 rounded-xl bg-amber-100 p-4 font-bold text-amber-900">{warning}</p>}<dl className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2"><div><dt className="text-sm text-slate-500">Formule</dt><dd className="font-bold">{String(created.formule)}</dd></div><div><dt className="text-sm text-slate-500">Montant</dt><dd className="font-bold">{formatXpf(Number(created.pricing_amount))}</dd></div><div><dt className="text-sm text-slate-500">Paiement</dt><dd className="font-bold">{paymentLabels[String(created.mode_paiement)]}</dd></div><div><dt className="text-sm text-slate-500">Examen</dt><dd className="font-bold">{String(created.examen)}</dd></div><div><dt className="text-sm text-slate-500">Cours pratique</dt><dd className="font-bold">{created.date_cours ? `${created.date_cours} · ${created.creneau}` : "À choisir plus tard"}</dd></div></dl><div className="mt-8 flex flex-col gap-3 sm:flex-row"><button onClick={() => downloadInvoice()} className="rounded-xl bg-sky-700 px-5 py-3 font-bold text-white">Télécharger la facture</button><Link href="/admin#reservations-permis" className="rounded-xl border border-slate-300 px-5 py-3 text-center font-bold">Retour au tableau de bord</Link></div></section></main>;
 
   const field = "w-full rounded-xl border border-slate-300 bg-white p-3";
   return <main className="min-h-screen bg-slate-100 p-4 md:p-8"><form onSubmit={submit} className="mx-auto max-w-5xl space-y-6"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-center"><div><p className="text-sm font-black uppercase tracking-widest text-sky-700">Mode Salon</p><h1 className="text-3xl font-black">Nouvelle réservation Permis</h1><p className="mt-2 font-bold text-amber-700">Tarif Salon du tourisme</p></div><Link href="/admin#reservations-permis" className="font-bold text-sky-800">← Tableau de bord</Link></div>

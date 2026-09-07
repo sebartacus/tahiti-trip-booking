@@ -137,12 +137,36 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  let body: { action?: unknown };
+  let body: { action?: unknown; statut?: unknown };
 
   try {
-    body = (await request.json()) as { action?: unknown };
+    body = (await request.json()) as { action?: unknown; statut?: unknown };
   } catch {
     return NextResponse.json({ error: "JSON invalide." }, { status: 400 });
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Action invalide." }, { status: 400 });
+  }
+  if (body.action === "status") {
+    const statuses = ["En attente", "Validé", "Incomplet", "Permis obtenu"];
+    if (!/^[1-9]\d*$/.test(id) || typeof body.statut !== "string" || !statuses.includes(body.statut) ||
+      Object.keys(body).some(key => !["action", "statut"].includes(key))) {
+      return NextResponse.json({ error: "Statut invalide." }, { status: 400 });
+    }
+    try {
+      const dateReussite = body.statut === "Permis obtenu"
+        ? new Date().toLocaleDateString("fr-FR", { timeZone: "Pacific/Tahiti" })
+        : null;
+      const result = await getAdminSupabaseClient().from("reservations")
+        .update({ statut: body.statut, date_reussite_examen: dateReussite })
+        .eq("id", id).select("id,statut,date_reussite_examen").maybeSingle();
+      if (result.error) throw result.error;
+      if (!result.data) return NextResponse.json({ error: "Réservation Permis introuvable." }, { status: 404 });
+      return NextResponse.json({ ok: true, reservation: result.data });
+    } catch {
+      return NextResponse.json({ error: "Impossible de modifier le statut Permis." }, { status: 500 });
+    }
   }
 
   const action =

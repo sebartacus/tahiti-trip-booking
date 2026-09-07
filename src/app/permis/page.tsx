@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GoogleReviews } from "@/components/GoogleReviews";
-import { supabase } from "@/lib/supabase";
 import { permisDocuments } from "@/lib/permisDocuments";
 import {
   formatXpf,
@@ -171,18 +170,14 @@ const [accepteDocuments, setAccepteDocuments] = useState(false);
 const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
 useEffect(() => {
   async function chargerDonneesPermis() {
-    const examensBloquesResponse = await supabase
-      .from("examens_bloques")
-      .select("date_examen");
-
-    if (examensBloquesResponse.error) {
-      console.error(examensBloquesResponse.error);
-    } else {
-      setDatesExamensBloques(
-        (examensBloquesResponse.data || []).map((item) => item.date_examen)
-      );
+    try {
+      const response = await fetch("/api/permis/disponibilites", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error);
+      setDatesExamensBloques(payload.blockedExams || []);
+    } catch (error) {
+      console.error(error);
     }
-
   }
 
   chargerDonneesPermis();
@@ -210,23 +205,15 @@ const dateLimiteReservation = new Date();
 dateLimiteReservation.setMonth(dateLimiteReservation.getMonth() + 6);
 
 async function chargerCreneauxReserves(date: Date) {
-  const dateFormatee = date.toLocaleDateString("fr-FR");
-
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("creneau")
-    .eq("date_cours", dateFormatee);
-
-  if (error) {
+  const isoDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+  try {
+    const response = await fetch(`/api/permis/disponibilites?date=${isoDate}`, { cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error);
+    setCreneauxReserves(payload.occupiedSlots || []);
+  } catch (error) {
     console.error(error);
-    return;
   }
-
-  setCreneauxReserves(
-    (data || [])
-      .map((reservation) => reservation.creneau)
-      .filter(Boolean)
-  );
 }  
 function horaireEnMinutes(horaire: string) {
   const [debut, fin] = horaire.split(" - ");

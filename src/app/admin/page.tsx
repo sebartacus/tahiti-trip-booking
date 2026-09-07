@@ -414,17 +414,14 @@ export default function AdminPage() {
   }, [accesAutorise]);
 
   async function chargerReservations() {
-    const { data, error } = await supabase
-      .from("reservations")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
+    try {
+      const response = await fetch("/api/admin/permis", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Chargement Permis impossible.");
+      setReservations(payload.reservations || []);
+    } catch (error) {
       console.error(error);
-      return;
     }
-
-    setReservations(data || []);
   }
 
   async function chargerReservationsPeche() {
@@ -525,6 +522,23 @@ export default function AdminPage() {
     chargerExamensBloques();
   }
 
+  async function ouvrirDocumentPermis(id: number, field: "certificat_url" | "formulaire_url" | "photo_url" | "identite_url" | "facture_url") {
+    if (!reservations.find(row => row.id === id)?.[field]) return;
+    try {
+      const response = await fetch("/api/admin/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationId: id, field }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Ouverture impossible.");
+      window.open(payload.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error(error);
+      alert("Impossible d'ouvrir le document.");
+    }
+  }
+
   async function ouvrirDocument(path: string | null) {
     if (!path) return;
 
@@ -591,25 +605,18 @@ export default function AdminPage() {
   }
 
   async function modifierStatut(id: number, statut: string) {
-    const dateReussite =
-      statut === "Permis obtenu"
-        ? new Date().toLocaleDateString("fr-FR")
-        : null;
-
-    const { error } = await supabase
-      .from("reservations")
-      .update({
-        statut,
-        date_reussite_examen: dateReussite,
-      })
-      .eq("id", id);
-
-    if (error) {
+    try {
+      const response = await fetch(`/api/admin/permis/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "status", statut }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Modification du statut impossible.");
+      await chargerReservations();
+    } catch (error) {
       console.error(error);
-      return;
     }
-
-    chargerReservations();
   }
 
   async function supprimerReservationBaleines(
@@ -1596,31 +1603,31 @@ export default function AdminPage() {
 
             <div className="grid grid-cols-2 gap-2 mt-4">
               <button
-                onClick={() => ouvrirDocument(reservation.certificat_url)}
+                onClick={() => ouvrirDocumentPermis(reservation.id, "certificat_url")}
                 className="cursor-pointer bg-green-600 text-white rounded-xl p-2"
               >
                 Certificat
               </button>
               <button
-                onClick={() => ouvrirDocument(reservation.formulaire_url)}
+                onClick={() => ouvrirDocumentPermis(reservation.id, "formulaire_url")}
                 className="cursor-pointer bg-green-600 text-white rounded-xl p-2"
               >
                 Formulaire
               </button>
               <button
-                onClick={() => ouvrirDocument(reservation.photo_url)}
+                onClick={() => ouvrirDocumentPermis(reservation.id, "photo_url")}
                 className="cursor-pointer bg-green-600 text-white rounded-xl p-2"
               >
                 Photo
               </button>
               <button
-                onClick={() => ouvrirDocument(reservation.identite_url)}
+                onClick={() => ouvrirDocumentPermis(reservation.id, "identite_url")}
                 className="cursor-pointer bg-green-600 text-white rounded-xl p-2"
               >
                 Identité
               </button>
               <button
-                onClick={() => ouvrirDocument(reservation.facture_url)}
+                onClick={() => ouvrirDocumentPermis(reservation.id, "facture_url")}
                 className="cursor-pointer bg-sky-700 text-white rounded-xl p-2"
               >
                 Facture
@@ -1725,7 +1732,7 @@ export default function AdminPage() {
                 <td className="p-3">
                   {reservation.facture_url ? (
                     <button
-                      onClick={() => ouvrirDocument(reservation.facture_url)}
+                      onClick={() => ouvrirDocumentPermis(reservation.id, "facture_url")}
                       className="cursor-pointer bg-sky-700 text-white px-3 py-1 rounded"
                     >
                       {reservation.facture_numero || "Facture"}
@@ -1756,10 +1763,10 @@ export default function AdminPage() {
                 </td>
                 <td className="p-3">
                   <div className="flex gap-2 flex-wrap">
-                    <button onClick={() => ouvrirDocument(reservation.certificat_url)} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Certificat</button>
-                    <button onClick={() => ouvrirDocument(reservation.formulaire_url)} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Formulaire</button>
-                    <button onClick={() => ouvrirDocument(reservation.photo_url)} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Photo</button>
-                    <button onClick={() => ouvrirDocument(reservation.identite_url)} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Identité</button>
+                    <button onClick={() => ouvrirDocumentPermis(reservation.id, "certificat_url")} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Certificat</button>
+                    <button onClick={() => ouvrirDocumentPermis(reservation.id, "formulaire_url")} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Formulaire</button>
+                    <button onClick={() => ouvrirDocumentPermis(reservation.id, "photo_url")} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Photo</button>
+                    <button onClick={() => ouvrirDocumentPermis(reservation.id, "identite_url")} className="cursor-pointer bg-green-600 text-white px-3 py-1 rounded">Identité</button>
                   </div>
                 </td>
                 <td className="p-3">
