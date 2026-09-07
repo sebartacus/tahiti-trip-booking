@@ -233,3 +233,18 @@ export async function sendPermisReservationEmails({
 
   return { ok: true };
 }
+
+
+/** Inactive foundation: called only by the gated candidate access route. */
+export async function sendPermisAccessCodeEmail(email: string, code: string, fetchFn: typeof fetch = fetch) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^\d{6}$/.test(code)) throw new Error("Email ou code invalide.");
+  const boundedFetch: typeof fetch = (input, init) => fetchFn(input, { ...init, signal: AbortSignal.timeout(5000) });
+  const result = await sendResendEmail({
+    from: process.env.EMAIL_FROM || "Tahiti Trip Fishing <onboarding@resend.dev>",
+    to: [email],
+    subject: "Votre code d’accès au dossier Permis",
+    html: `<div style="font-family:Arial,sans-serif"><p>Votre code temporaire pour accéder à votre dossier Permis :</p><p style="font-size:28px;font-weight:bold">${code}</p><p>Ce code est valable dix minutes et utilisable une seule fois. Ne le partagez pas.</p><p>Si vous n’avez pas demandé ce code, ignorez cet email.</p></div>`,
+  }, boundedFetch);
+  if (!("ok" in result) || !result.ok) throw new Error("Envoi du code Permis impossible.");
+  return { ok: true };
+}
