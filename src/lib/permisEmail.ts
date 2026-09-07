@@ -248,3 +248,30 @@ export async function sendPermisAccessCodeEmail(email: string, code: string, fet
   if (!("ok" in result) || !result.ok) throw new Error("Envoi du code Permis impossible.");
   return { ok: true };
 }
+
+export type PermisPlanningNotification = {
+  reservation: { id: string | number; prenom?: string | null; nom?: string | null; prenom2?: string | null; nom2?: string | null; telephone?: string | null; email?: string | null; formule?: string | null; origine_reservation?: string | null };
+  before: import("./permisScheduling").PermisPlanning;
+  after: import("./permisScheduling").PermisPlanning;
+};
+export async function sendPermisPlanningEmail(input: PermisPlanningNotification, fetchFn: typeof fetch = fetch) {
+  const { candidatsPermis, originePermis, afficherDatePermis } = await import("./permisPlanning");
+  const escape = (value: unknown) => String(value ?? "Non renseigné").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char] || "&#34;"));
+  const { reservation: row, before, after } = input;
+  const course = (value: typeof before) => `${afficherDatePermis(value.date_cours)} / ${value.creneau || "À choisir"}`;
+  const base = process.env.PERMIS_REPRISE_ORIGIN;
+  if (!base) throw new Error("Origine Permis absente.");
+  const lines = [
+    ["Candidat(s)", candidatsPermis(row).join(", ")], ["Téléphone", row.telephone], ["Email", row.email],
+    ["Formule", row.formule], ["Origine", originePermis(row.origine_reservation)], ["Dossier", row.id],
+    ["Examen", `${afficherDatePermis(before.examen)} → ${afficherDatePermis(after.examen)}`],
+    ["Cours / créneau", `${course(before)} → ${course(after)}`],
+  ];
+  const result = await sendResendEmail({
+    from: process.env.EMAIL_FROM || "Tahiti Trip Fishing <onboarding@resend.dev>",
+    to: [process.env.INTERNAL_EMAIL || process.env.EMAIL_INTERNAL || "contact@tahiti-trip.com"],
+    subject: "Choix ou modification des dates Permis",
+    html: `<div style="font-family:Arial,sans-serif"><h1>Dates Permis mises à jour</h1><ul>${lines.map(([label, value]) => `<li>${escape(label)} : ${escape(value)}</li>`).join("")}</ul><a href="${escape(new URL("/admin", base).href)}">Ouvrir l’administration — rechercher le candidat</a></div>`,
+  }, (url, init) => fetchFn(url, { ...init, signal: AbortSignal.timeout(5000) }));
+  if (!("ok" in result) || !result.ok) throw new Error("Notification Permis non envoyée.");
+}

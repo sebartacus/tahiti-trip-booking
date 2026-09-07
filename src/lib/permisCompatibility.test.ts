@@ -152,8 +152,10 @@ async function main() {
     assert.equal((await access(request({action:"request",email:"test@example.invalid"}))).status,503);
   } finally { globalThis.fetch=realFetch; }
 
+  const normalizeLegacy = (source: string) => source.replace(/\r\n/g, "\n").replace(/[\t ]+$/gm, "");
+  const legacyBefore = execFileSync("git", ["show", "f6d58350786be8a7d8c10aac8a0cbeb3e4eba690:src/app/reprendre-reservation/page.tsx"], { encoding: "utf8" }).replace(/\r\n/g, "\n");
+  assert.equal(normalizeLegacy(readFileSync("src/app/reprendre-reservation/LegacyReprise.tsx", "utf8")), normalizeLegacy(legacyBefore), "Legacy reprise preserved except line endings and trailing whitespace");
   for(const file of [
-    "src/app/reprendre-reservation/page.tsx",
     "src/app/api/permis/reservation/route.ts",
     "src/app/api/admin/permis/salon/route.ts",
     "src/app/api/admin/salon/route.ts",

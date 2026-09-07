@@ -37,6 +37,24 @@ const { PGlite } = require(path.join(root, "..", "@electric-sql", "pglite"));
     assert.deepEqual((await db.query(policyQuery)).rows,before);
     assert.deepEqual((await db.query(grantQuery)).rows,grantsBefore);
     await db.exec(fs.readFileSync("supabase/tests/permis_secure_reprise.sql","utf8"));
+    await db.exec(fs.readFileSync("supabase/migrations/202609060002_complete_permis_secure_reprise.sql","utf8"));
+    assert.deepEqual((await db.query(policyQuery)).rows,before);
+    assert.deepEqual((await db.query(grantQuery)).rows,grantsBefore);
+    await db.exec(fs.readFileSync("supabase/tests/permis_secure_reprise.sql","utf8"));
+    await db.exec(fs.readFileSync("supabase/tests/permis_reprise.sql","utf8"));
+    // PGlite queues operations on one backend: tests racing submissions, not two
+    // independent PostgreSQL connections. The SQL table lock is reviewed separately.
+    await db.exec("begin");
+    const rows = (await db.query("insert into public.reservations(prenom,nom,examen) values('Race','One','Plus tard'),('Race','Two','Plus tard') returning id")).rows;
+    const day = (await db.query("select ((clock_timestamp() at time zone 'Pacific/Tahiti')::date+30)::text as day")).rows[0].day;
+    const attempts = await Promise.all(rows.map(row => db.query(
+      "select public.permis_save_planning($1,$2::jsonb,$3::jsonb) as result",
+      [String(row.id),JSON.stringify({examen:null,date_cours:null,creneau:null}),JSON.stringify({date_cours:day,creneau:"13h00 - 15h00"})]
+    )));
+    assert.deepEqual(attempts.map(r=>r.rows[0].result.status).sort(),["changed","conflict"]);
+    assert.deepEqual((await db.query(policyQuery)).rows,before);
+    assert.deepEqual((await db.query(grantQuery)).rows,grantsBefore);
+    await db.exec("rollback");
     console.log("SQL local : migration exécutée en mémoire ; assertions codes/limites/droits/planning OK ; policies et grants existants inchangés.");
   } finally { await db.close(); }
 })().catch(error => { console.error(error.message); process.exitCode=1; });
