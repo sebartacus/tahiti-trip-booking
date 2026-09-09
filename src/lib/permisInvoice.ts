@@ -119,17 +119,26 @@ export function buildPermisInvoicePdf(
 ) {
   const invoiceNumber = getPermisInvoiceNumber(reservation.id, paidAt);
   const amountTtc = reservation.pricing_amount ?? 0;
-  const salonTax = options.validUntil ? calculateSalonTax(amountTtc) : null;
-  const amountHt = salonTax?.ht ?? amountTtc / 1.05;
-  const tva = salonTax?.tva ?? amountTtc - amountHt;
   const formula = safeText(reservation.formule, "Classique");
+  const isSerenite = formula.normalize("NFC").trim().toLocaleLowerCase("fr-FR") === "sérénité";
+  const stamps = isSerenite ? 8000 : 0;
+  if (isSerenite && (!Number.isInteger(amountTtc) || amountTtc < stamps)) {
+    throw new Error("Montant TTC Sérénité invalide.");
+  }
+  const serviceTtc = amountTtc - stamps;
+  // Preserve Classique; extract VAT only from the taxable service in Serenite.
+  const salonTax = options.validUntil || isSerenite ? calculateSalonTax(serviceTtc) : null;
+  const amountHt = salonTax?.ht ?? serviceTtc / 1.05;
+  const tva = salonTax?.tva ?? serviceTtc - amountHt;
+  const serviceY = isSerenite ? 566 : 558;
+  const documentOffset = isSerenite ? 30 : 0;
   const designation = `Permis cotier - Formule ${formula}`;
   const pricingLabel = getPricingLabel(reservation.pricing_type);
   const invoiceDate = paidAt.toLocaleDateString("fr-FR");
   const documentLines = getPermisRequiredDocumentLabels(
     reservation.formule,
   ).map((document, index) =>
-    textLine(`[x] ${document}`, 42, 304 - index * 16, 10),
+    textLine(`[x] ${document}`, 42, 304 - documentOffset - index * 16, 10),
   );
 
   const content = [
@@ -169,11 +178,19 @@ export function buildPermisInvoicePdf(
     boldLine("Prix HT", 346, 592, 10),
     boldLine("TVA 5 %", 420, 592, 10),
     boldLine("Prix TTC", 496, 592, 10),
-    textLine(designation, 54, 558, 10),
-    textLine("1", 296, 558, 10),
-    textLine(moneyAmount(amountHt), 354, 558, 10),
-    textLine(moneyAmount(tva), 443, 558, 10),
-    textLine(moneyAmount(amountTtc), 505, 558, 10),
+    textLine(designation, 54, serviceY, 10),
+    textLine("1", 296, serviceY, 10),
+    textLine(moneyAmount(amountHt), 354, serviceY, 10),
+    textLine(moneyAmount(tva), 443, serviceY, 10),
+    textLine(moneyAmount(serviceTtc), 505, serviceY, 10),
+    ...(isSerenite ? [
+      textLine("Timbres fiscaux", 54, 542, 10),
+      textLine("Non soumis à TVA", 54, 531, 8),
+      textLine("1", 296, 542, 10),
+      textLine("-", 354, 542, 10),
+      textLine("0", 443, 542, 10),
+      textLine(moneyAmount(stamps), 505, 542, 10),
+    ] : []),
     textLine("Tous les montants sont exprimés en F CFP.", 42, 512, 9),
     boldLine(`Type de tarif : ${pricingLabel}`, 42, 492, 11),
     textLine(
@@ -203,18 +220,24 @@ export function buildPermisInvoicePdf(
       ? [boldLine(getInvoiceValidityText(options.validUntil), 42, 398, 11)]
       : []),
     "0.05 0.30 0.40 rg",
-    filledRect(42, 356, 511, 1),
+    ...(isSerenite ? [
+      textLine("HT prestation taxable : " + money(amountHt), 42, 382, 10),
+      textLine("TVA 5 % : " + money(tva), 42, 368, 10),
+      textLine("Timbres fiscaux non soumis à TVA : " + money(stamps), 42, 354, 10),
+      boldLine("TOTAL TTC paye : " + money(amountTtc), 42, 340, 11),
+    ] : []),
+    filledRect(42, 356 - documentOffset, 511, 1),
     "0 0 0 rg",
-    boldLine("Documents a completer", 42, 326, 13),
+    boldLine("Documents a completer", 42, 326 - documentOffset, 13),
     ...documentLines,
     textLine(
       "Ces documents sont disponibles au telechargement sur votre espace.",
       42,
-      216,
+      216 - documentOffset,
       10,
     ),
-    boldLine("Merci pour votre confiance.", 42, 176, 13),
-    textLine("Tahiti Trip Fishing", 42, 156, 10),
+    boldLine("Merci pour votre confiance.", 42, 176 - documentOffset, 13),
+    textLine("Tahiti Trip Fishing", 42, 156 - documentOffset, 10),
   ].join("\n");
 
   const objects = [
