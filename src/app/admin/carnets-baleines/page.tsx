@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import Link from "next/link";
@@ -29,6 +30,8 @@ type UtilisationCarnet = {
   date_sortie: string | null;
   depart: string | null;
   credits_consommes: number;
+  mouvement: number;
+  motif: string | null;
   reservation_id: string | null;
 };
 
@@ -287,6 +290,46 @@ export default function AdminCarnetsBaleinesPage() {
       );
     } catch {
       setMessage("Impossible de renvoyer le carnet.");
+    } finally {
+      setAction("");
+    }
+  }
+
+  async function recrediterCarnet(carnet: CarnetAdmin, nombreCredits: number, motif: string) {
+    setAction("recredit");
+    setMessage("");
+    try {
+      const response = await fetch(
+        `/api/admin/carnets-baleines/${encodeURIComponent(carnet.id)}/recrediter`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre_credits: nombreCredits, motif }),
+        }
+      );
+      const payload = await response.json();
+      if (!response.ok || !payload.carnet) {
+        setMessage(payload.error || "Impossible de recréditer le carnet.");
+        return false;
+      }
+      const resultat = payload.carnet;
+      const actualiser = (item: CarnetAdmin): CarnetAdmin => ({
+        ...item,
+        credits_restants: resultat.credits_restants,
+        statut: resultat.statut,
+        historique: [{
+          date_utilisation: resultat.created_at,
+          date_sortie: null, depart: null, reservation_id: null,
+          credits_consommes: 0, mouvement: resultat.mouvement, motif: resultat.motif,
+        }, ...item.historique],
+      });
+      setCarnets((actuels) => actuels.map((item) => item.id === carnet.id ? actualiser(item) : item));
+      setSelection((actuelle) => actuelle?.id === carnet.id ? actualiser(actuelle) : actuelle);
+      setMessage(`Recrédit effectué : +${resultat.mouvement}. Nouveau solde : ${resultat.credits_restants}.`);
+      return true;
+    } catch {
+      setMessage("Impossible de confirmer le résultat. Rechargez l’historique avant de réessayer.");
+      return false;
     } finally {
       setAction("");
     }
@@ -641,6 +684,7 @@ export default function AdminCarnetsBaleinesPage() {
 
       {selection && (
         <CarnetDrawer
+          key={selection.id}
           carnet={selection}
           action={action}
           message={message}
@@ -648,6 +692,7 @@ export default function AdminCarnetsBaleinesPage() {
           onCopy={copier}
           onDownload={telechargerFacture}
           onResend={renvoyerCarnet}
+          onRecredit={recrediterCarnet}
           onCancel={annulerCarnet}
           onDelete={supprimerCarnet}
         />
@@ -711,6 +756,7 @@ function CarnetDrawer({
   onCopy,
   onDownload,
   onResend,
+  onRecredit,
   onCancel,
   onDelete,
 }: {
@@ -721,9 +767,37 @@ function CarnetDrawer({
   onCopy: (value: string, confirmation: string) => void;
   onDownload: (carnet: CarnetAdmin) => void;
   onResend: (carnet: CarnetAdmin) => void;
+  onRecredit: (carnet: CarnetAdmin, credits: number, motif: string) => Promise<boolean>;
   onCancel: (carnet: CarnetAdmin) => void;
   onDelete: (carnet: CarnetAdmin) => void;
 }) {
+  const [recreditOuvert, setRecreditOuvert] = useState(false);
+  const [credits, setCredits] = useState("1");
+  const [motif, setMotif] = useState("");
+  const [erreurRecredit, setErreurRecredit] = useState("");
+  const recreditEnCours = useRef(false);
+
+  async function confirmerRecredit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (recreditEnCours.current) return;
+    const nombre = Number(credits);
+    if (!Number.isSafeInteger(nombre) || nombre < 1 || nombre > 2147483647) {
+      setErreurRecredit("Saisissez un nombre entier supérieur ou égal à 1.");
+      return;
+    }
+    setErreurRecredit("");
+    recreditEnCours.current = true;
+    try {
+      if (await onRecredit(carnet, nombre, motif)) {
+        setRecreditOuvert(false);
+        setCredits("1");
+        setMotif("");
+      }
+    } finally {
+      recreditEnCours.current = false;
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/40" onClick={onClose}>
       <aside
@@ -804,29 +878,39 @@ function CarnetDrawer({
         </DetailSection>
 
         <section className="mt-7">
-          <h3 className="text-lg font-black">Historique des utilisations</h3>
+          <h3 className="text-lg font-black">Historique des mouvements</h3>
           <div className="mt-4 space-y-3">
             {carnet.historique.map((utilisation, index) => (
               <article
                 key={`${utilisation.reservation_id || "sans-id"}-${index}`}
                 className="rounded-2xl bg-slate-50 p-4 text-sm"
               >
-                <p className="font-black">
-                  Sortie : {formatDate(utilisation.date_sortie)}
-                </p>
-                <p className="mt-2">Départ : {utilisation.depart || "—"}</p>
-                <p className="mt-1">
-                  Crédits consommés :{" "}
-                  <strong>{utilisation.credits_consommes}</strong>
-                </p>
-                <p className="mt-1 break-all text-xs text-slate-500">
-                  Réservation : {utilisation.reservation_id || "Non disponible"}
-                </p>
+                {utilisation.mouvement > 0 ? (
+                  <>
+                    <p className="font-black text-emerald-700">Recrédit : +{utilisation.mouvement}</p>
+                    <p className="mt-2">{utilisation.motif || "Recrédit manuel"}</p>
+                    <p className="mt-1 text-xs text-slate-500">{formatDate(utilisation.date_utilisation)}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-black">
+                      Sortie : {formatDate(utilisation.date_sortie)}
+                    </p>
+                    <p className="mt-2">Départ : {utilisation.depart || "—"}</p>
+                    <p className="mt-1">
+                      Crédits consommés :{" "}
+                      <strong>{utilisation.credits_consommes}</strong>
+                    </p>
+                    <p className="mt-1 break-all text-xs text-slate-500">
+                      Réservation : {utilisation.reservation_id || "Non disponible"}
+                    </p>
+                  </>
+                )}
               </article>
             ))}
             {carnet.historique.length === 0 && (
               <p className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                Aucune utilisation enregistrée.
+                Aucun mouvement enregistré.
               </p>
             )}
           </div>
@@ -858,6 +942,33 @@ function CarnetDrawer({
 
         <section className="mt-7 border-t border-slate-200 pt-7">
           <h3 className="text-lg font-black">Actions administratives</h3>
+          <div className="mt-4">
+            <ActionButton label="Recréditer" disabled={Boolean(action)}
+              onClick={() => setRecreditOuvert(!recreditOuvert)} />
+          </div>
+          {recreditOuvert && (
+            <form onSubmit={confirmerRecredit} className="mt-4 space-y-4 rounded-2xl bg-cyan-50 p-4">
+              <label className="block text-sm font-bold">
+                Nombre de crédits à ajouter
+                <input type="number" min={1} max={2147483647} step={1} required
+                  value={credits} onChange={(event) => setCredits(event.target.value)}
+                  disabled={Boolean(action)}
+                  className="mt-2 min-h-12 w-full rounded-xl border bg-white px-3" />
+              </label>
+              <label className="block text-sm font-bold">
+                Motif (facultatif)
+                <textarea maxLength={1000} rows={2} value={motif}
+                  onChange={(event) => setMotif(event.target.value)} disabled={Boolean(action)}
+                  placeholder="Sortie annulée du 28/09/2026"
+                  className="mt-2 w-full rounded-xl border bg-white p-3" />
+              </label>
+              {erreurRecredit && <p role="alert" className="text-sm text-red-700">{erreurRecredit}</p>}
+              <button type="submit" disabled={Boolean(action)}
+                className="min-h-12 rounded-xl bg-cyan-900 px-4 font-black text-white disabled:bg-slate-300">
+                {action === "recredit" ? "Recrédit en cours…" : "Confirmer le recrédit"}
+              </button>
+            </form>
+          )}
           <p className="mt-2 text-sm text-slate-600">
             L’annulation conserve les crédits, la facture et l’historique.
             La suppression définitive est réservée aux erreurs et carnets de test.

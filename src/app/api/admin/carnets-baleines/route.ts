@@ -8,6 +8,7 @@ type Mouvement = {
   carnet_id: string;
   created_at: string | null;
   mouvement: number;
+  motif: string | null;
   reservation_id: string | null;
 };
 
@@ -52,9 +53,8 @@ export async function GET(request: Request) {
     carnetIds.length > 0
       ? await supabase
           .from("mouvements_carnets_baleines")
-          .select("carnet_id,reservation_id,mouvement,created_at")
+          .select("carnet_id,reservation_id,mouvement,motif,created_at")
           .in("carnet_id", carnetIds)
-          .lt("mouvement", 0)
           .order("created_at", { ascending: false })
       : { data: [] as Mouvement[], error: null };
 
@@ -106,7 +106,9 @@ export async function GET(request: Request) {
       date_utilisation: mouvement.created_at,
       date_sortie: reservation?.date_sortie || null,
       depart: reservation?.depart || null,
-      credits_consommes: Math.abs(Number(mouvement.mouvement)),
+      credits_consommes: Math.max(0, -Number(mouvement.mouvement)),
+      mouvement: Number(mouvement.mouvement),
+      motif: mouvement.motif,
       reservation_id: mouvement.reservation_id,
     });
     historiqueParCarnet.set(String(mouvement.carnet_id), historique);
