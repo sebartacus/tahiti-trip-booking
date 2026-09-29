@@ -12,6 +12,7 @@ export const FORMULA_LABELS: Record<string, string> = {
   moorea_matin: "Moorea · 7h – 13h", moorea_journee: "Moorea · Journée", sunset: "Sunset privatif",
 };
 export type PlanningEvent = {
+  isExam?: boolean;
   activity: EmployeeActivity; start: string; end: string; time: string; title: string;
   names: string[]; phone: string; people: number | null; exam: string | null; detail: string;
 };
@@ -35,6 +36,18 @@ export function planningEvent(activity: EmployeeActivity, row: OperationalRow): 
     exam: activity === "permis" ? datePermis(text(row, "examen")) : null,
     detail: activity === "peche-nuit" ? "Créneau bateau uniquement : horaire de sortie et détails participants à préciser." : activity === "baleines" ? `${swimmers ?? "?"} mises à l’eau · ${observers ?? "?"} observateurs` : "",
   };
+}
+export function planningEvents(activity: EmployeeActivity, row: OperationalRow): PlanningEvent[] {
+  const course = planningEvent(activity, row);
+  const events = course ? [course] : [];
+  if (activity === "permis") {
+    const exam = datePermis(text(row, "examen"));
+    if (exam) {
+      const event = planningEvent(activity, { ...row, date_cours: exam })!;
+      events.push({ ...event, isExam: true, title: "EXAMEN PERMIS", time: "" });
+    }
+  }
+  return events;
 }
 export function eventOnDay(event: PlanningEvent, day: string) { return event.start <= day && event.end >= day; }
 export function monthBounds(month: string) {

@@ -102,7 +102,7 @@ async function main() {
       assert.equal(result.status, 200);
       assert.match(result.headers.get("cache-control") || "", /no-store/);
       const body = await result.json();
-      assert.equal(body.reservations.length, 1);
+      assert.equal(body.reservations.length, activity === "permis" ? 3 : 1);
       assert.deepEqual(Object.keys(body.reservations[0]).sort(), [...EMPLOYEE_FIELDS[activity]].sort());
       assert.deepEqual(body.reservations[0], projectEmployeeRow(activity, activity === "peche-nuit" ? { date_sortie: row.date, creneau: "Créneau bateau après-midi" } : row));
       assert.equal(JSON.stringify(body).includes("SECRET"), false);

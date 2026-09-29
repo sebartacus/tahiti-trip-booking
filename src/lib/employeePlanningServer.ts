@@ -47,7 +47,7 @@ export async function readEmployeeActivity(activity: EmployeeActivity, month: st
   for (let offset = 0; ; offset += 500) {
     let query = db.from(TABLES[activity]).select(activity === "peche-nuit" ? "date,slot" : EMPLOYEE_FIELDS[activity].join(",")).order("id").range(offset, offset + 499);
     if (activity === "permis") {
-      query = query.or("archived.is.null,archived.eq.false").not("date_cours", "is", null);
+      query = query.or("archived.is.null,archived.eq.false");
     } else if (activity === "peche-nuit") {
       // No reservations_peche_nuit table in the configured database. Read existing operational slots only.
       query = query.eq("activity", "peche_nuit").eq("status", "reserved").gte("date", bounds.from).lte("date", bounds.to);
@@ -70,8 +70,8 @@ export async function readEmployeeActivity(activity: EmployeeActivity, month: st
         ? { date_sortie: source.date, creneau: source.slot === "morning" ? "Créneau bateau matin" : source.slot === "afternoon" ? "Créneau bateau après-midi" : null }
         : source);
       if (activity === "permis") {
-        const day = datePermis(typeof row.date_cours === "string" ? row.date_cours : null);
-        if (!day || day < bounds.from || day > bounds.to) continue;
+        const days = [row.date_cours, row.examen].map(value => datePermis(typeof value === "string" ? value : null));
+        if (!days.some(day => day && day >= bounds.from && day <= bounds.to)) continue;
       }
       rows.push(row);
     }

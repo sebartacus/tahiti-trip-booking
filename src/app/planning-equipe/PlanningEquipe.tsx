@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { ACTIVITY_LABELS, EMPLOYEE_ACTIVITIES, eventOnDay, monthBounds, planningEvent, type EmployeeActivity, type OperationalRow, type PlanningEvent } from "@/lib/employeePlanning";
+import { ACTIVITY_LABELS, EMPLOYEE_ACTIVITIES, eventOnDay, monthBounds, planningEvents, type EmployeeActivity, type OperationalRow, type PlanningEvent } from "@/lib/employeePlanning";
 
 const colors: Record<EmployeeActivity, string> = {
   permis: "border-amber-300 bg-amber-50 text-amber-950", baleines: "border-sky-200 bg-sky-50 text-sky-950",
@@ -34,13 +34,14 @@ export default function PlanningEquipe({ today }: { today: string }) {
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
+      const bounds = monthBounds(month)!;
       const pairs = await Promise.all(EMPLOYEE_ACTIVITIES.map(async activity => {
         try {
           const response = await fetch(`/api/planning-equipe/${activity}?month=${month}`, { cache: "no-store", signal: controller.signal });
           if (response.status === 401) { window.location.replace("/planning-equipe/connexion"); throw new Error("Session expirée."); }
           const payload = await response.json();
           if (!response.ok) throw new Error(payload.error || "Chargement impossible.");
-          const events = (payload.reservations as OperationalRow[]).map(row => planningEvent(activity, row)).filter((event): event is PlanningEvent => event !== null);
+          const events = (payload.reservations as OperationalRow[]).flatMap(row => planningEvents(activity, row)).filter(event => event.start <= bounds.to && event.end >= bounds.from);
           return [activity, { events, error: "" }] as const;
         } catch (error) {
           return [activity, { events: [], error: error instanceof Error ? error.message : "Chargement impossible." }] as const;
@@ -54,7 +55,7 @@ export default function PlanningEquipe({ today }: { today: string }) {
   const allEvents = useMemo(() => loaded.month === month ? EMPLOYEE_ACTIVITIES.flatMap(activity => loaded.results[activity]?.events || []) : [], [loaded, month]);
   const visibleEvents = allEvents.filter(event => filter === "all" || event.activity === filter);
   const selectedEvents = visibleEvents.filter(event => eventOnDay(event, selected)).sort(sortEvents);
-  const nextCourse = allEvents.filter(event => event.activity === "permis" && event.start >= today).sort((a, b) => a.start.localeCompare(b.start) || a.time.localeCompare(b.time))[0];
+  const nextCourse = allEvents.filter(event => event.activity === "permis" && !event.isExam && event.start >= today).sort((a, b) => a.start.localeCompare(b.start) || a.time.localeCompare(b.time))[0];
   const errors = EMPLOYEE_ACTIVITIES.filter(activity => (filter === "all" || activity === filter) && results[activity]?.error);
   const dayCounts = Array.from({ length: daysInMonth }, (_, index) => {
     const day = `${month}-${String(index + 1).padStart(2, "0")}`;
@@ -118,7 +119,7 @@ export default function PlanningEquipe({ today }: { today: string }) {
 }
 function EventCard({ event }: { event: PlanningEvent }) {
   const phone = event.phone.replace(/[^+\d]/g, "");
-  return <article className={`min-w-0 rounded-2xl border p-5 ${colors[event.activity]}`}>
+  return <article className={`min-w-0 rounded-2xl border p-5 ${event.isExam ? "border-orange-400 bg-orange-100 text-orange-950" : colors[event.activity]}`}>
     <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] font-bold uppercase tracking-wider">{ACTIVITY_LABELS[event.activity]}</span><span className="rounded-full bg-white/80 px-3 py-1 text-xs font-semibold">{event.people === null ? "Effectif à préciser" : `${event.people} personne${event.people > 1 ? "s" : ""}`}</span></div>
     <h3 className="mt-3 text-lg font-semibold">{event.title}</h3>
     {event.time && <p className="mt-1 text-lg font-bold">{event.time}</p>}
