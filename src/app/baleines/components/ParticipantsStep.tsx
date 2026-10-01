@@ -103,10 +103,14 @@ export function ParticipantsStep({
             index={index}
             canRemove={participants.length > 1}
             canSwitchToMiseEau={
-              participant.role === "mise_eau" || peutAjouterMiseEau
+              participant.role === "mise_eau"
+                ? demandes.miseEau <= placesRestantesMiseEau
+                : peutAjouterMiseEau
             }
             canSwitchToObservateur={
-              participant.role === "observateur" || peutAjouterObservateur
+              participant.role === "observateur"
+                ? demandes.observateurs <= placesRestantesObservateur
+                : peutAjouterObservateur
             }
             responsableEmail={responsableEmail}
             responsableTelephone={responsableTelephone}

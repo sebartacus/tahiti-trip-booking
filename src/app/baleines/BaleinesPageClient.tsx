@@ -38,6 +38,7 @@ import {
 } from "./lib/rules";
 import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 import type { Depart, Participant, Role } from "./lib/types";
+import { baleinesCapacitiesByDate, emptyBaleinesCapacities, unavailableBaleinesCapacities, type CapacityRow, type DepartCapacities } from "./lib/capacity";
 
 type BaleinesPageClientProps = {
   locale?: WhaleWatchingLocale;
@@ -51,14 +52,6 @@ type BoatCalendarSlot = {
   status: BoatSlotStatus;
   activity: "baleines" | "peche" | "peche_nuit" | null;
 };
-type DepartCapacities = Record<
-  Depart,
-  {
-    miseEau: number;
-    observateurs: number;
-  }
->;
-
 const departSlots: Record<Depart, BoatSlotName> = {
   "07:00": "morning",
   "13:15": "afternoon",
@@ -67,25 +60,6 @@ const emptyCapacities: DepartCapacities = {
   "07:00": { miseEau: 0, observateurs: 0 },
   "13:15": { miseEau: 0, observateurs: 0 },
 };
-
-function compterParticipantsReservation(participants: unknown) {
-  const compteur = { miseEau: 0, observateurs: 0 };
-
-  if (!Array.isArray(participants)) return compteur;
-
-  for (const participant of participants) {
-    if (
-      typeof participant === "object" &&
-      participant !== null &&
-      "role" in participant
-    ) {
-      if (participant.role === "mise_eau") compteur.miseEau++;
-      if (participant.role === "observateur") compteur.observateurs++;
-    }
-  }
-
-  return compteur;
-}
 
 function bateauDisponiblePourBaleines(slot: BoatCalendarSlot | undefined) {
   if (!slot || slot.status === "available") return true;
@@ -104,8 +78,11 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
   const [participants, setParticipants] = useState<Participant[]>([
     nouveauParticipant(),
   ]);
-  const [capacitesDepart, setCapacitesDepart] =
+  const [capacitesRecues, setCapacitesDepart] =
     useState<DepartCapacities>(emptyCapacities);
+  const [capacitesChargeesPour, setCapacitesChargeesPour] = useState("");
+  const capacitesDepart = date && capacitesChargeesPour === date
+    ? capacitesRecues : unavailableBaleinesCapacities;
   const [boatSlots, setBoatSlots] = useState<
     Partial<Record<BoatSlotName, BoatCalendarSlot>>
   >({});
@@ -122,9 +99,9 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
 
   const demandes = useMemo(() => compterDemandes(participants), [participants]);
   const placesRestantesMiseEau =
-    MAX_MISE_EAU - capacitesDepart[depart].miseEau;
+    Math.max(0, MAX_MISE_EAU - capacitesDepart[depart].miseEau);
   const placesRestantesObservateur =
-    MAX_OBSERVATEURS - capacitesDepart[depart].observateurs;
+    Math.max(0, MAX_OBSERVATEURS - capacitesDepart[depart].observateurs);
   const peutAjouterMiseEau =
     demandes.miseEau < Math.max(0, placesRestantesMiseEau);
   const peutAjouterObservateur =
@@ -208,38 +185,20 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
   }, [date, t.errors.loadBoatCalendar]);
 
   async function chargerCapacitesBaleines(selectedDate: string) {
-    const { data, error } = await supabase
-      .from("reservations_baleines")
-      .select("depart, participants, statut_paiement, paye")
-      .eq("date_sortie", selectedDate)
-      .or("paye.eq.true,statut_paiement.in.(paid,paye)");
-
+    const { data, error } = await supabase.rpc("get_baleines_capacity", {
+      p_from: selectedDate,
+      p_to: selectedDate,
+    });
     if (error) throw error;
-
-    const prochainesCapacites: DepartCapacities = {
-      "07:00": { miseEau: 0, observateurs: 0 },
-      "13:15": { miseEau: 0, observateurs: 0 },
-    };
-
-    for (const reservation of data || []) {
-      if (reservation.depart !== "07:00" && reservation.depart !== "13:15") {
-        continue;
-      }
-
-      const reservationDepart = reservation.depart as Depart;
-      const compteur = compterParticipantsReservation(reservation.participants);
-      prochainesCapacites[reservationDepart].miseEau += compteur.miseEau;
-      prochainesCapacites[reservationDepart].observateurs +=
-        compteur.observateurs;
-    }
-
-    return prochainesCapacites;
+    return baleinesCapacitiesByDate((data || []) as CapacityRow[]).get(selectedDate)
+      || emptyBaleinesCapacities();
   }
 
   useEffect(() => {
+    let obsolete = false;
     async function chargerPlaces() {
       if (!date) {
-        setCapacitesDepart(emptyCapacities);
+        setCapacitesChargeesPour("");
         return;
       }
 
@@ -248,16 +207,20 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
 
       try {
         const prochainesCapacites = await chargerCapacitesBaleines(date);
+        if (obsolete) return;
         setCapacitesDepart(prochainesCapacites);
+        setCapacitesChargeesPour(date);
       } catch {
+        if (obsolete) return;
         setErreur(t.errors.loadAvailability);
-        setCapacitesDepart(emptyCapacities);
+        setCapacitesChargeesPour("");
       } finally {
-        setChargement(false);
+        if (!obsolete) setChargement(false);
       }
     }
 
     chargerPlaces();
+    return () => { obsolete = true; };
   }, [date, t.errors.loadAvailability]);
 
   function getSelectedDate() {
@@ -541,6 +504,7 @@ export function BaleinesPageClient({ locale = "fr" }: BaleinesPageClientProps) {
     try {
       const dernieresCapacites = await chargerCapacitesBaleines(selectedDate);
       setCapacitesDepart(dernieresCapacites);
+      setCapacitesChargeesPour(selectedDate);
 
       const capaciteDepart = dernieresCapacites[depart];
 

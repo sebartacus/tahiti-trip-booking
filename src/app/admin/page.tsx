@@ -913,33 +913,23 @@ export default function AdminPage() {
     setCreationBaleinesEnCours(true);
 
     try {
-      const reservationsExistantes = await supabase
-        .from("reservations_baleines")
-        .select("participants,statut_paiement")
-        .eq("date_sortie", form.dateSortie)
-        .eq("depart", depart)
-        .in("statut_paiement", ["pending", "paid", "paye"]);
+      const reservationsExistantes = await supabase.rpc("get_baleines_capacity", {
+        p_from: form.dateSortie,
+        p_to: form.dateSortie,
+      });
 
       if (reservationsExistantes.error) {
         setErreurBaleinesManuel("Impossible de verifier les places restantes.");
         return;
       }
 
-      const capaciteOccupee = (reservationsExistantes.data || []).reduce(
-        (total, reservation) => {
-          const participants =
-            reservation.participants as BaleinesParticipant[] | null;
-
-          return {
-            miseEau:
-              total.miseEau + countBaleinesRole(participants, "mise_eau"),
-            observateurs:
-              total.observateurs +
-              countBaleinesRole(participants, "observateur"),
-          };
-        },
-        { miseEau: 0, observateurs: 0 }
-      );
+      const capacites = reservationsExistantes.data as
+        { depart: string; mise_eau: number; observateurs: number }[] | null;
+      const capaciteDepart = capacites?.find((capacite) => capacite.depart === depart);
+      const capaciteOccupee = {
+        miseEau: Number(capaciteDepart?.mise_eau || 0),
+        observateurs: Number(capaciteDepart?.observateurs || 0),
+      };
 
       if (
         capaciteOccupee.miseEau + miseEau > MAX_MISE_EAU ||

@@ -31,13 +31,16 @@ export async function POST(request: Request) {
     const salon = prices.some((price) => price.pricingType === PUBLIC_PRICING_TYPE_SALON);
     const date = text(body.date_sortie), depart = text(body.depart);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || (depart !== "07:00" && depart !== "13:15")) return NextResponse.json({ error: "Date ou départ invalide." }, { status: 400 });
-    const insertion = await adminClient().from("reservations_baleines").insert({
+    const insertion = await adminClient().rpc("create_baleines_reservation", { p_reservation: {
       date_sortie: date, depart, responsable_prenom: text(body.responsable_prenom), responsable_nom: text(body.responsable_nom),
       responsable_email: text(body.responsable_email), responsable_telephone: text(body.responsable_telephone),
       participants: normalized, nombre_mise_eau: miseEau, nombre_observateurs: observateurs,
       montant_total: total, devise: "XPF", statut_paiement: "pending", paye: false,
       source_paiement: salon ? "payzen_baleines_salon_tourisme_public" : "payzen_baleines",
-    }).select("id,montant_total,source_paiement").single();
+    } }).single<{ id: string; montant_total: number; source_paiement: string }>();
+    if (insertion.error?.code === "PBC01" || insertion.error?.code === "40001") {
+      return NextResponse.json({ error: "Places insuffisantes pour ce départ. Veuillez vérifier les disponibilités." }, { status: 409 });
+    }
     if (insertion.error || !insertion.data) return NextResponse.json({ error: "Impossible d’enregistrer la réservation Baleines." }, { status: 500 });
     return NextResponse.json({ ...insertion.data, paymentToken: createPaymentIntentToken({ reservationId: String(insertion.data.id), reservationTable: "reservations_baleines", amount: Number(insertion.data.montant_total) }) }, { status: 201 });
   } catch (error) {

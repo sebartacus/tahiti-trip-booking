@@ -11,6 +11,7 @@ import {
   SAISON_FIN,
 } from "../lib/rules";
 import type { Depart } from "../lib/types";
+import { baleinesCapacitiesByDate, type CapacityRow } from "../lib/capacity";
 import { getTahitiCurrentMonthAsLocalDate, getTahitiToday } from "@/lib/tahiti-date";
 
 type BoatSlotStatus = "available" | "hold" | "reserved" | "blocked";
@@ -54,25 +55,6 @@ function getMonthBounds(monthDate: Date) {
     lastDay,
     offset: (new Date(year, monthIndex, 1).getDay() + 6) % 7,
   };
-}
-
-function countParticipants(participants: unknown) {
-  const count = { miseEau: 0, observateurs: 0 };
-
-  if (!Array.isArray(participants)) return count;
-
-  for (const participant of participants) {
-    if (
-      typeof participant === "object" &&
-      participant !== null &&
-      "role" in participant
-    ) {
-      if (participant.role === "mise_eau") count.miseEau++;
-      if (participant.role === "observateur") count.observateurs++;
-    }
-  }
-
-  return count;
 }
 
 function bateauDisponiblePourBaleines(slot: BoatCalendarSlot | undefined) {
@@ -211,12 +193,7 @@ export function BaleinesAvailabilityCalendar({
       try {
         const [calendarResponse, reservationsResponse] = await Promise.all([
           fetch(`/api/bateau/calendar?from=${bounds.from}&to=${bounds.to}`),
-          supabase
-            .from("reservations_baleines")
-            .select("date_sortie,depart,participants,statut_paiement,paye")
-            .gte("date_sortie", bounds.from)
-            .lte("date_sortie", bounds.to)
-            .or("paye.eq.true,statut_paiement.in.(paid,paye)"),
+          supabase.rpc("get_baleines_capacity", { p_from: bounds.from, p_to: bounds.to }),
         ]);
 
         const calendarPayload = await calendarResponse.json();
@@ -233,25 +210,7 @@ export function BaleinesAvailabilityCalendar({
           return;
         }
 
-        const nextCapacities = new Map<string, Capacities>();
-
-        for (const reservation of reservationsResponse.data || []) {
-          if (reservation.depart !== "07:00" && reservation.depart !== "13:15") {
-            continue;
-          }
-
-          const date = reservation.date_sortie as string;
-          const depart = reservation.depart as Depart;
-          const current = nextCapacities.get(date) || {
-            "07:00": { miseEau: 0, observateurs: 0 },
-            "13:15": { miseEau: 0, observateurs: 0 },
-          };
-          const count = countParticipants(reservation.participants);
-
-          current[depart].miseEau += count.miseEau;
-          current[depart].observateurs += count.observateurs;
-          nextCapacities.set(date, current);
-        }
+        const nextCapacities = baleinesCapacitiesByDate((reservationsResponse.data || []) as CapacityRow[]);
 
         setSlots(Array.isArray(calendarPayload.slots) ? calendarPayload.slots : []);
         setCapacitiesByDate(nextCapacities);
