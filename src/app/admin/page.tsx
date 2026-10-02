@@ -12,6 +12,7 @@ import { PECHE_FORMULAS, type FormulaId } from "@/components/peche/constants";
 import { getPermisPricing } from "@/lib/permisPricing";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import SuiviPermis from "./components/SuiviPermis";
+import PecheDateChange from "./components/PecheDateChange";
 import { originePermis } from "@/lib/permisPlanning";
 
 type AdminReservation = {
@@ -54,6 +55,7 @@ type ExamenBloque = {
 };
 
 type AdminPecheReservation = {
+  slots: string[] | null;
   id: string;
   date_sortie: string | null;
   formule: string | null;
@@ -178,10 +180,10 @@ const pecheFormulaLabels: Record<FormulaId, string> = {
 };
 
 const pecheAdminSelect =
-  "id,date_sortie,formule,origine,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,paye,commentaire,facture_numero,facture_url,email_sent,email_sent_at";
+  "id,date_sortie,slots,formule,origine,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,paye,commentaire,facture_numero,facture_url,email_sent,email_sent_at";
 
 const pecheAdminFallbackSelect =
-  "id,date_sortie,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,paye,facture_numero,facture_url,email_sent,email_sent_at";
+  "id,date_sortie,slots,formule,responsable_prenom,responsable_nom,responsable_telephone,responsable_email,nombre_personnes,montant_paye,type_paiement,statut_paiement,paye,facture_numero,facture_url,email_sent,email_sent_at";
 
 const pricingTypeLabels: Record<string, string> = {
   normal: "Tarif normal",
@@ -2052,6 +2054,10 @@ export default function AdminPage() {
                     </div>
                   </td>
                   <td className="p-3">
+                    {(reservation.paye || ["paid", "paye", "deposit_paid", "paiement_externe_a_facturer"].includes(reservation.statut_paiement || "")) &&
+                      !["cancelled", "failed"].includes(reservation.statut_paiement || "") && (
+                      <PecheDateChange reservation={reservation} onChanged={chargerReservationsPeche} />
+                    )}
                     {canCancelPecheReservation(reservation) ? (
                       <button
                         onClick={() =>

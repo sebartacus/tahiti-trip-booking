@@ -120,14 +120,14 @@ function salonBookingLayout(previousLineY: number) {
 export function buildPecheInvoicePdf(
   reservation: PecheInvoiceReservation,
   paidAt = new Date(),
-  options?: { designation?: string; paymentMethod?: string; validUntil?: string | null; totalTtc?: number; amountPaid?: number; balance?: number; showSalonBookingAccess?: boolean }
+  options?: { invoiceNumber?: string; replacesInvoiceNumber?: string; designation?: string; paymentMethod?: string; validUntil?: string | null; totalTtc?: number; amountPaid?: number; balance?: number; showSalonBookingAccess?: boolean }
 ) {
-  const invoiceNumber = getPecheInvoiceNumber(reservation.id, paidAt);
+  const invoiceNumber = options?.invoiceNumber ?? getPecheInvoiceNumber(reservation.id, paidAt);
   const amountTtc = options?.totalTtc ?? reservation.montant_paye ?? 0;
   const amountHt = amountTtc / (1 + TVA_RATE);
   const tva = amountTtc - amountHt;
   const designation = options?.designation || `Pêche au gros - ${formulaLabel(reservation.formule)}`;
-  const invoiceDate = paidAt.toLocaleDateString("fr-FR");
+  const invoiceDate = paidAt.toLocaleDateString("fr-FR", options?.replacesInvoiceNumber ? { timeZone: "Pacific/Tahiti" } : undefined);
   const validityY = options?.balance ? 378 : 418;
   const lastContentY = options?.validUntil ? validityY : (options?.balance ? 398 : 438);
   const bookingLayout = salonBookingLayout(lastContentY);
@@ -149,6 +149,7 @@ export function buildPecheInvoicePdf(
     boldLine("FACTURE", 42, 710, 24),
     textLine(`Numéro : ${invoiceNumber}`, 42, 690, 11),
     textLine(`Date : ${invoiceDate}`, 42, 674, 11),
+    ...(options?.replacesInvoiceNumber ? [boldLine(`Annule et remplace la facture n° ${options.replacesInvoiceNumber}`, 42, 624, 10)] : []),
     boldLine("Client", 360, 710, 13),
     textLine(`Nom : ${safeText(reservation.responsable_nom)}`, 360, 690, 10),
     textLine(`Prénom : ${safeText(reservation.responsable_prenom)}`, 360, 674, 10),
