@@ -223,3 +223,17 @@ export async function sendPecheDateChangeEmail(input: PecheDateChangeEmail, fetc
     attachments: [{ filename: `${input.invoiceNumber}.pdf`, content: input.invoicePdf.toString("base64") }],
   }, fetchFn, `peche-date-change-${input.reservation.id}-${input.invoiceNumber}`);
 }
+
+export async function sendPecheInvoiceEmail({ reservation, invoicePdf, invoiceNumber, fetchFn = fetch }: SendPecheEmailsOptions) {
+  const to = safeText(reservation.responsable_email, "");
+  if (!to) return { error: "Email client manquant" };
+  const escape = (value: string) => value.replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]!);
+  return sendResendEmail({
+    from: process.env.EMAIL_FROM || "Tahiti Trip Fishing <onboarding@resend.dev>",
+    to: [to], subject: "Votre facture " + invoiceNumber + " – Tahiti Trip Fishing",
+    html: '<div style="font-family:Arial,sans-serif;line-height:1.55"><p>Bonjour ' + escape(safeText(reservation.responsable_prenom, "")) + ',</p><p>Vous trouverez ci-joint votre facture actuelle ' + escape(invoiceNumber) + ' pour votre sortie pêche.</p><p>Tahiti Trip Fishing</p></div>',
+    attachments: [{ filename: invoiceNumber + ".pdf", content: invoicePdf.toString("base64") }],
+  }, fetchFn);
+}

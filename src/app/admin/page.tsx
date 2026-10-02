@@ -13,6 +13,7 @@ import { getPermisPricing } from "@/lib/permisPricing";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import SuiviPermis from "./components/SuiviPermis";
 import PecheDateChange from "./components/PecheDateChange";
+import PecheSendInvoice from "./components/PecheSendInvoice";
 import PermisMarkPaid from "./components/PermisMarkPaid";
 import { originePermis } from "@/lib/permisPlanning";
 
@@ -2061,6 +2062,7 @@ export default function AdminPage() {
                       !["cancelled", "failed"].includes(reservation.statut_paiement || "") && (
                       <PecheDateChange reservation={reservation} onChanged={chargerReservationsPeche} />
                     )}
+                    <PecheSendInvoice reservation={reservation} />
                     {canCancelPecheReservation(reservation) ? (
                       <button
                         onClick={() =>
