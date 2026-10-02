@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/adminSession";
-import { getAdminSupabaseClient } from "@/lib/adminCarnetsBaleines";
-import { getPermisPriceForFormula, getPermisSalonPricing } from "@/lib/permisPricing";
+import { getPermisServerClient } from "@/lib/permisServer";
+import { getPermisAdminPrice } from "@/lib/permisAdmin";
 import { createPaymentIntentToken } from "@/lib/payment-intent";
 import { buildPermisInvoicePdf } from "@/lib/permisInvoice";
 import { sendPermisReservationEmails } from "@/lib/permisEmail";
 
 const FORMULAS = new Set(["Classique", "Sérénité"]);
-const PAYMENT_MODES = new Set(["payzen", "especes", "cheque", "tpe"]);
-const COURSE_TYPES = new Set(["individuel", "commun"]);
+const PAYMENT_MODES = new Set(["payzen_manual", "payzen", "especes", "cheque", "tpe"]);
+const COURSE_TYPES = new Set(["individuel"]);
 const SLOT_PATTERN = /^(\d{2})h(\d{2}) - (\d{2})h(\d{2})$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_FR_PATTERN = /^(\d{2})\/(\d{2})\/(\d{4})$/;
 const INDIVIDUAL_SLOTS = new Set(["07h00 - 09h00", "09h00 - 11h00", "11h00 - 13h00", "13h00 - 15h00", "15h00 - 17h00"]);
-const SHARED_SLOTS = new Set(["07h00 - 11h00", "09h00 - 13h00", "11h00 - 15h00", "13h00 - 17h00"]);
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -51,6 +50,13 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "JSON invalide." }, { status: 400 });
+    }
+    // Only the tariff choice is accepted; the client cannot supply a price.
+    if (["pricing_amount", "montant", "amount", "price"].some(key => key in body)) {
+      return NextResponse.json({ error: "Le montant est calculé par le serveur." }, { status: 400 });
+    }
     const formule = text(body.formule);
     const prenom = text(body.prenom);
     const nom = text(body.nom);
@@ -81,15 +87,15 @@ export async function POST(request: Request) {
 
     const courseLater = body.cours_plus_tard === true;
     const courseDate = parseFrenchDate(dateCours);
-    const allowedSlots = typeCours === "commun" ? SHARED_SLOTS : INDIVIDUAL_SLOTS;
+    const allowedSlots = INDIVIDUAL_SLOTS;
     if (!courseLater && (!courseDate || courseDate < new Date(new Date().setHours(0, 0, 0, 0)) || !COURSE_TYPES.has(typeCours) || !allowedSlots.has(creneau))) {
       return NextResponse.json({ error: "Le cours pratique et son créneau sont obligatoires." }, { status: 400 });
     }
     if (!courseLater && courseDate?.getDay() === 3 && (slotRange(creneau)?.start || 0) < 13 * 60) {
       return NextResponse.json({ error: "Le mercredi matin est réservé aux examens." }, { status: 400 });
     }
-    if (!courseLater && typeCours === "commun" && (!prenom2 || !nom2)) {
-      return NextResponse.json({ error: "Le second candidat est obligatoire pour un cours commun." }, { status: 400 });
+    if (prenom2 || nom2 || typeCours === "commun" || (body.nombreParticipants !== undefined && body.nombreParticipants !== 1)) {
+      return NextResponse.json({ error: "Créez une réservation distincte par candidat." }, { status: 400 });
     }
     if (examen !== "Plus tard") {
       const examDate = parseFrenchDate(examen);
@@ -101,10 +107,11 @@ export async function POST(request: Request) {
       }
     }
 
-    const pricing = getPermisSalonPricing();
-    const participants = !courseLater && typeCours === "commun" ? 2 : 1;
-    const amount = getPermisPriceForFormula(formule, pricing) * participants;
-    const supabase = getAdminSupabaseClient();
+    // Keep the historic admin endpoint default for older clients; the form sends its choice.
+    const pricing = getPermisAdminPrice(formule, body.pricing_type ?? "salon_tourisme");
+    if (!pricing) return NextResponse.json({ error: "Tarif admin invalide." }, { status: 400 });
+    const amount = pricing.pricing_amount;
+    const supabase = getPermisServerClient();
 
     if (examen !== "Plus tard") {
       const [day, month, year] = examen.split("/");
@@ -121,13 +128,13 @@ export async function POST(request: Request) {
       }
     }
 
-    const paidAt = modePaiement === "payzen" ? null : new Date();
+    const paidAt = modePaiement === "payzen" || modePaiement === "payzen_manual" ? null : new Date();
     const creation = await supabase.from("reservations").insert({
-      prenom, nom, prenom2: participants === 2 ? prenom2 : null, nom2: participants === 2 ? nom2 : null,
+      prenom, nom, prenom2: null, nom2: null,
       telephone, email: email || null, formule, examen,
       date_cours: courseLater ? null : dateCours, type_cours: courseLater ? null : typeCours,
       creneau: courseLater ? null : creneau, paiement_effectue: Boolean(paidAt),
-      pricing_type: "salon_tourisme", pricing_amount: amount, mode_paiement: modePaiement,
+      pricing_type: pricing.pricing_type, pricing_amount: amount, mode_paiement: modePaiement === "payzen_manual" ? "payzen" : modePaiement,
       reference_paiement: referencePaiement || null, paid_at: paidAt?.toISOString() || null,
       origine_reservation: "salon_admin", statut: paidAt ? "Validé" : "En attente",
     }).select("*").single();
@@ -137,6 +144,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Impossible de créer la réservation." }, { status: 500 });
     }
 
+    if (modePaiement === "payzen_manual") {
+      return NextResponse.json({ ok: true, reservation: creation.data }, { status: 201 });
+    }
     if (modePaiement === "payzen") {
       const payzen = await fetch(new URL("/api/payzen", request.url), {
         method: "POST", headers: { "Content-Type": "application/json" },

@@ -13,6 +13,7 @@ import { getPermisPricing } from "@/lib/permisPricing";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import SuiviPermis from "./components/SuiviPermis";
 import PecheDateChange from "./components/PecheDateChange";
+import PermisMarkPaid from "./components/PermisMarkPaid";
 import { originePermis } from "@/lib/permisPlanning";
 
 type AdminReservation = {
@@ -1627,6 +1628,7 @@ export default function AdminPage() {
             </div>
 
             <div className="mt-4">
+              <PermisMarkPaid reservation={reservation} onPaid={chargerReservations} />
               {vuePermis === "archives" ? (
                 <button
                   type="button"
@@ -1762,6 +1764,7 @@ export default function AdminPage() {
                   </div>
                 </td>
                 <td className="p-3">
+                  <PermisMarkPaid reservation={reservation} onPaid={chargerReservations} />
                   {vuePermis === "archives" ? (
                     <button
                       type="button"
