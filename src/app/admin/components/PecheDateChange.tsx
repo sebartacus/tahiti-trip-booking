@@ -35,7 +35,9 @@ export default function PecheDateChange({ reservation, onChanged }: {
       }
       if (confirm) {
         setChecked(""); setOpen(false);
-        setMessage(payload.invoiceNumber ? "Date modifiée et facture de remplacement créée. Aucun email envoyé." : "Date modifiée.");
+        setMessage(payload.warning || (payload.emailStatus === "sent"
+          ? "Date modifiée, facture de remplacement créée et email envoyé au client."
+          : payload.invoiceNumber ? "Date modifiée et facture de remplacement créée." : "Date modifiée."));
         await onChanged();
       } else { setChecked(date); setMessage(`${dateLabel} disponible`); }
     } catch (error) { setChecked(""); setMessage(error instanceof Error ? error.message : "Connexion interrompue. Rechargez la réservation pour vérifier sa date."); }
@@ -53,7 +55,7 @@ export default function PecheDateChange({ reservation, onChanged }: {
           onChange={event => { setDate(event.target.value); setChecked(""); setMessage(""); }}
           className="block rounded border p-2" />
       </label>
-      {reservation.facture_numero && <p className="mt-2 text-sm">Une nouvelle facture annulera et remplacera la facture {reservation.facture_numero}. Aucun email ne sera envoyé.</p>}
+      {reservation.facture_numero && <p className="mt-2 text-sm">Une nouvelle facture annulera et remplacera la facture {reservation.facture_numero}. Elle sera envoyée automatiquement au client après validation.</p>}
       <button type="button" disabled={busy || !date || date === reservation.date_sortie}
         onClick={() => submit(checked === date)}
         className="mt-2 cursor-pointer rounded bg-cyan-800 px-3 py-2 text-white disabled:opacity-50">

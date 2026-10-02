@@ -15,14 +15,14 @@ function playwright() {
   }
   throw Error('Playwright absent du cache local');
 }
-let rpcResult, authenticated = true;
+let rpcResult, moveResult, authenticated = true;
 const calls = [];
 const routeModule = { exports: {} };
 const apiRequire = name => {
   if (name === 'next/server') return require(name);
   if (name === '@/lib/adminSession') return { verifyAdminSession: () => authenticated };
-  if (name === '@/lib/salonAdmin') return { getSalonAdminClient: () => ({ rpc: async (name, args) => { assert.equal(name, 'check_peche_date_change'); calls.push(args); return rpcResult; } }) };
-  if (name === '@/lib/pecheDateChange') return { PecheMoveError: class extends Error {}, movePecheWithInvoice: () => { throw Error('FORBIDDEN MOVE'); } };
+  if (name === '@/lib/salonAdmin') return { getSalonAdminClient: () => ({ storage: { from: () => ({}) }, rpc: async (name, args) => { assert.equal(name, 'check_peche_date_change'); calls.push(args); return rpcResult; } }) };
+  if (name === '@/lib/pecheDateChange') return { PecheMoveError: class extends Error {}, movePecheWithInvoiceAndEmail: async () => { if (!moveResult) throw Error('FORBIDDEN MOVE'); return moveResult; } };
   throw Error(name);
 };
 vm.runInNewContext(transpile(fs.readFileSync('src/app/api/admin/peche/change-date/route.ts', 'utf8')), { module: routeModule, exports: routeModule.exports, require: apiRequire, URL });
@@ -43,7 +43,7 @@ function bundle(file) {
 }
 const component = bundle(path.join(root, 'src/app/admin/components/PecheDateChange.tsx'));
 const react = bundle(require.resolve('react')), dom = bundle(require.resolve('react-dom/client'));
-const browserCode = `const process={env:{NODE_ENV:'production'}}; const modules={${modules.join(',')}}; const cache={}; function require(id){if(cache[id])return cache[id].exports;const m=cache[id]={exports:{}};modules[id](m,m.exports,require);return m.exports;} require(${dom}).createRoot(document.getElementById('root')).render(require(${react}).createElement(require(${component}).default,{reservation:${JSON.stringify(reservation)},onChanged:async()=>{throw Error('FORBIDDEN CHANGE')}}));`;
+const browserCode = `const process={env:{NODE_ENV:'production'}}; const modules={${modules.join(',')}}; const cache={}; function require(id){if(cache[id])return cache[id].exports;const m=cache[id]={exports:{}};modules[id](m,m.exports,require);return m.exports;} require(${dom}).createRoot(document.getElementById('root')).render(require(${react}).createElement(require(${component}).default,{reservation:${JSON.stringify(reservation)},onChanged:async()=>{window.changed=(window.changed||0)+1}}));`;
 (async () => {
   rpcResult = { data: { reservation }, error: null };
   let response = await routeModule.exports.GET(request());
@@ -61,6 +61,15 @@ const browserCode = `const process={env:{NODE_ENV:'production'}}; const modules=
   assert.equal(response.status, 500); assert.equal((await response.json()).error, 'Impossible de vérifier la disponibilité. Réessayez.');
   authenticated = false; assert.equal((await routeModule.exports.GET(request())).status, 401); authenticated = true;
   assert.equal((await routeModule.exports.GET(new Request('http://localhost/?date=bad'))).status, 400);
+  for (const emailStatus of ['sent', 'failed']) {
+    moveResult = { date: '2026-12-24', invoiceNumber: 'PEC-R-2026-42', emailStatus,
+      ...(emailStatus === 'failed' ? { warning: "Date modifiée et facture générée, mais l'email n'a pas pu être envoyé." } : {}) };
+    const post = new Request('http://localhost/api/admin/peche/change-date', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(query)) });
+    response = await routeModule.exports.POST(post);
+    assert.equal(response.status, 200); assert.deepEqual(await response.json(), { ok: true, ...moveResult });
+  }
+  moveResult = null;
   console.log('API: success, morning/afternoon conflicts, technical failure, auth and invalid input PASS');
   const server = http.createServer((req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end('<div id="root"></div><script>'+browserCode+'</script>'); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -69,12 +78,16 @@ const browserCode = `const process={env:{NODE_ENV:'production'}}; const modules=
     browser = await playwright().chromium.launch({ headless: true, channel: 'msedge' });
     const page = await browser.newPage({ timezoneId: 'Pacific/Tahiti' });
     const errors = []; page.on('pageerror', e => errors.push(e.message));
+    let confirmationPayload;
     const requests = []; let payload = { available: true, slots: reservation.slots }, status = 200;
     await page.route('**/api/admin/peche/change-date?*', async route => {
       assert.equal(route.request().method(), 'GET'); requests.push(route.request().url());
       await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
     });
-    await page.route('**/api/admin/peche/change-date', route => { throw Error('FORBIDDEN POST '+route.request().method()); });
+    await page.route('**/api/admin/peche/change-date', async route => {
+      assert.ok(confirmationPayload, 'FORBIDDEN real move'); assert.equal(route.request().method(), 'POST');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(confirmationPayload) });
+    });
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.getByRole('button', { name: 'Changer la date', exact: true }).click();
     const date = page.getByLabel('Nouvelle date Pêche');
@@ -96,7 +109,20 @@ const browserCode = `const process={env:{NODE_ENV:'production'}}; const modules=
     await page.getByRole('button', { name: 'Vérifier la disponibilité', exact: true }).click();
     await page.getByRole('status').filter({ hasText: 'Disponibilité non confirmée' }).waitFor();
     assert.equal(await page.getByRole('button', { name: 'Confirmer le changement', exact: true }).count(), 0);
+    for (const emailStatus of ['sent', 'failed']) {
+      await page.reload(); await page.getByRole('button', { name: 'Changer la date', exact: true }).click();
+      await page.getByLabel('Nouvelle date Pêche').fill('2026-12-24');
+      status = 200; payload = { available: true, slots: reservation.slots };
+      await page.getByRole('button', { name: 'Vérifier la disponibilité', exact: true }).click();
+      await page.getByRole('status').filter({ hasText: '24 décembre 2026 disponible' }).waitFor();
+      confirmationPayload = { ok: true, invoiceNumber: 'PEC-R-2026-42', emailStatus,
+        ...(emailStatus === 'failed' ? { warning: "Date modifiée et facture générée, mais l'email n'a pas pu être envoyé." } : {}) };
+      await page.getByRole('button', { name: 'Confirmer le changement', exact: true }).click();
+      await page.getByRole('status').filter({ hasText: emailStatus === 'sent' ? 'email envoyé au client' : "l'email n'a pas pu être envoyé" }).waitFor();
+      assert.equal(await page.evaluate(() => window.changed), 1);
+      assert.equal(await page.getByLabel('Nouvelle date Pêche').count(), 0);
+    }
     assert.deepEqual(errors, []);
-    console.log('UI Edge Chromium/Tahiti: exact date, confirmation enabled, date reset, both conflicts and available:false PASS; no POST');
+    console.log('UI Edge Chromium/Tahiti: exact date, confirmation enabled, date reset, both conflicts and available:false PASS; confirmation/email statuses tested with mocked POST only');
   } finally { if (browser) await browser.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

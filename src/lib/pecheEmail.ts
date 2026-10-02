@@ -60,7 +60,7 @@ function slotsLabel(slots: string[] | null) {
   return slots.map((slot) => slotLabels[slot] || slot).join(" + ");
 }
 
-async function sendResendEmail(payload: SendEmailPayload, fetchFn: typeof fetch) {
+async function sendResendEmail(payload: SendEmailPayload, fetchFn: typeof fetch, idempotencyKey?: string) {
   const apiKey = process.env.RESEND_API_KEY;
 
   if (!apiKey) {
@@ -72,6 +72,7 @@ async function sendResendEmail(payload: SendEmailPayload, fetchFn: typeof fetch)
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -188,4 +189,37 @@ export async function sendPecheReservationEmails({
   }
 
   return { ok: true };
+}
+
+export type PecheDateChangeEmail = {
+  reservation: PecheEmailReservation;
+  oldDate: string;
+  newDate: string;
+  invoicePdf: Buffer;
+  invoiceNumber: string;
+};
+
+export async function sendPecheDateChangeEmail(input: PecheDateChangeEmail, fetchFn: typeof fetch = fetch) {
+  const to = safeText(input.reservation.responsable_email, "");
+  if (!to) return { error: "Email client manquant" };
+  const escape = (value: string) => value.replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]!);
+  const date = (value: string) => new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+  }).format(new Date(value + "T00:00:00Z"));
+  return sendResendEmail({
+    from: process.env.EMAIL_FROM || "Tahiti Trip Fishing <onboarding@resend.dev>",
+    to: [to],
+    subject: "Confirmation de modification de votre sortie pêche – Tahiti Trip Fishing",
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.55">
+      <p>Bonjour ${escape(safeText(input.reservation.responsable_prenom, ""))},</p>
+      <p>Votre sortie pêche a bien été déplacée.</p>
+      <p>Ancienne date : ${date(input.oldDate)}<br />Nouvelle date : ${date(input.newDate)}</p>
+      <p>Vous trouverez ci-joint votre nouvelle facture, qui annule et remplace la facture précédente.</p>
+      <p>Votre règlement reste inchangé et aucun nouveau paiement n'est nécessaire.</p>
+      <p>Tahiti Trip Fishing</p>
+    </div>`,
+    attachments: [{ filename: `${input.invoiceNumber}.pdf`, content: input.invoicePdf.toString("base64") }],
+  }, fetchFn, `peche-date-change-${input.reservation.id}-${input.invoiceNumber}`);
 }

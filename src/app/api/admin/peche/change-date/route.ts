@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/adminSession";
 import { getSalonAdminClient } from "@/lib/salonAdmin";
-import { movePecheWithInvoice, PecheMoveError } from "@/lib/pecheDateChange";
+import { movePecheWithInvoiceAndEmail, PecheMoveError } from "@/lib/pecheDateChange";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   try {
     const client = getSalonAdminClient();
     const storage = client.storage.from("documents-permis");
-    const result = await movePecheWithInvoice(client, {
+    const result = await movePecheWithInvoiceAndEmail(client, {
       async assertExists(path) {
         const { error } = await storage.download(path);
         if (error) throw new Error("Ancien PDF introuvable.");

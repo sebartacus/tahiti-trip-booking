@@ -1,8 +1,9 @@
+import { sendPecheDateChangeEmail } from "./pecheEmail";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test, { before, after, beforeEach } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { movePecheWithInvoice, type PecheMoveDatabase, type PecheMoveStorage } from "./pecheDateChange";
+import { movePecheWithInvoiceAndEmail, movePecheWithInvoice, type PecheMoveDatabase, type PecheMoveStorage } from "./pecheDateChange";
 import { buildPecheInvoicePdf, getPecheInvoiceNumber } from "./pecheInvoice";
 
 const db = new PGlite();
@@ -308,4 +309,117 @@ test("après-midi seul : conserve le créneau, sans réserver le matin", async (
   await seed("afternoon",false); await move();
   const slots = (await db.query<{slot:string}>("SELECT slot FROM boat_calendar_slots WHERE date=$1",[newDate])).rows;
   assert.deepEqual(slots,[{slot:"afternoon"}]);
+});
+
+// All delivery tests use a fake Resend transport and the local PostgreSQL database.
+async function withResend(run: () => Promise<void>) {
+  const previous = process.env.RESEND_API_KEY;
+  process.env.RESEND_API_KEY = "local-test-key";
+  try { await run(); } finally {
+    if (previous === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = previous;
+  }
+}
+const moveInput = { reservationId: id, date: newDate, expectedDate: oldDate };
+
+test("succès SQL : un email client avec uniquement le nouveau PDF enregistré, paiement inchangé", async () => {
+  await withResend(async () => {
+    await seed("full_day");
+    const previous = await row("SELECT montant_paye,statut_paiement,paye FROM reservations_peche WHERE id=$1",[id]);
+    const requests: { payload: Record<string, unknown>; key: string }[] = [];
+    const transport: typeof fetch = async (url, options) => {
+      assert.equal(url, "https://api.resend.com/emails");
+      const current = await row("SELECT date_sortie::text AS date_sortie,facture_numero,facture_url FROM reservations_peche WHERE id=$1",[id]);
+      assert.equal(current.date_sortie,newDate); // SQL and references already committed.
+      const payload = JSON.parse(String(options?.body));
+      assert.equal(payload.attachments.length,1);
+      assert.equal(payload.attachments[0].filename,current.facture_numero+".pdf");
+      assert.deepEqual(Buffer.from(payload.attachments[0].content,"base64"),files.get(current.facture_url as string));
+      const pdf = Buffer.from(payload.attachments[0].content,"base64").toString("latin1");
+      assert.ok(pdf.includes("Annule et remplace"));
+      assert.notEqual(pdf,"ORIGINAL PDF");
+      assert.deepEqual(payload.to,["test@example.invalid"]);
+      assert.ok(payload.html.includes("26 octobre 2099"));
+      assert.ok(payload.html.includes("27 octobre 2099"));
+      assert.ok(payload.html.includes("aucun nouveau paiement"));
+      requests.push({payload,key:new Headers(options?.headers).get("Idempotency-Key")!});
+      return new Response("{}",{status:200});
+    };
+    const result = await movePecheWithInvoiceAndEmail(adapter,storage,moveInput,transport);
+    assert.equal(result.emailStatus,"sent"); assert.equal(requests.length,1);
+    assert.equal(requests[0].key,`peche-date-change-${id}-${result.invoiceNumber}`);
+    assert.ok(!("emailInvoice" in result)); // No PDF/base64 in admin response.
+    assert.deepEqual(await row("SELECT montant_paye,statut_paiement,paye FROM reservations_peche WHERE id=$1",[id]),previous);
+    await assert.rejects(movePecheWithInvoiceAndEmail(adapter,storage,moveInput,transport),/a changé/);
+    assert.equal(requests.length,1); // Same request replay cannot send a second email.
+  });
+});
+
+test("requêtes identiques concurrentes : un seul déplacement et un seul email", async () => {
+  await withResend(async () => {
+    await seed(); let emails=0;
+    const transport: typeof fetch = async () => { emails++; return new Response("{}",{status:200}); };
+    const results=await Promise.allSettled([
+      movePecheWithInvoiceAndEmail(adapter,storage,moveInput,transport),
+      movePecheWithInvoiceAndEmail(adapter,storage,moveInput,transport),
+    ]);
+    assert.equal(results.filter(r=>r.status==="fulfilled").length,1);
+    assert.equal(emails,1);
+  });
+});
+
+test("échec SQL de finalisation : aucun email et aucun déplacement", async () => {
+  await seed(); const before = await snapshot(); let emails=0;
+  const rejected: PecheMoveDatabase = { async rpc(name,params) {
+    if(name==="move_peche_reservation") return {data:null,error:{code:"P0001",message:"rejected move"}};
+    return adapter.rpc(name,params);
+  }};
+  await assert.rejects(movePecheWithInvoiceAndEmail(rejected,storage,moveInput,async()=>{emails++;throw Error("forbidden");}),/rejected move/);
+  assert.equal(emails,0); assert.deepEqual(await snapshot(),before); assert.equal(files.size,1);
+});
+
+for (const failure of ["http","network","missing-key","missing-client"] as const) {
+  test(`échec email (${failure}) : déplacement et nouvelle facture conservés, avertissement explicite`,async()=>{
+    await withResend(async()=>{
+      await seed();
+      if(failure==="missing-key") delete process.env.RESEND_API_KEY;
+      if(failure==="missing-client") await db.query("UPDATE reservations_peche SET responsable_email=NULL WHERE id=$1",[id]);
+      let emails=0;
+      const result=await movePecheWithInvoiceAndEmail(adapter,storage,moveInput,async()=>{
+        emails++;
+        if(failure==="network") throw Error("network failure");
+        return new Response("delivery failed",{status:500});
+      });
+      assert.equal(result.emailStatus,"failed");
+      assert.equal(result.warning,"Date modifiée et facture générée, mais l'email n'a pas pu être envoyé.");
+      const current=await row("SELECT date_sortie::text AS date_sortie,facture_numero,facture_url FROM reservations_peche WHERE id=$1",[id]);
+      assert.equal(current.date_sortie,newDate); assert.equal(current.facture_numero,result.invoiceNumber);
+      assert.ok(files.has(current.facture_url as string)); assert.deepEqual(removed,[]);
+      assert.equal(emails,failure.startsWith("missing")?0:1);
+    });
+  });
+}
+
+test("sans nouvelle facture : aucun email de remplacement",async()=>{
+  await seed("full_day",false); let emails=0;
+  const result=await movePecheWithInvoiceAndEmail(adapter,storage,moveInput,async()=>{emails++;throw Error("forbidden");});
+  assert.equal(result.emailStatus,"not_applicable"); assert.equal(emails,0);
+});
+
+test("email : dates françaises du cas réel, prénom échappé et clé Resend stable",async()=>{
+  await withResend(async()=>{
+    const input={ reservation: {id,date_sortie:"2026-12-24",formule:"full_day",slots:["morning","afternoon"],nombre_personnes:2,
+      responsable_prenom:"<Client>",responsable_nom:"Test",responsable_email:"test@example.invalid",responsable_telephone:null,montant_paye:28500},
+      oldDate:"2026-10-26",newDate:"2026-12-24",invoiceNumber:"PEC-R-2026-42",invoicePdf:Buffer.from("NEW PDF") };
+    const keys:string[]=[];
+    const transport:typeof fetch=async(url,options)=>{
+      assert.equal(url,"https://api.resend.com/emails"); const payload=JSON.parse(String(options?.body));
+      assert.match(payload.html,/26 octobre 2026/); assert.match(payload.html,/24 décembre 2026/);
+      assert.match(payload.html,/&lt;Client&gt;/); assert.equal(payload.attachments.length,1);
+      assert.equal(payload.attachments[0].content,input.invoicePdf.toString("base64"));
+      keys.push(new Headers(options?.headers).get("Idempotency-Key")!); return new Response("{}",{status:200});
+    };
+    await sendPecheDateChangeEmail(input,transport); await sendPecheDateChangeEmail(input,transport);
+    assert.equal(keys[0],keys[1]); assert.equal(keys[0],`peche-date-change-${id}-PEC-R-2026-42`);
+  });
 });

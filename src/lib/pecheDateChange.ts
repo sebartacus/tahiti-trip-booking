@@ -1,3 +1,4 @@
+import { sendPecheDateChangeEmail, type PecheDateChangeEmail } from "./pecheEmail";
 import { buildPecheInvoicePdf, type PecheInvoiceReservation } from "./pecheInvoice";
 
 export interface PecheMoveDatabase {
@@ -45,6 +46,7 @@ export async function movePecheWithInvoice(
   const context = await rpc(db, "prepare_peche_date_change", params) as MoveContext;
   if (!context) throw new Error("Préparation du déplacement absente.");
   let uploadedPath: string | null = null;
+  let emailInvoice: PecheDateChangeEmail | null = null;
   let finalizationStarted = false;
   try {
     if (context.invoice_number) {
@@ -68,13 +70,15 @@ export async function movePecheWithInvoice(
       const path = `factures/peche/remplacements/${context.invoice_number}.pdf`;
       await storage.upload(path, invoice.pdf);
       uploadedPath = path;
+      emailInvoice = { reservation: old, oldDate: input.expectedDate, newDate: context.date,
+        invoiceNumber: context.invoice_number, invoicePdf: invoice.pdf };
     }
     finalizationStarted = true;
     const result = await rpc(db, "move_peche_reservation", { ...params, p_prepared: context }) as {
       date: string; invoiceNumber: string | null;
     };
-    if (!result || result.date !== input.date) throw new Error("Réponse RPC incomplète.");
-    return result;
+    if (!result || result.date !== input.date || result.invoiceNumber !== context.invoice_number) throw new Error("Réponse RPC incomplète.");
+    return { ...result, emailInvoice };
   } catch (error) {
     if (finalizationStarted && !databaseRejected(error)) {
       // Never delete a PDF that may already be referenced by a committed RPC.
@@ -85,4 +89,20 @@ export async function movePecheWithInvoice(
     }
     throw error;
   }
+}
+
+// A notification failure must never enter the move/Storage rollback path.
+export async function movePecheWithInvoiceAndEmail(
+  db: PecheMoveDatabase, storage: PecheMoveStorage,
+  input: { reservationId: string; date: string; expectedDate: string },
+  fetchFn: typeof fetch = fetch,
+) {
+  const { emailInvoice, ...result } = await movePecheWithInvoice(db, storage, input);
+  if (!emailInvoice) return { ...result, emailStatus: "not_applicable" as const };
+  try {
+    const sent = await sendPecheDateChangeEmail(emailInvoice, fetchFn);
+    if ("ok" in sent && sent.ok) return { ...result, emailStatus: "sent" as const };
+  } catch { /* Transport failure: the successful move and PDF are retained. */ }
+  return { ...result, emailStatus: "failed" as const,
+    warning: "Date modifiée et facture générée, mais l'email n'a pas pu être envoyé." };
 }
