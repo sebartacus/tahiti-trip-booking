@@ -17,6 +17,9 @@ export default function PecheDateChange({ reservation, onChanged }: {
   const labels: Record<string,string> = { morning: "Matin", afternoon: "Après-midi", full_day: "Journée complète" };
   async function submit(confirm: boolean) {
     setBusy(true); setMessage("");
+    const dateLabel = new Intl.DateTimeFormat("fr-FR", {
+      day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+    }).format(new Date(date + "T00:00:00Z"));
     const body = { reservationId: reservation.id, expectedDate: reservation.date_sortie || "", date };
     try {
       const response = await fetch(confirm ? "/api/admin/peche/change-date" :
@@ -24,17 +27,18 @@ export default function PecheDateChange({ reservation, onChanged }: {
           method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
         } : { cache: "no-store" });
       const payload = await response.json();
-      if (!response.ok) {
+      if (!response.ok || (!confirm && payload.available !== true)) {
         setChecked("");
         if (payload.uncertain) await onChanged();
-        throw new Error(payload.error || "Impossible de changer la date.");
+        const errorMessage = payload.error || (confirm ? "Impossible de changer la date." : "Disponibilité non confirmée. Réessayez.");
+        throw new Error(confirm ? errorMessage : `${dateLabel} : ${errorMessage}`);
       }
       if (confirm) {
         setChecked(""); setOpen(false);
         setMessage(payload.invoiceNumber ? "Date modifiée et facture de remplacement créée. Aucun email envoyé." : "Date modifiée.");
         await onChanged();
-      } else { setChecked(date); setMessage("Créneaux disponibles. Vous pouvez confirmer."); }
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Connexion interrompue. Rechargez la réservation pour vérifier sa date."); }
+      } else { setChecked(date); setMessage(`${dateLabel} disponible`); }
+    } catch (error) { setChecked(""); setMessage(error instanceof Error ? error.message : "Connexion interrompue. Rechargez la réservation pour vérifier sa date."); }
     finally { setBusy(false); }
   }
   if (reservation.date_sortie && reservation.date_sortie < getTahitiToday()) return null;

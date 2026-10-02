@@ -12,7 +12,7 @@ function validDate(value: unknown): value is string {
 }
 function input(value: Record<string, unknown>) {
   if (typeof value.reservationId !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.reservationId) ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.reservationId) ||
     !validDate(value.date) || !validDate(value.expectedDate)) return null;
   return { reservationId: value.reservationId, date: value.date, expectedDate: value.expectedDate };
 }
@@ -37,7 +37,19 @@ export async function GET(request: Request) {
     });
     if (error) throw error;
     return NextResponse.json({ available: true, slots: data.reservation.slots }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) { return failure(error); }
+  } catch (error) {
+    const response = failure(error);
+    const payload = await response.json();
+    const labels: Record<string, string> = { morning: "matin", afternoon: "après-midi" };
+    const rawMessage = typeof payload.error === "string" ? payload.error : "";
+    const slot = /\((morning|afternoon)\)/.exec(rawMessage)?.[1];
+    const message = response.status >= 500
+      ? "Impossible de vérifier la disponibilité. Réessayez."
+      : slot ? rawMessage.replace(`(${slot})`, `(${labels[slot]})`) : rawMessage;
+    return NextResponse.json({ available: false, error: message, ...(slot ? { blockingSlot: slot } : {}) }, {
+      status: response.status, headers: { "Cache-Control": "no-store" },
+    });
+  }
 }
 
 export async function POST(request: Request) {
