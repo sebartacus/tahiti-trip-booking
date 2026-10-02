@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { getTahitiToday } from "@/lib/tahiti-date";
 type Reservation = {
   id: string; date_sortie: string | null; formule: string | null;
   slots: string[] | null; facture_numero: string | null;
@@ -36,6 +37,7 @@ export default function PecheDateChange({ reservation, onChanged }: {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Connexion interrompue. Rechargez la réservation pour vérifier sa date."); }
     finally { setBusy(false); }
   }
+  if (reservation.date_sortie && reservation.date_sortie < getTahitiToday()) return null;
   return <div className="mt-2">
     <button type="button" disabled={busy} className="cursor-pointer rounded bg-cyan-800 px-3 py-1 font-bold text-white disabled:opacity-50"
       onClick={() => { setOpen(!open); setChecked(""); setMessage(""); }}>Changer la date</button>
