@@ -8,24 +8,21 @@ import {
   buildPecheInvoicePdf,
   type PecheInvoiceReservation,
 } from "@/lib/pecheInvoice";
-import {
-  buildBaleinesInvoicePdf,
-  type BaleinesInvoiceReservation,
-} from "@/lib/baleinesInvoice";
 import { sendPermisReservationEmails } from "@/lib/permisEmail";
 import {
   sendPecheReservationEmails,
   type PecheEmailReservation,
 } from "@/lib/pecheEmail";
-import {
-  sendBaleinesReservationEmails,
-  type BaleinesEmailReservation,
-} from "@/lib/baleinesEmail";
+import { getSalonAdminClient } from "@/lib/salonAdmin";
+import { deliverBaleinesInvoice } from "@/lib/baleinesInvoiceDelivery";
 import {
   markReservationPaymentFailed,
   type PaymentReservationTable,
 } from "@/lib/paymentReturn";
 import { getPayzenKey, verifyPayzenSignature } from "@/lib/charter-payment";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const ACCEPTED_STATUSES = new Set(["AUTHORISED"]);
 
@@ -96,38 +93,6 @@ async function generatePecheInvoice(reservation: PecheInvoiceReservation) {
 
   const { error: updateError } = await supabase
     .from("reservations_peche")
-    .update({
-      facture_numero: invoiceNumber,
-      facture_url: invoicePath,
-    })
-    .eq("id", reservation.id);
-
-  if (updateError) {
-    return { error: updateError.message };
-  }
-
-  return { invoiceNumber, invoicePath, pdf };
-}
-
-async function generateBaleinesInvoice(
-  reservation: BaleinesInvoiceReservation
-) {
-  const { invoiceNumber, pdf } = buildBaleinesInvoicePdf(reservation);
-  const invoicePath = `factures/baleines/${invoiceNumber}.pdf`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("documents-permis")
-    .upload(invoicePath, pdf, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
-
-  if (uploadError) {
-    return { error: uploadError.message };
-  }
-
-  const { error: updateError } = await supabase
-    .from("reservations_baleines")
     .update({
       facture_numero: invoiceNumber,
       facture_url: invoicePath,
@@ -239,108 +204,33 @@ export async function POST(request: Request) {
   }
 
   if (reservationTable === "reservations_baleines") {
-    if (!reservationId) {
-      return NextResponse.json(
-        { error: "reservationId Baleines manquant" },
-        { status: 400 }
-      );
-    }
-
     const { error } = await supabase
       .from("reservations_baleines")
-      .update({
-        statut_paiement: "paid",
-        paye: true,
-      })
+      .update({ statut_paiement: "paid", paye: true })
       .eq("id", reservationId);
-
     if (error) {
       console.error(error);
-      return NextResponse.json(
-        { error: "Erreur mise a jour reservation Baleines" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Erreur mise a jour reservation Baleines" }, { status: 500 });
     }
 
-    const confirmError = await confirmBoatReservation(
-      request,
-      reservationId,
-      "reservations_baleines",
-      "baleines"
-    );
-
-    if (confirmError) {
-      console.error(confirmError);
-      return NextResponse.json({ error: confirmError }, { status: 500 });
+    // Payment is durable before invoicing; the boat calendar cannot block delivery.
+    let response;
+    try {
+      const delivery = await deliverBaleinesInvoice(getSalonAdminClient(), reservationId);
+      response = NextResponse.json({ ok: true, message: "Paiement Baleines valide", email: delivery.alreadySent ? "already_sent" : "sent" });
+    } catch (error) {
+      console.error("Facture/email Baleines", { reservationId, error: error instanceof Error ? error.message : error });
+      response = NextResponse.json({ error: "Paiement confirm?, facture/email Baleines non termin?." }, { status: 500 });
     }
 
-    const reservationResponse = await supabase
-      .from("reservations_baleines")
-      .select(
-        "id,date_sortie,depart,responsable_prenom,responsable_nom,responsable_email,responsable_telephone,participants,montant_total,email_sent,facture_numero,facture_url"
-      )
-      .eq("id", reservationId)
-      .single();
-
-    let emailStatus = "not_sent";
-
-    if (reservationResponse.error || !reservationResponse.data) {
-      console.error(reservationResponse.error);
-    } else {
-      const reservation = reservationResponse.data as BaleinesEmailReservation & {
-        email_sent: boolean | null;
-        facture_numero: string | null;
-        facture_url: string | null;
-      };
-
-      if (reservation.email_sent) {
-        emailStatus = "already_sent";
-      } else {
-        const invoiceResult = await generateBaleinesInvoice(reservation);
-
-        if (
-          invoiceResult.error ||
-          !invoiceResult.invoiceNumber ||
-          !invoiceResult.pdf
-        ) {
-          console.error(invoiceResult.error || "Facture Baleines incomplete");
-          return NextResponse.json(
-            { error: "Erreur generation facture Baleines" },
-            { status: 500 }
-          );
-        }
-
-        const emailResult = await sendBaleinesReservationEmails({
-          reservation,
-          invoicePdf: invoiceResult.pdf,
-          invoiceNumber: invoiceResult.invoiceNumber,
-        });
-
-        emailStatus = emailResultLabel(emailResult);
-
-        if ("error" in emailResult && emailResult.error) {
-          console.error(emailResult.error);
-        } else if ("ok" in emailResult && emailResult.ok) {
-          const emailUpdate = await supabase
-            .from("reservations_baleines")
-            .update({
-              email_sent: true,
-              email_sent_at: new Date().toISOString(),
-            })
-            .eq("id", reservationId);
-
-          if (emailUpdate.error) {
-            console.error(emailUpdate.error);
-          }
-        }
-      }
+    // Preserve the existing calendar confirmation, after the invoice attempt.
+    try {
+      const confirmError = await confirmBoatReservation(request, reservationId, "reservations_baleines", "baleines");
+      if (confirmError) console.error(confirmError);
+    } catch (error) {
+      console.error("Confirmation calendrier Baleines", error);
     }
-
-    return NextResponse.json({
-      ok: true,
-      message: "Paiement Baleines valide",
-      email: emailStatus,
-    });
+    return response;
   }
 
   if (reservationTable === "reservations_peche") {

@@ -14,6 +14,7 @@ import { useAdminSession } from "@/hooks/useAdminSession";
 import SuiviPermis from "./components/SuiviPermis";
 import PecheDateChange from "./components/PecheDateChange";
 import PecheSendInvoice from "./components/PecheSendInvoice";
+import BaleinesGenerateInvoice from "./components/BaleinesGenerateInvoice";
 import PermisMarkPaid from "./components/PermisMarkPaid";
 import { originePermis } from "@/lib/permisPlanning";
 
@@ -2368,6 +2369,7 @@ export default function AdminPage() {
                     ) : (
                       "-"
                     )}
+                    <BaleinesGenerateInvoice reservation={reservation} onSuccess={chargerReservationsBaleines} />
                   </td>
                   <td className="p-3">
                     <div>

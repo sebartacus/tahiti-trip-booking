@@ -105,6 +105,7 @@ export function buildBaleinesInvoicePdf(
   reservation: BaleinesInvoiceReservation,
   paidAt = new Date(),
   options: {
+    invoiceNumber?: string;
     designation?: string;
     composition?: string;
     paymentMethod?: string;
@@ -115,7 +116,7 @@ export function buildBaleinesInvoicePdf(
     showSalonBookingAccess?: boolean;
   } = {},
 ) {
-  const invoiceNumber = getBaleinesInvoiceNumber(reservation.id, paidAt);
+  const invoiceNumber = options.invoiceNumber || getBaleinesInvoiceNumber(reservation.id, paidAt);
   const amountTtc = reservation.montant_total ?? 0;
   const tax = options.salon ? calculateSalonTax(amountTtc) : null;
   const amountHt = tax?.ht ?? amountTtc / (1 + TVA_RATE);

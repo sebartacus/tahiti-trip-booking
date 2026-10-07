@@ -36,6 +36,10 @@ type SendBaleinesEmailsOptions = {
   invoicePdf: Buffer;
   invoiceNumber: string;
   fetchFn?: typeof fetch;
+  idempotencyKey?: string;
+  customerAlreadySent?: boolean;
+  beforeCustomerSend?: () => Promise<void>;
+  onCustomerSent?: () => Promise<void>;
 };
 
 function formatXpf(amount: number | null) {
@@ -147,6 +151,7 @@ export async function sendBaleinesReservationEmails({
   invoicePdf,
   invoiceNumber,
   fetchFn = fetch,
+  idempotencyKey, customerAlreadySent = false, beforeCustomerSend, onCustomerSent,
 }: SendBaleinesEmailsOptions) {
   const from =
     process.env.EMAIL_FROM || "Tahiti Trip Fishing <onboarding@resend.dev>";
@@ -161,24 +166,30 @@ export async function sendBaleinesReservationEmails({
     return { error: "Email client manquant" };
   }
 
-  const customerResult = await sendResendEmail(
-    {
-      from,
-      to: [customerEmail],
-      subject: "Confirmation de votre réservation – Observation des baleines",
-      html: buildBaleinesClientEmailHtml(reservation),
-      attachments: [
-        {
-          filename: `${invoiceNumber}.pdf`,
-          content: invoicePdf.toString("base64"),
-        },
-      ],
-    },
-    fetchFn
-  );
+  if (!customerAlreadySent) {
+    await beforeCustomerSend?.();
+    const customerResult = await sendResendEmail(
+      {
+        from,
+        to: [customerEmail],
+        subject: "Confirmation de votre réservation – Observation des baleines",
+        html: buildBaleinesClientEmailHtml(reservation),
+        attachments: [
+          {
+            filename: `${invoiceNumber}.pdf`,
+            content: invoicePdf.toString("base64"),
+          },
+        ],
+      },
+      fetchFn,
+      idempotencyKey ? idempotencyKey + "-customer" : undefined
+    );
 
-  if ("error" in customerResult || "skipped" in customerResult) {
-    return customerResult;
+    if ("error" in customerResult || "skipped" in customerResult) {
+      return customerResult;
+    }
+
+    await onCustomerSent?.();
   }
 
   const internalResult = await sendResendEmail(
@@ -194,7 +205,8 @@ export async function sendBaleinesReservationEmails({
         },
       ],
     },
-    fetchFn
+    fetchFn,
+    idempotencyKey ? idempotencyKey + "-internal" : undefined
   );
 
   if ("error" in internalResult || "skipped" in internalResult) {
