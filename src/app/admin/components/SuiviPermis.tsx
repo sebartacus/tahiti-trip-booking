@@ -1,12 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { getTahitiToday } from "@/lib/tahiti-date";
 import { afficherDatePermis, candidatsPermis, compteursPermis, correspondFiltre, datePermis, groupesPermis, originePermis, piecesPermis, rechercherPermis, sansExamen, type FiltrePermis, type PermisDossier } from "@/lib/permisPlanning";
 
 const labels: Record<FiltrePermis,string> = {sansDates:"Sans dates",sansExamen:"Sans examen",sansCours:"Sans cours",incomplets:"Dossiers incomplets"};
 
 function Dossier({row}: {row:PermisDossier}) {
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  const pending = useRef(false);
+  const count = piecesPermis(row);
+  async function downloadDossier() {
+    if (pending.current) return;
+    pending.current = true; setDownloading(true); setDownloadError("");
+    try {
+      const response = await fetch(`/api/admin/permis/${encodeURIComponent(row.id)}/dossier`, { cache: "no-store" });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error || "Impossible de télécharger le dossier.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = response.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] || "dossier-permis.zip";
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : "Impossible de télécharger le dossier.");
+    } finally {
+      pending.current = false; setDownloading(false);
+    }
+  }
   return <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-4">
     <p className="break-words font-bold">{candidatsPermis(row).join(" · ")}</p>
     <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
@@ -14,7 +39,7 @@ function Dossier({row}: {row:PermisDossier}) {
       <div><dt className="text-slate-500">Origine</dt><dd>{originePermis(row.origine_reservation)}</dd></div>
       <div><dt className="text-slate-500">Examen</dt><dd>{afficherDatePermis(row.examen)}</dd></div>
       <div><dt className="text-slate-500">Cours pratique</dt><dd>{afficherDatePermis(row.date_cours)} · {row.creneau || "Créneau à choisir"}</dd></div>
-      <div><dt className="text-slate-500">Pièces déposées (dossier)</dt><dd>{piecesPermis(row)}/4</dd></div>
+      <div><dt className="text-slate-500">Pièces déposées (dossier)</dt><dd>{count > 0 ? <button type="button" title="Télécharger le dossier" aria-label={downloading ? "Génération du dossier en cours" : `Télécharger le dossier (${count}/4 pièces)`} aria-busy={downloading} disabled={downloading} onClick={downloadDossier} className="cursor-pointer hover:underline focus-visible:outline-2 focus-visible:outline-sky-700 disabled:cursor-wait">{count}/4</button> : "0/4"}{downloadError && <p role="alert" className="mt-1 text-xs text-red-700">{downloadError}</p>}</dd></div>
       <div><dt className="text-slate-500">Statut administratif</dt><dd>{row.statut || "Non renseigné"}</dd></div>
     </dl>
   </article>;
