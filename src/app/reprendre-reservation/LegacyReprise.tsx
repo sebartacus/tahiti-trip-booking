@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
+import { permisHolidays as joursFeriesPolynesie } from "@/lib/permisHolidays";
 
 type PermisReservation = {
   id: string | number;
@@ -59,23 +60,6 @@ useEffect(() => {
 
   chargerExamensBloques();
 }, []);
-const joursFeriesPolynesie = [
-  "2026-01-01",
-  "2026-03-05",
-  "2026-04-03",
-  "2026-04-06",
-  "2026-05-01",
-  "2026-05-08",
-  "2026-05-14",
-  "2026-05-25",
-  "2026-06-29",
-  "2026-07-14",
-  "2026-08-15",
-  "2026-11-01",
-  "2026-11-11",
-  "2026-12-25",
-];
-
 function formatDateISO(date: Date) {
   return date.toISOString().split("T")[0];
 }

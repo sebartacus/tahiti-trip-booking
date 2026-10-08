@@ -1509,7 +1509,7 @@ export default function AdminPage() {
         </p>
       </section>
 
-      <SuiviPermis reservations={reservations} />
+      <SuiviPermis reservations={reservations} onExamChanged={(id, examen) => setReservations(rows => rows.map(row => String(row.id) === String(id) ? { ...row, examen } : row))} />
 
       <div className="mb-6 bg-white rounded-xl p-4 shadow">
         <label className="mr-3 font-semibold">Filtrer par statut :</label>

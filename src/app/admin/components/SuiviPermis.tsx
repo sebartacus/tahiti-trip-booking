@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import PermisReexamen from "./PermisReexamen";
 import { getTahitiToday } from "@/lib/tahiti-date";
 import { afficherDatePermis, candidatsPermis, compteursPermis, correspondFiltre, datePermis, groupesPermis, originePermis, piecesPermis, rechercherPermis, sansExamen, type FiltrePermis, type PermisDossier } from "@/lib/permisPlanning";
 
@@ -44,7 +45,7 @@ function Dossier({row}: {row:PermisDossier}) {
     </dl>
   </article>;
 }
-export default function SuiviPermis({reservations}: {reservations:PermisDossier[]}) {
+export default function SuiviPermis({reservations, onExamChanged}: {reservations:PermisDossier[]; onExamChanged: (id: string | number, examen: string) => void}) {
   const [query,setQuery] = useState("");
   const [filter,setFilter] = useState<FiltrePermis | null>(null);
   const active = reservations.filter(row => !row.archived);
@@ -72,6 +73,7 @@ export default function SuiviPermis({reservations}: {reservations:PermisDossier[
       {!selected.length && <p>Aucun dossier correspondant</p>}
     </div>}
     <div className="mt-7"><h3 className="mb-3 text-xl font-bold">Prochains examens</h3>
+      <PermisReexamen reservations={reservations} onChanged={onExamChanged} />
       {!exams.length && <p className="rounded-xl bg-white p-4">Aucun examen à venir</p>}
       {exams.map(group => <div key={group.date} className="mb-4 rounded-xl border border-sky-100 bg-sky-50 p-3">
         <h4 className="mb-3 font-bold">{afficherDatePermis(group.date)} — {group.dossiers.reduce((n,row) => n+candidatsPermis(row).length,0)} candidats · {group.dossiers.length} dossiers</h4>

@@ -1,22 +1,31 @@
 import { datePermis } from "./permisPlanning";
 import { parsePermisSlot } from "./permisScheduling";
+import { permisHolidays, permisHolidayYearCovered } from "./permisHolidays";
 
-// Same holiday list as the legacy/public screens; later-year holidays need maintenance.
-const holidays = new Set(["2026-01-01","2026-03-05","2026-04-03","2026-04-06","2026-05-01","2026-05-08","2026-05-14","2026-05-25","2026-06-29","2026-07-14","2026-08-15","2026-11-01","2026-11-11","2026-12-25"]);
+const holidays = new Set(permisHolidays);
 export function addPermisDays(iso: string, days: number) {
   const date = new Date(iso + "T12:00:00Z");
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
-export function permisExamOptions(today: string) {
+export function permisExamOptions(today: string, requireVerifiedHolidays = false) {
   const dates: string[] = [];
   for (let offset = 1; offset <= 45 && dates.length < 4; offset++) {
     const day = addPermisDays(today, offset);
     if (new Date(day + "T12:00:00Z").getUTCDay() !== 3) continue;
     const exam = holidays.has(day) ? addPermisDays(day, 1) : day;
+    if (requireVerifiedHolidays && !permisHolidayYearCovered(exam)) continue;
     if (today <= addPermisDays(exam, -8)) dates.push(exam);
   }
   return dates;
+}
+export function permisExamCalendarWarnings(today: string) {
+  const years = new Set<string>();
+  for (let offset = 1; offset <= 45; offset++) {
+    const day = addPermisDays(today, offset);
+    if (!permisHolidayYearCovered(day)) years.add(day.slice(0, 4));
+  }
+  return [...years].map(year => `Jours fériés ${year} à renseigner et vérifier : les sessions de cette année ne sont pas proposées.`);
 }
 export function permisAllowedSlots(day: string, typeCours?: string | null) {
   const individual = ["07h00 - 09h00","09h00 - 11h00","11h00 - 13h00","13h00 - 15h00","15h00 - 17h00"];

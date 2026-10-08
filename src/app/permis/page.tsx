@@ -14,22 +14,7 @@ import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 
-const joursFeriesPolynesie = [
-  "2026-01-01",
-  "2026-03-05",
-  "2026-04-03",
-  "2026-04-06",
-  "2026-05-01",
-  "2026-05-08",
-  "2026-05-14",
-  "2026-05-25",
-  "2026-06-29",
-  "2026-07-14",
-  "2026-08-15",
-  "2026-11-01",
-  "2026-11-11",
-  "2026-12-25",
-];
+import { permisHolidays as joursFeriesPolynesie } from "@/lib/permisHolidays";
 
 function formatDateISO(date: Date) {
   return date.toISOString().split("T")[0];
