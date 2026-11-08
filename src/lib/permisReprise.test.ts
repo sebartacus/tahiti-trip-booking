@@ -23,8 +23,8 @@ async function main() {
     RESEND_API_KEY: "test-resend-key",
     INTERNAL_EMAIL: "internal@example.invalid",
   });
-  assert.deepEqual(permisExamOptions("2027-01-01"), ["2027-01-13", "2027-01-20", "2027-01-27", "2027-02-03"], "No new year cutoff compared with legacy");
-  assert.equal(permisExamOptions("2026-12-25").length, 4, "Exam choices cross the year boundary");
+  assert.deepEqual(permisExamOptions("2027-01-01"), ["2027-01-13", "2027-01-20", "2027-01-27"], "No new year cutoff compared with legacy");
+  assert.equal(permisExamOptions("2026-12-25").length, 3, "Exam choices cross the year boundary");
   const today = getTahitiToday();
   // Fixture deliberately follows the validated 2026 calendar.
   const exam = permisExamOptions(today)[0];

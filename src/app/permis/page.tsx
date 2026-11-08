@@ -14,19 +14,13 @@ import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 
-import { permisHolidays as joursFeriesPolynesie } from "@/lib/permisHolidays";
+import { permisExamSessions } from "@/lib/permisRepriseCalendar";
+import { getTahitiToday } from "@/lib/tahiti-date";
 
 function formatDateISO(date: Date) {
   return date.toISOString().split("T")[0];
 }
 
-function formatDateFR(date: Date) {
-  return date.toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 const moisFrancais: Record<string, number> = {
   janvier: 0,
@@ -65,50 +59,10 @@ function getIsoDepuisLibelleExamen(session: string) {
   return `${annee}-${String(indexMois + 1).padStart(2, "0")}-${jour.padStart(2, "0")}`;
 }
 
-function ajouterJours(date: Date, jours: number) {
-  const nouvelleDate = new Date(date);
-  nouvelleDate.setDate(nouvelleDate.getDate() + jours);
-  return nouvelleDate;
+
+function genererExamens(blocked: string[] = []) {
+  return [...permisExamSessions(getTahitiToday(), blocked), {label:"Je choisirai plus tard",value:"Plus tard",limite:"",iso:""}];
 }
-
-function genererExamens() {
-  const aujourdHui = new Date();
-  aujourdHui.setHours(0, 0, 0, 0);
-
-  const examensDisponibles = [];
-  const date = new Date(aujourdHui);
-
-  while (examensDisponibles.length < 4) {
-    date.setDate(date.getDate() + 1);
-
-    const estMercredi = date.getDay() === 3;
-
-    if (!estMercredi) continue;
-
-    let dateExamen = new Date(date);
-
-    if (joursFeriesPolynesie.includes(formatDateISO(dateExamen))) {
-      dateExamen = ajouterJours(dateExamen, 1);
-    }
-
-    const limiteInscription = ajouterJours(dateExamen, -8);
-
-    if (aujourdHui <= limiteInscription) {
-      examensDisponibles.push({
-  label: `Session du ${formatDateFR(dateExamen)}`,
-  value: formatDateFR(dateExamen),
-  limite: formatDateFR(limiteInscription),
-  iso: formatDateISO(dateExamen),
-});
-    }
-  }
-
-  return [
-    ...examensDisponibles,
-    { label: "Je choisirai plus tard", value: "Plus tard", limite: "" },
-  ];
-}
-
 
 const creneauxIndividuels = [
   "07h00 - 09h00",
@@ -170,7 +124,7 @@ useEffect(() => {
 
 const permisPricing = getPermisPublicPricing(salonEvaluationDate(salonActive));
 
-const examens = genererExamens().filter(
+const examens = genererExamens(datesExamensBloques).filter(
   (examen) =>
     examen.value === "Plus tard" ||
     (examen.iso && !datesExamensBloques.includes(examen.iso))

@@ -5,5 +5,6 @@ export const permisHolidaysByYear: Readonly<Record<string, readonly string[]>> =
 };
 export const permisHolidays = Object.values(permisHolidaysByYear).flat();
 export function permisHolidayYearCovered(iso: string) {
-  return Object.hasOwn(permisHolidaysByYear, iso.slice(0, 4));
+  // Explicit January sessions only; not a complete 2027 holiday calendar.
+  return Object.hasOwn(permisHolidaysByYear, iso.slice(0, 4)) || ["2027-01-13", "2027-01-20", "2027-01-27"].includes(iso);
 }

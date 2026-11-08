@@ -1,3 +1,5 @@
+import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
+import { getTahitiToday as permisToday } from "@/lib/tahiti-date";
 import { NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/adminSession";
 import { getPermisServerClient } from "@/lib/permisServer";
@@ -99,7 +101,7 @@ export async function POST(request: Request) {
     }
     if (examen !== "Plus tard") {
       const examDate = parseFrenchDate(examen);
-      if (!examDate || examDate.getDay() !== 3 || examDate < new Date()) {
+      if (!examDate || !permisExamAvailable(examen, permisToday())) {
         return NextResponse.json({ error: "La date d’examen est invalide." }, { status: 400 });
       }
       if (!courseLater && courseDate && courseDate >= examDate) {

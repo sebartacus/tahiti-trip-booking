@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { permisExamSessions } from "@/lib/permisRepriseCalendar";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import { SALON_PRICING, formatSalonPrice } from "@/lib/salon-pricing";
@@ -8,7 +9,7 @@ import {
   SALON_PAYMENT_LABELS,
   getSalonPermisValidityLabel,
 } from "@/lib/salonSales";
-import { getTahitiToday, getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
+import { getTahitiToday } from "@/lib/tahiti-date";
 import { SalonCarnetForm } from "./SalonCarnetForm";
 import { SalonBaleinesForm } from "./SalonBaleinesForm";
 import { SalonPecheForm } from "./SalonPecheForm";
@@ -77,21 +78,8 @@ type FormState = {
   comment: string;
 };
 
-function nextExams(blocked: string[]) {
-  const result: Array<{ value: string; label: string }> = [];
-  const date = getTahitiTodayAsLocalDate();
-  while (result.length < 4) {
-    date.setDate(date.getDate() + 1);
-    if (date.getDay() === 3) {
-      const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-      if (!blocked.includes(iso)) {
-        const value = date.toLocaleDateString("fr-FR");
-        result.push({ value, label: `Session du ${value}` });
-      }
-    }
-  }
-  return result;
-}
+function nextExams(blocked: string[]) { return permisExamSessions(getTahitiToday(), blocked, true); }
+
 function toFrenchDate(value: string) {
   return value ? new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR") : "";
 }

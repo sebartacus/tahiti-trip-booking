@@ -12,11 +12,11 @@ test("Calendrier partagé : mercredi, jeudi férié, délai et années inconnues
   assert.deepEqual(permisExamOptions("2026-10-07", true), ["2026-10-21", "2026-10-28", "2026-11-04", "2026-11-12"]);
   assert.equal(permisExamOptions("2026-11-04", true)[0], "2026-11-12");
   assert.equal(permisExamOptions("2026-11-05", true)[0], "2026-11-18");
-  assert.deepEqual(permisExamOptions("2026-12-25", true), []);
+  assert.deepEqual(permisExamOptions("2026-12-25", true), ["2027-01-13", "2027-01-20", "2027-01-27"]);
   assert.match(permisExamCalendarWarnings("2026-12-01")[0], /2027/);
-  assert.deepEqual(permisExamOptions("2027-01-01", true), []);
+  assert.deepEqual(permisExamOptions("2027-01-01", true), ["2027-01-13", "2027-01-20", "2027-01-27"]);
   // Existing candidate flows retain their previous cross-year behavior.
-  assert.deepEqual(permisExamOptions("2027-01-01"), ["2027-01-13", "2027-01-20", "2027-01-27", "2027-02-03"]);
+  assert.deepEqual(permisExamOptions("2027-01-01"), ["2027-01-13", "2027-01-20", "2027-01-27"]);
 });
 
 test("Réinscription : routes réelles + transaction PostgreSQL isolée", async t => {

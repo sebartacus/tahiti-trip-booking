@@ -1,3 +1,5 @@
+import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
+import { getTahitiToday as permisToday } from "@/lib/tahiti-date";
 import { NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/adminSession";
 import { getSalonAdminClient } from "@/lib/salonAdmin";
@@ -228,7 +230,7 @@ export async function POST(request: Request) {
       );
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (examDate && (examDate < today || examDate.getDay() !== 3))
+    if (examDate && (!permisExamAvailable(exam, permisToday())))
       return NextResponse.json(
         { error: "La date d’examen est invalide." },
         { status: 400 },

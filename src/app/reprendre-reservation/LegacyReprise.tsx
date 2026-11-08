@@ -7,7 +7,8 @@ import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
-import { permisHolidays as joursFeriesPolynesie } from "@/lib/permisHolidays";
+import { permisExamSessions } from "@/lib/permisRepriseCalendar";
+import { getTahitiToday } from "@/lib/tahiti-date";
 
 type PermisReservation = {
   id: string | number;
@@ -60,61 +61,14 @@ useEffect(() => {
 
   chargerExamensBloques();
 }, []);
-function formatDateISO(date: Date) {
-  return date.toISOString().split("T")[0];
+
+
+
+function genererExamens(blocked: string[] = []) {
+  return [...permisExamSessions(getTahitiToday(), blocked), {label:"Je choisirai plus tard",value:"Plus tard",limite:"",iso:""}];
 }
 
-function formatDateFR(date: Date) {
-  return date.toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function ajouterJours(date: Date, jours: number) {
-  const nouvelleDate = new Date(date);
-  nouvelleDate.setDate(nouvelleDate.getDate() + jours);
-  return nouvelleDate;
-}
-
-function genererExamens() {
-  const aujourdHui = new Date();
-  aujourdHui.setHours(0, 0, 0, 0);
-
-  const examensDisponibles = [];
-  const date = new Date(aujourdHui);
-
-  while (examensDisponibles.length < 4) {
-    date.setDate(date.getDate() + 1);
-
-    if (date.getDay() !== 3) continue;
-
-    let dateExamen = new Date(date);
-
-    if (joursFeriesPolynesie.includes(formatDateISO(dateExamen))) {
-      dateExamen = ajouterJours(dateExamen, 1);
-    }
-
-    const limiteInscription = ajouterJours(dateExamen, -8);
-
-    if (aujourdHui <= limiteInscription) {
-      examensDisponibles.push({
-  label: `Session du ${formatDateFR(dateExamen)}`,
-  value: formatDateFR(dateExamen),
-  limite: formatDateFR(limiteInscription),
-  iso: formatDateISO(dateExamen),
-});
-    }
-  }
-
-  return [
-    ...examensDisponibles,
-    { label: "Je choisirai plus tard", value: "Plus tard", limite: "" },
-  ];
-}
-
-const examens = genererExamens().filter(
+const examens = genererExamens(datesExamensBloques).filter(
   (examen) =>
     examen.value === "Plus tard" ||
     (examen.iso && !datesExamensBloques.includes(examen.iso))

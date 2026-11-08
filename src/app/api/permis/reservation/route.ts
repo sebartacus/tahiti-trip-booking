@@ -1,3 +1,6 @@
+import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
+import { datePermis, sansExamen } from "@/lib/permisPlanning";
+import { getTahitiToday } from "@/lib/tahiti-date";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getPermisPublicPrice } from "@/lib/public-pricing";
@@ -23,8 +26,12 @@ export async function POST(request: Request) {
     if (nombreParticipants !== 1 && nombreParticipants !== 2) return NextResponse.json({ error: "Nombre de participants invalide." }, { status: 400 });
     const prenom = text(body.prenom), nom = text(body.nom), telephone = text(body.telephone), email = text(body.email);
     if (!prenom || !nom || !telephone || !email) return NextResponse.json({ error: "Coordonnées incomplètes." }, { status: 400 });
+    const examen=text(body.examen);
+    if(!sansExamen(examen)&&!permisExamAvailable(examen,getTahitiToday()))return NextResponse.json({error:"Session d’examen indisponible ou délai de huit jours dépassé."},{status:400});
+    const db=adminClient();
+    if(!sansExamen(examen)){const blocked=await db.from("examens_bloques").select("id").eq("date_examen",datePermis(examen)).maybeSingle();if(blocked.error)throw blocked.error;if(blocked.data)return NextResponse.json({error:"Cette session d’examen est bloquée."},{status:409});}
     const pricing = getPermisPublicPrice(formule);
-    const insertion = await adminClient().from("reservations").insert({
+    const insertion = await db.from("reservations").insert({
       prenom, nom, prenom2: nombreParticipants === 2 ? text(body.prenom2) : null,
       nom2: nombreParticipants === 2 ? text(body.nom2) : null, telephone, email,
       formule, examen: text(body.examen), date_cours: text(body.date_cours) || null,

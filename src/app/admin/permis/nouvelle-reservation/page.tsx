@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import { formatXpf } from "@/lib/permisPricing";
 import { getPermisAdminPrice } from "@/lib/permisAdmin";
-import { getTahitiToday, getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
+import { getTahitiToday } from "@/lib/tahiti-date";
 
 const individualSlots = ["07h00 - 09h00", "09h00 - 11h00", "11h00 - 13h00", "13h00 - 15h00", "15h00 - 17h00"];
 const paymentLabels: Record<string, string> = { payzen_manual: "PayZen — lien envoyé manuellement", payzen: "PayZen — paiement immédiat", especes: "Espèces", cheque: "Chèque", tpe: "Carte bancaire – TPE" };
@@ -20,27 +20,18 @@ function overlaps(left: string, right: string) {
   return Boolean(a && b && a.start < b.end && b.start < a.end);
 }
 
-function nextExams() {
-  const dates: { value: string; label: string }[] = [];
-  const date = getTahitiTodayAsLocalDate();
-  while (dates.length < 4) {
-    date.setDate(date.getDate() + 1);
-    if (date.getDay() === 3) {
-      dates.push({ value: date.toLocaleDateString("fr-FR"), label: `Session du ${date.toLocaleDateString("fr-FR")}` });
-    }
-  }
-  return [...dates, { value: "Plus tard", label: "Je choisirai plus tard" }];
-}
 
 type CreatedReservation = Record<string, string | number | boolean | null>;
 
 export default function NewPermisSalonReservationPage() {
   const { checking, authenticated } = useAdminSession();
-  const exams = useMemo(() => nextExams(), []);
+  const [error, setError] = useState("");
+  const [sessions, setSessions] = useState<string[]>([]);
+  useEffect(() => { if(!authenticated)return; let active=true;fetch("/api/admin/permis/examens",{cache:"no-store"}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{if(active)setSessions(data.exams);}).catch(()=>{if(active)setError("Impossible de charger les examens.");});return()=>{active=false;}; },[authenticated]);
+  const exams=[...sessions.map(iso=>{const value=new Date(iso+"T12:00:00Z").toLocaleDateString("fr-FR",{timeZone:"UTC"});return {value,label:"Session du "+value};}),{value:"Plus tard",label:"Je choisirai plus tard"}];
   const [form, setForm] = useState({ pricing_type: "normal", formule: "Classique", prenom: "", nom: "", telephone: "", email: "", examen: "Plus tard", cours_plus_tard: false, date_cours: "", type_cours: "individuel", creneau: "", mode_paiement: "payzen_manual", reference_paiement: "" });
   const [reservedSlots, setReservedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [created, setCreated] = useState<CreatedReservation | null>(null);
   const amount = getPermisAdminPrice(form.formule, form.pricing_type)?.pricing_amount ?? 0;

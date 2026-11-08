@@ -32,6 +32,6 @@ export async function GET(request: Request) {
         if (!rows.length || offset >= (result.count ?? offset)) break;
       }
     }
-    return repriseJson({ exams: permisExamOptions(today).filter(day => !blockedExams.includes(day)), slots });
+    return repriseJson({ exams: permisExamOptions(today, true, blockedExams.filter((day): day is string => !!day)), slots });
   } catch (error) { return repriseFailure(error); }
 }
