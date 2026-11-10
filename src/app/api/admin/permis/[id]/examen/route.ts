@@ -1,3 +1,4 @@
+import { permisCourseBeforeExam } from "@/lib/permisScheduling";
 import { NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/adminSession";
 import { getPermisServerClient } from "@/lib/permisServer";
@@ -24,10 +25,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const today = getTahitiToday();
     if (!permisExamOptions(today, true).includes(body.examen)) return fail("Session indisponible, calendrier non renseigné ou délai de huit jours dépassé.", 409);
     const db = getPermisServerClient();
-    const result = await db.from("reservations").select("id,prenom,nom,prenom2,nom2,examen,statut,archived").eq("id", id).maybeSingle();
+    const result = await db.from("reservations").select("id,prenom,nom,prenom2,nom2,examen,date_cours,creneau,statut,archived").eq("id", id).maybeSingle();
     if (result.error) throw result.error;
     const row = result.data as PermisDossier | null;
     if (!row) return fail("Dossier Permis introuvable.", 404);
+    if (!permisCourseBeforeExam(body.examen, row.date_cours, row.creneau)) return fail("Le cours doit pr\u00e9c\u00e9der l\u2019examen.", 409);
     const problem = permisReexamenProblem(row, today);
     if (problem) return fail(problem, 409);
     if (row.examen !== body.expectedExamen) return fail("La date d’examen a changé. Rechargez le dossier.", 409);

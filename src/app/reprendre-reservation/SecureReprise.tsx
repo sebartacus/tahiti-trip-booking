@@ -5,7 +5,7 @@ import "react-calendar/dist/Calendar.css";
 import UploadDocuments from "@/app/UploadDocuments";
 import { afficherDatePermis, datePermis } from "@/lib/permisPlanning";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
-import type { PermisPlanning } from "@/lib/permisScheduling";
+import { permisCourseBeforeExam, type PermisPlanning } from "@/lib/permisScheduling";
 
 type DocumentKind = "certificat" | "formulaire" | "photo" | "identite";
 type Dossier = PermisPlanning & { prenom: string | null; nom: string | null; prenom2: string | null; nom2: string | null; formule: string | null; statut: string | null; documents: Record<DocumentKind, boolean> };
@@ -46,10 +46,13 @@ export default function SecureReprise() {
   useEffect(() => {
     if (!row) return;
     let cancelled = false;
-    setAvailability(null); setAvailabilityError("");
-    api("disponibilites" + (day ? "?date=" + day : ""))
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setAvailability(null); setAvailabilityError("");
+      api("disponibilites" + (day ? "?date=" + day : ""))
       .then(value => { if (!cancelled) setAvailability(value); })
       .catch(reason => { if (!cancelled) setAvailabilityError(reason.message); });
+    });
     return () => { cancelled = true; };
     // A successful save/reload refreshes occupancy even when the date is unchanged.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,11 +124,11 @@ export default function SecureReprise() {
         <select id="candidate-exam" className={inputClass} value={current.examen || ""} onChange={event => setPatch(value => ({ ...value, examen: event.target.value || null }))}>
           <option value="">Je choisirai plus tard</option>
           {current.examen && !availability?.exams.includes(current.examen) && <option value={current.examen}>{afficherDatePermis(current.examen)} (choix actuel)</option>}
-          {availability?.exams.map(exam => <option key={exam} value={exam}>{afficherDatePermis(exam)}</option>)}
+          {availability?.exams.map(exam => <option key={exam} value={exam} disabled={!permisCourseBeforeExam(exam, day, current.creneau)}>{afficherDatePermis(exam)}</option>)}
         </select>
         {availability && !availability.exams.length && <p className="mt-2">Aucune session disponible actuellement. Contactez l’administration.</p>}
         <div className="mt-6 rounded-2xl bg-white p-4 text-slate-900"><h3 className="mb-4 text-xl font-bold">Choisir mon cours pratique</h3>
-          <Calendar locale="fr-FR" className="!w-full !border-none" minDate={getTahitiTodayAsLocalDate()} value={day ? new Date(day + "T12:00:00") : null} onChange={value => { const date = value as Date; const iso = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; setPatch(previous => ({ ...previous, date_cours: iso, creneau: null })); }} />
+          <Calendar tileDisabled={({ date }) => !permisCourseBeforeExam(current.examen, `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`)} locale="fr-FR" className="!w-full !border-none" minDate={getTahitiTodayAsLocalDate()} value={day ? new Date(day + "T12:00:00") : null} onChange={value => { const date = value as Date; const iso = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; setPatch(previous => ({ ...previous, date_cours: iso, creneau: null })); }} />
           <p className="mt-3">{afficherDatePermis(current.date_cours)}</p>
           <button type="button" className="mt-2 underline" onClick={() => setPatch(value => ({ ...value, date_cours: null, creneau: null }))}>Choisir le cours plus tard</button>
         </div>
@@ -133,7 +136,7 @@ export default function SecureReprise() {
         <select id="candidate-slot" className={inputClass} disabled={!day || !availability} value={current.creneau || ""} onChange={event => setPatch(value => ({ ...value, creneau: event.target.value || null }))}>
           <option value="">Choisir un créneau</option>
           {current.creneau && !availability?.slots.includes(current.creneau) && <option value={current.creneau}>{current.creneau} (choix actuel)</option>}
-          {availability?.slots.map(slot => <option key={slot}>{slot}</option>)}
+          {availability?.slots.map(slot => <option key={slot} disabled={!permisCourseBeforeExam(current.examen, day, slot)}>{slot}</option>)}
         </select>
         {!availability && !availabilityError && <p className="mt-2">Chargement des disponibilités…</p>}
         {availabilityError && <p role="alert" className="mt-2 text-red-800">{availabilityError}</p>}

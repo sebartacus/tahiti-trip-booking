@@ -1,3 +1,4 @@
+import { validatePermisPlanning } from "@/lib/permisScheduling";
 import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
 import { datePermis, sansExamen } from "@/lib/permisPlanning";
 import { getTahitiToday } from "@/lib/tahiti-date";
@@ -28,6 +29,13 @@ export async function POST(request: Request) {
     if (!prenom || !nom || !telephone || !email) return NextResponse.json({ error: "Coordonnées incomplètes." }, { status: 400 });
     const examen=text(body.examen);
     if(!sansExamen(examen)&&!permisExamAvailable(examen,getTahitiToday()))return NextResponse.json({error:"Session d’examen indisponible ou délai de huit jours dépassé."},{status:400});
+    try {
+      validatePermisPlanning({ examen: null, date_cours: null, creneau: null }, {
+        examen, date_cours: text(body.date_cours) || null, creneau: text(body.creneau) || null,
+      }, getTahitiToday());
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Planning invalide." }, { status: 400 });
+    }
     const db=adminClient();
     if(!sansExamen(examen)){const blocked=await db.from("examens_bloques").select("id").eq("date_examen",datePermis(examen)).maybeSingle();if(blocked.error)throw blocked.error;if(blocked.data)return NextResponse.json({error:"Cette session d’examen est bloquée."},{status:409});}
     const pricing = getPermisPublicPrice(formule);

@@ -1,4 +1,5 @@
 "use client";
+import { permisCourseBeforeExam } from "@/lib/permisScheduling";
 
 import { useEffect, useState } from "react";
 import UploadDocuments from "@/app/UploadDocuments";
@@ -222,8 +223,8 @@ async function deposerDocuments() {
 async function mettreAJourReservation() {
   if (!reservation) return;
 
-  if (examen && examen !== "Plus tard" && !dateCours && !reservation.date_cours) {
-    alert("Veuillez choisir une date de cours pratique avant de valider votre réservation.");
+  if (!permisCourseBeforeExam(examen, dateCours?.toLocaleDateString("fr-FR") || reservation.date_cours, creneau || reservation.creneau)) {
+    alert("Le cours pratique doit terminer avant l’examen.");
     return;
   }
 
@@ -336,11 +337,11 @@ setMessage("Réservation mise à jour avec succès.");
     value={examen}
 onChange={(e) => setExamen(e.target.value)}
   >
-    <option value="">Choisir</option>
+    <option value="">Je choisirai plus tard</option>
 {examens
   .filter((e) => e.value !== "Plus tard")
   .map((examen) => (
-    <option key={examen.value} value={examen.value}>
+    <option key={examen.value} value={examen.value} disabled={!permisCourseBeforeExam(examen.value, dateCours?.toLocaleDateString("fr-FR") || reservation?.date_cours)}>
       {examen.value}
     </option>
 ))}
@@ -352,6 +353,7 @@ onChange={(e) => setExamen(e.target.value)}
   </h3>
 
   <Calendar
+  tileDisabled={({ date }) => !permisCourseBeforeExam(examen, date.toLocaleDateString("fr-FR"))}
   defaultActiveStartDate={getTahitiTodayAsLocalDate()}
   onChange={(value) => {
     const date = value as Date;

@@ -9,6 +9,8 @@ import {
   getPermisPriceForFormula,
   getPermisPublicPricing,
 } from "@/lib/permisPricing";
+import { datePermis } from "@/lib/permisPlanning";
+import { permisCourseBeforeExam } from "@/lib/permisScheduling";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
@@ -18,45 +20,7 @@ import { permisExamSessions } from "@/lib/permisRepriseCalendar";
 import { getTahitiToday } from "@/lib/tahiti-date";
 
 function formatDateISO(date: Date) {
-  return date.toISOString().split("T")[0];
-}
-
-
-const moisFrancais: Record<string, number> = {
-  janvier: 0,
-  fevrier: 1,
-  février: 1,
-  mars: 2,
-  avril: 3,
-  mai: 4,
-  juin: 5,
-  juillet: 6,
-  aout: 7,
-  août: 7,
-  septembre: 8,
-  octobre: 9,
-  novembre: 10,
-  decembre: 11,
-  décembre: 11,
-};
-
-function getIsoDepuisLibelleExamen(session: string) {
-  const sessionTrimmee = session.trim().toLowerCase();
-  const matchNumerique = sessionTrimmee.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-
-  if (matchNumerique) {
-    const [, jour, mois, annee] = matchNumerique;
-    return `${annee}-${mois.padStart(2, "0")}-${jour.padStart(2, "0")}`;
-  }
-
-  const matchTexte = sessionTrimmee.match(/^(\d{1,2})\s+([a-zÃ©Ã¨ÃªÃ«Ã Ã¢Ã®Ã¯Ã´Ã»Ã¹Ã¼Ã§]+)\s+(\d{4})$/i);
-  if (!matchTexte) return "";
-
-  const [, jour, mois, annee] = matchTexte;
-  const indexMois = moisFrancais[mois];
-  if (indexMois === undefined) return "";
-
-  return `${annee}-${String(indexMois + 1).padStart(2, "0")}-${jour.padStart(2, "0")}`;
+  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,"0"), String(date.getDate()).padStart(2,"0")].join("-");
 }
 
 
@@ -127,12 +91,12 @@ const permisPricing = getPermisPublicPricing(salonEvaluationDate(salonActive));
 const examens = genererExamens(datesExamensBloques).filter(
   (examen) =>
     examen.value === "Plus tard" ||
-    (examen.iso && !datesExamensBloques.includes(examen.iso))
+    (examen.iso && !datesExamensBloques.includes(examen.iso) && permisCourseBeforeExam(examen.iso, dateCours ? formatDateISO(dateCours) : null))
 );
 
 const examenSelectionne = examens.find((examen) => examen.value === session);
 const dateExamenIsoSelectionnee =
-  examenSelectionne?.iso || getIsoDepuisLibelleExamen(session);
+  examenSelectionne?.iso || datePermis(session);
 
   const mercredi = isMercredi(dateCours);
 const prixBase = getPermisPriceForFormula(formule, permisPricing);
@@ -181,7 +145,7 @@ function getErreurDateCours(date: Date | null) {
     return "";
   }
 
-  return formatDateISO(date) >= dateExamenIsoSelectionnee
+  return !permisCourseBeforeExam(dateExamenIsoSelectionnee, formatDateISO(date))
     ? "Le cours pratique doit avoir lieu avant la date d'examen."
     : "";
 }
@@ -207,14 +171,14 @@ function getDateMaxCours() {
 
 const dateMaxCours = getDateMaxCours();
 
-const creneauxDisponibles =
+const creneauxDisponibles = (
     typeCours === "commun"
       ? mercredi
         ? ["13h00 - 17h00"]
         : creneauxCommuns
       : mercredi
       ? ["13h00 - 15h00", "15h00 - 17h00"]
-      : creneauxIndividuels;
+      : creneauxIndividuels).filter(slot => permisCourseBeforeExam(session, dateCours ? formatDateISO(dateCours) : null, slot));
 
   function retour() {
   if (creneau) setCreneau("");
