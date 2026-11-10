@@ -1,4 +1,5 @@
 import { datePermis, sansExamen } from "./permisPlanning";
+import { permisIsExamDay } from "./permisExamDay";
 
 export type PermisPlanning = { examen: string | null; date_cours: string | null; creneau: string | null };
 export function parsePermisSlot(value: string | null | undefined) {
@@ -23,14 +24,14 @@ export function normalizePermisPlanning(value: PermisPlanning): PermisPlanning {
   return { examen, date_cours, creneau };
 }
 // Exams store a civil date without a start time. Available courses must finish
-// on an earlier day; Wednesday morning remains reserved for exams.
+// on an earlier day, independently of the global exam-morning restriction.
 export function permisCourseBeforeExam(examen?: string | null, course?: string | null, slot?: string | null) {
   if (sansExamen(examen) || sansExamen(course)) return true;
   const examDay = datePermis(examen), courseDay = datePermis(course);
   if (!examDay || !courseDay || (slot && !parsePermisSlot(slot))) return false;
   return courseDay < examDay;
 }
-export function validatePermisPlanning(previous: PermisPlanning, patch: Partial<PermisPlanning>, today: string) {
+export function validatePermisPlanning(previous: PermisPlanning, patch: Partial<PermisPlanning>, today: string, recordedSessions: readonly string[] = []) {
   if (Object.keys(patch).some(key => !["examen", "date_cours", "creneau"].includes(key))) throw new Error("Champ interdit.");
   for (const value of Object.values(patch)) if (value !== null && typeof value !== "string") throw new Error("Valeur invalide.");
   const before = normalizePermisPlanning(previous);
@@ -40,7 +41,7 @@ export function validatePermisPlanning(previous: PermisPlanning, patch: Partial<
   if (!permisCourseBeforeExam(after.examen, after.date_cours, after.creneau)) throw new Error("Le cours doit précéder l’examen.");
   if (after.date_cours && after.creneau && (after.date_cours !== before.date_cours || after.creneau !== before.creneau)) {
     const start = parsePermisSlot(after.creneau)!.start;
-    if (new Date(after.date_cours + "T12:00:00Z").getUTCDay() === 3 && start < 780) throw new Error("Mercredi matin réservé aux examens.");
+    if (permisIsExamDay(after.date_cours, recordedSessions) && start < 780) throw new Error("Matinée réservée aux examens : cours à partir de 13h00.");
   }
   return { before, after, changed: JSON.stringify(before) !== JSON.stringify(after) };
 }

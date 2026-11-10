@@ -8,7 +8,8 @@ import { supabase } from "@/lib/supabase";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
-import { permisExamSessions } from "@/lib/permisRepriseCalendar";
+import { datePermis } from "@/lib/permisPlanning";
+import { permisExamSessions, permisAllowedSlots } from "@/lib/permisRepriseCalendar";
 import { getTahitiToday } from "@/lib/tahiti-date";
 
 type PermisReservation = {
@@ -33,7 +34,8 @@ export default function ReprendreReservationPage() {
 const [examen, setExamen] = useState("");
 const [dateCours, setDateCours] = useState<Date | null>(null);
 const [creneau, setCreneau] = useState("");
-const mercredi = dateCours?.getDay() === 3;
+const [examDays, setExamDays] = useState<string[]>([]);
+const selectedCourseDay = datePermis(dateCours?.toLocaleDateString("fr-FR") || reservation?.date_cours);
 const [creneauxReserves, setCreneauxReserves] = useState<string[]>([]);
   const [erreur, setErreur] = useState("");
 const [message, setMessage] = useState("");
@@ -61,6 +63,10 @@ useEffect(() => {
   }
 
   chargerExamensBloques();
+  fetch("/api/permis/disponibilites", { cache: "no-store" }).then(async response => {
+    if (!response.ok) throw new Error("Disponibilités indisponibles.");
+    return response.json();
+  }).then(data => setExamDays(data.examDays || [])).catch(console.error);
 }, []);
 
 
@@ -234,6 +240,17 @@ async function mettreAJourReservation() {
     alert("Veuillez choisir un créneau horaire.");
     return;
   }
+  const course = selectedCourseDay;
+  const chosenSlot = creneau || reservation.creneau;
+  if (course && chosenSlot && (course !== datePermis(reservation.date_cours) || chosenSlot !== reservation.creneau)) {
+    try {
+      const response = await fetch("/api/permis/disponibilites", { cache: "no-store" });
+      if (!response.ok) throw new Error("Disponibilités indisponibles. Réessayez.");
+      const data = await response.json();
+      setExamDays(data.examDays || []);
+      if (!permisAllowedSlots(course, null, data.examDays || []).includes(chosenSlot)) throw new Error("Matinée réservée aux examens : cours à partir de 13h00.");
+    } catch (error) { alert(error instanceof Error ? error.message : "Disponibilités indisponibles."); return; }
+  }
   const { error } = await supabase
     .from("reservations")
     .update({
@@ -382,20 +399,7 @@ onChange={(e) => setExamen(e.target.value)}
     onChange={(e) => setCreneau(e.target.value)}
   >
     <option value="">Choisir un créneau</option>
-    {(mercredi
-  ? [
-  "13h00 - 15h00",
-  "15h00 - 17h00",
-  "13h00 - 17h00",
-]
-  : [
-      "07h00 - 09h00",
-      "09h00 - 11h00",
-      "13h00 - 15h00",
-      "15h00 - 17h00",
-"13h00 - 17h00",
-    ]
-)
+    {(selectedCourseDay ? permisAllowedSlots(selectedCourseDay, null, examDays) : [])
   .filter((horaire) => !creneauxReserves.includes(horaire))
   .map((horaire) => (
     <option key={horaire} value={horaire}>

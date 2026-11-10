@@ -1,3 +1,4 @@
+import { readPermisExamDays } from "@/lib/permisExamDayServer";
 import { getPermisServerClient } from "@/lib/permisServer";
 import { readPermisCandidate, requirePermisCandidate, RepriseError, repriseFailure, repriseJson } from "@/lib/permisRepriseServer";
 import { permisAllowedSlots, permisExamOptions, validPermisIso } from "@/lib/permisRepriseCalendar";
@@ -17,7 +18,8 @@ export async function GET(request: Request) {
     if (blocked.error) throw new Error("Availability failed");
     const blockedExams = (blocked.data || []).map(r => datePermis(r.date_examen)).filter(Boolean);
     const today = getTahitiToday();
-    let slots = day && day >= today ? permisAllowedSlots(day, row.type_cours) : [];
+    const examDays = await readPermisExamDays(db);
+    let slots = day && day >= today ? permisAllowedSlots(day, row.type_cours, examDays) : [];
     if (day && slots.length) {
       // Normalize historical date formats and exclude only the authenticated dossier.
       for (let offset = 0; ; ) {

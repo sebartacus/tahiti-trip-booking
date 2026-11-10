@@ -1,6 +1,7 @@
+import { readPermisExamDays } from "@/lib/permisExamDayServer";
 import { getPermisServerClient } from "@/lib/permisServer";
 import { boundedBody, readPermisCandidate, requirePermisCandidate, RepriseError, repriseFailure, repriseJson } from "@/lib/permisRepriseServer";
-import { validatePermisPlanning } from "@/lib/permisScheduling";
+import { validatePermisPlanning, parsePermisSlot } from "@/lib/permisScheduling";
 import { permisAllowedSlots, permisExamOptions } from "@/lib/permisRepriseCalendar";
 import { getTahitiToday } from "@/lib/tahiti-date";
 import { sendPermisPlanningEmail } from "@/lib/permisEmail";
@@ -20,12 +21,16 @@ export async function PATCH(request: Request) {
     catch (error) { throw new RepriseError(400, error instanceof Error ? error.message : "Planning invalide."); }
     const { before, after, changed } = planning;
     if (!changed) return repriseJson({ ok: true, changed: false, planning: after });
+    const courseChanged = after.date_cours !== before.date_cours || after.creneau !== before.creneau;
+    const examDays = courseChanged && (parsePermisSlot(after.creneau)?.start ?? 780) < 780 ? await readPermisExamDays(db) : [];
+    try { validatePermisPlanning(row, patch, today, examDays); }
+    catch (error) { throw new RepriseError(400, error instanceof Error ? error.message : "Planning invalide."); }
     if (after.examen && after.examen !== before.examen && !permisExamOptions(today).includes(after.examen)) throw new RepriseError(400, "Session d’examen indisponible ou délai d’inscription dépassé.");
-    if (after.date_cours && (after.date_cours !== before.date_cours || after.creneau !== before.creneau) && !permisAllowedSlots(after.date_cours, row.type_cours).includes(after.creneau!)) throw new RepriseError(400, "Créneau non autorisé.");
+    if (after.date_cours && (after.date_cours !== before.date_cours || after.creneau !== before.creneau) && !permisAllowedSlots(after.date_cours, row.type_cours, examDays).includes(after.creneau!)) throw new RepriseError(400, "Créneau non autorisé.");
     // This RPC requires the unapplied 2B migration. Never fall back to an UPDATE.
     const result = await db.rpc("permis_save_planning", { p_reservation_id: id, p_expected: before, p_patch: patch });
     if (result.error) {
-      if (/Blocked exam|Exam registration deadline|Course must precede exam|Past course|Wednesday morning/.test(result.error.message)) throw new RepriseError(409, "Examen ou cours indisponible. Rechargez les disponibilités.");
+      if (/Blocked exam|Exam registration deadline|Course must precede exam|Past course|Exam morning|Wednesday morning/.test(result.error.message)) throw new RepriseError(409, "Examen ou cours indisponible. Rechargez les disponibilités.");
       throw new Error("Planning save failed");
     }
     const saved = result.data;

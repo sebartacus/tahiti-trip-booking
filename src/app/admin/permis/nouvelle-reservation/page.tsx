@@ -1,5 +1,7 @@
 "use client";
 
+import { permisAllowedSlots } from "@/lib/permisRepriseCalendar";
+import { permisCourseBeforeExam } from "@/lib/permisScheduling";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useAdminSession } from "@/hooks/useAdminSession";
@@ -7,7 +9,6 @@ import { formatXpf } from "@/lib/permisPricing";
 import { getPermisAdminPrice } from "@/lib/permisAdmin";
 import { getTahitiToday } from "@/lib/tahiti-date";
 
-const individualSlots = ["07h00 - 09h00", "09h00 - 11h00", "11h00 - 13h00", "13h00 - 15h00", "15h00 - 17h00"];
 const paymentLabels: Record<string, string> = { payzen_manual: "PayZen — lien envoyé manuellement", payzen: "PayZen — paiement immédiat", especes: "Espèces", cheque: "Chèque", tpe: "Carte bancaire – TPE" };
 
 function slotRange(value: string) {
@@ -30,13 +31,15 @@ export default function NewPermisSalonReservationPage() {
   useEffect(() => { if(!authenticated)return; let active=true;fetch("/api/admin/permis/examens",{cache:"no-store"}).then(async r=>{if(!r.ok)throw Error();return r.json();}).then(data=>{if(active)setSessions(data.exams);}).catch(()=>{if(active)setError("Impossible de charger les examens.");});return()=>{active=false;}; },[authenticated]);
   const exams=[...sessions.map(iso=>{const value=new Date(iso+"T12:00:00Z").toLocaleDateString("fr-FR",{timeZone:"UTC"});return {value,label:"Session du "+value};}),{value:"Plus tard",label:"Je choisirai plus tard"}];
   const [form, setForm] = useState({ pricing_type: "normal", formule: "Classique", prenom: "", nom: "", telephone: "", email: "", examen: "Plus tard", cours_plus_tard: false, date_cours: "", type_cours: "individuel", creneau: "", mode_paiement: "payzen_manual", reference_paiement: "" });
+  const [examDays, setExamDays] = useState<string[]>([]);
   const [reservedSlots, setReservedSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [warning, setWarning] = useState("");
   const [created, setCreated] = useState<CreatedReservation | null>(null);
   const amount = getPermisAdminPrice(form.formule, form.pricing_type)?.pricing_amount ?? 0;
-  const isWednesday = form.date_cours ? new Date(`${form.date_cours}T12:00:00`).getDay() === 3 : false;
-  const slots = isWednesday ? individualSlots.filter((slot) => (slotRange(slot)?.start || 0) >= 13 * 60) : individualSlots;
+  const slots = form.date_cours ? permisAllowedSlots(form.date_cours, "individuel", examDays)
+    .filter(slot => permisCourseBeforeExam(form.examen, form.date_cours, slot)) : [];
+
 
   function update(name: string, value: string | boolean) {
     setForm((current) => ({ ...current, [name]: value, ...(name === "type_cours" || name === "date_cours" ? { creneau: "" } : {}) }));
@@ -50,6 +53,7 @@ export default function NewPermisSalonReservationPage() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error);
       setReservedSlots(payload.occupiedSlots || []);
+      setExamDays(payload.examDays || []);
     } catch {
       setError("Impossible de charger les créneaux.");
     }

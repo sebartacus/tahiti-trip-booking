@@ -1,4 +1,5 @@
-import { validatePermisPlanning } from "@/lib/permisScheduling";
+import { readPermisExamDays } from "@/lib/permisExamDayServer";
+import { validatePermisPlanning, parsePermisSlot } from "@/lib/permisScheduling";
 import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
 import { datePermis, sansExamen } from "@/lib/permisPlanning";
 import { getTahitiToday } from "@/lib/tahiti-date";
@@ -37,6 +38,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error instanceof Error ? error.message : "Planning invalide." }, { status: 400 });
     }
     const db=adminClient();
+    if (text(body.date_cours) && (parsePermisSlot(text(body.creneau))?.start ?? 780) < 780) {
+      const examDays = await readPermisExamDays(db);
+      try {
+        validatePermisPlanning({ examen: null, date_cours: null, creneau: null }, {
+          examen, date_cours: text(body.date_cours), creneau: text(body.creneau),
+        }, getTahitiToday(), examDays);
+      } catch (error) {
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Planning indisponible." }, { status: 400 });
+      }
+    }
     if(!sansExamen(examen)){const blocked=await db.from("examens_bloques").select("id").eq("date_examen",datePermis(examen)).maybeSingle();if(blocked.error)throw blocked.error;if(blocked.data)return NextResponse.json({error:"Cette session d’examen est bloquée."},{status:409});}
     const pricing = getPermisPublicPrice(formule);
     const insertion = await db.from("reservations").insert({

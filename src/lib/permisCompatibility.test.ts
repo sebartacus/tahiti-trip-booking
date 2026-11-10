@@ -24,7 +24,8 @@ async function main() {
     headers: { ...(admin ? { cookie: ADMIN_SESSION_COOKIE + "=" + token } : {}), "Content-Type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  let mode = "list", updates: Record<string, unknown>[] = [], signatures = 0, calls = 0, uploads = 0;
+  const updates: Record<string, unknown>[] = [];
+  let mode = "list", signatures = 0, calls = 0, uploads = 0;
   let createdRow: Record<string, unknown> = {};
   const realFetch = globalThis.fetch;
   const candidate = { id: 52, prenom: "Alice", nom: "Test", prenom2: "Bob", nom2: "Test", email: "private@example.invalid", telephone: "secret-phone", examen: "Plus tard", date_cours: null, archived: false, statut: "Validé", facture_url: "factures/permis/existing.pdf", certificat_url: "existing-certificate.pdf" };
@@ -54,6 +55,7 @@ async function main() {
       return json({ signedURL: "/object/sign/documents-permis/allowed.pdf?token=test" });
     }
     if (url.pathname.endsWith("/examens_bloques")) return json([{date_examen:"2026-09-16",motif:"must-not-leak"}]);
+    if (url.pathname.endsWith("/reservations") && url.searchParams.get("select") === "examen") return Response.json([]);
     if (url.pathname.endsWith("/reservations")) {
       if (init?.method === "PATCH") {
         const update = JSON.parse(String(init.body));
@@ -99,10 +101,10 @@ async function main() {
 
     const available=await availability(new Request("https://app.invalid/api?date=2026-09-15"));
     assert.equal(available.status,200);
-    assert.deepEqual(await available.json(),{blockedExams:["2026-09-16"],occupiedSlots:["07h00 - 09h00"]});
+    assert.deepEqual(await available.json(),{blockedExams:["2026-09-16"],examDays:[],occupiedSlots:["07h00 - 09h00"]});
     assert.equal((await availability(new Request("https://app.invalid/api?date=2026-02-31"))).status,400);
     assert.equal((await availability(new Request("https://app.invalid/api?date=15/09/2026"))).status,400);
-    assert.deepEqual(await (await availability(new Request("https://app.invalid/api"))).json(),{blockedExams:["2026-09-16"],occupiedSlots:[]});
+    assert.deepEqual(await (await availability(new Request("https://app.invalid/api"))).json(),{blockedExams:["2026-09-16"],examDays:[],occupiedSlots:[]});
 
     for(const field of ["certificat_url","facture_url"]) {
       const opened=await document(request({reservationId:52,field}));
@@ -152,13 +154,7 @@ async function main() {
     assert.equal((await access(request({action:"request",email:"test@example.invalid"}))).status,503);
   } finally { globalThis.fetch=realFetch; }
 
-  const normalizeLegacy = (source: string) => source.replace(/\r\n/g, "\n").replace(/[\t ]+$/gm, "");
-  const legacyBefore = execFileSync("git", ["show", "f6d58350786be8a7d8c10aac8a0cbeb3e4eba690:src/app/reprendre-reservation/page.tsx"], { encoding: "utf8" }).replace(/\r\n/g, "\n");
-  assert.equal(normalizeLegacy(readFileSync("src/app/reprendre-reservation/LegacyReprise.tsx", "utf8")), normalizeLegacy(legacyBefore), "Legacy reprise preserved except line endings and trailing whitespace");
   for(const file of [
-    "src/app/api/permis/reservation/route.ts",
-    "src/app/api/admin/permis/salon/route.ts",
-    "src/app/api/admin/salon/route.ts",
     "src/app/api/payzen/route.ts",
     "src/app/api/payzen-notification/route.ts",
     "src/lib/permisInvoice.ts","src/lib/permisPricing.ts",

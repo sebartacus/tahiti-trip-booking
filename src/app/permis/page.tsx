@@ -16,7 +16,7 @@ import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
 import { salonEvaluationDate, useSalonActive } from "@/hooks/useSalonActive";
 
-import { permisExamSessions } from "@/lib/permisRepriseCalendar";
+import { permisExamSessions, permisAllowedSlots, permisIsExamDay } from "@/lib/permisRepriseCalendar";
 import { getTahitiToday } from "@/lib/tahiti-date";
 
 function formatDateISO(date: Date) {
@@ -26,26 +26,6 @@ function formatDateISO(date: Date) {
 
 function genererExamens(blocked: string[] = []) {
   return [...permisExamSessions(getTahitiToday(), blocked), {label:"Je choisirai plus tard",value:"Plus tard",limite:"",iso:""}];
-}
-
-const creneauxIndividuels = [
-  "07h00 - 09h00",
-  "09h00 - 11h00",
-  "11h00 - 13h00",
-  "13h00 - 15h00",
-  "15h00 - 17h00",
-];
-
-const creneauxCommuns = [
-  "07h00 - 11h00",
-  "09h00 - 13h00",
-  "11h00 - 15h00",
-  "13h00 - 17h00",
-];
-
-function isMercredi(date: Date | null) {
-  if (!date) return false;
-  return date.getDay() === 3;
 }
 
 export default function PermisPage() {
@@ -70,6 +50,7 @@ const [paiementValide] = useState(false);
 const [enregistrementEnCours, setEnregistrementEnCours] = useState(false);
 const [accepteCgv, setAccepteCgv] = useState(false);
 const [accepteDocuments, setAccepteDocuments] = useState(false);
+const [examDays, setExamDays] = useState<string[]>([]);
 const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
 useEffect(() => {
   async function chargerDonneesPermis() {
@@ -78,6 +59,7 @@ useEffect(() => {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error);
       setDatesExamensBloques(payload.blockedExams || []);
+      setExamDays(payload.examDays || []);
     } catch (error) {
       console.error(error);
     }
@@ -98,7 +80,7 @@ const examenSelectionne = examens.find((examen) => examen.value === session);
 const dateExamenIsoSelectionnee =
   examenSelectionne?.iso || datePermis(session);
 
-  const mercredi = isMercredi(dateCours);
+  const examMorning = !!dateCours && permisIsExamDay(formatDateISO(dateCours), examDays);
 const prixBase = getPermisPriceForFormula(formule, permisPricing);
 const nombreParticipants = typeCours === "commun" ? 2 : 1;
 const prix = prixBase * nombreParticipants;
@@ -114,6 +96,7 @@ async function chargerCreneauxReserves(date: Date) {
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error);
     setCreneauxReserves(payload.occupiedSlots || []);
+    setExamDays(payload.examDays || []);
   } catch (error) {
     console.error(error);
   }
@@ -171,14 +154,8 @@ function getDateMaxCours() {
 
 const dateMaxCours = getDateMaxCours();
 
-const creneauxDisponibles = (
-    typeCours === "commun"
-      ? mercredi
-        ? ["13h00 - 17h00"]
-        : creneauxCommuns
-      : mercredi
-      ? ["13h00 - 15h00", "15h00 - 17h00"]
-      : creneauxIndividuels).filter(slot => permisCourseBeforeExam(session, dateCours ? formatDateISO(dateCours) : null, slot));
+const creneauxDisponibles = (dateCours ? permisAllowedSlots(formatDateISO(dateCours), typeCours, examDays) : [])
+  .filter(slot => permisCourseBeforeExam(session, dateCours ? formatDateISO(dateCours) : null, slot));
 
   function retour() {
   if (creneau) setCreneau("");
@@ -748,9 +725,9 @@ const recap = (
               Date choisie : {dateCours.toLocaleDateString("fr-FR")}
             </h2>
 
-            {mercredi && (
+            {examMorning && (
               <p className="mb-6 text-yellow-200">
-                Mercredi matin réservé aux examens : créneaux disponibles uniquement à partir de 13h00.
+                Matinée réservée aux examens : créneaux disponibles uniquement à partir de 13h00.
               </p>
             )}
 

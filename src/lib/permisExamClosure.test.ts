@@ -18,7 +18,7 @@ test("Examens uniquement : fermeture, reprise, délai et calendrier partiel",()=
  assert.match(permisExamCalendarWarnings(today)[0],/2027 partiel/);
  assert.equal(permisExamSessions(today)[1].value,"13 janvier 2027");
  for(const day of ["2026-12-24","2026-12-28","2027-01-04","2027-01-12"])assert.ok(permisAllowedSlots(day,"individuel").includes("07h00 - 09h00"));
- for(const day of ["2026-12-23","2026-12-30","2027-01-06"])assert.deepEqual(permisAllowedSlots(day,"individuel"),["13h00 - 15h00","15h00 - 17h00"]);
+ for(const day of ["2026-12-23","2026-12-30","2027-01-06"])assert.ok(permisAllowedSlots(day,"individuel").includes("07h00 - 09h00"));
 });
 test("API Permis : mêmes dates public/admin, réservations Plus tard et pratique conservées",async t=>{
  t.mock.timers.enable({apis:["Date"],now:new Date("2026-12-01T20:00:00Z")});
@@ -26,6 +26,7 @@ test("API Permis : mêmes dates public/admin, réservations Plus tard et pratiqu
  Object.assign(process.env,keys);const original=globalThis.fetch;let inserts=0,blocked=false;
  globalThis.fetch=async(input,init)=>{const req=new Request(input,init),url=new URL(req.url);assert.equal(url.origin,"https://exam-tests.invalid","Aucun service réel");
  if(url.pathname.endsWith("/examens_bloques"))return Response.json(req.headers.get("accept")?.includes("object")?(blocked?{id:1}:null):(blocked?[{date_examen:"2027-01-13"}]:[]));
+ if(req.method==="GET"&&url.searchParams.get("select")==="examen")return Response.json([]);
  assert.ok(url.pathname.endsWith("/reservations"));assert.equal(req.method,"POST");inserts++;const body=await req.json();assert.ok(["Classique","Sérénité"].includes(body.formule));assert.equal(body.date_cours,"28/12/2026");
  return Response.json({id:inserts,pricing_amount:body.pricing_amount,pricing_type:body.pricing_type});};
  t.after(()=>{globalThis.fetch=original;t.mock.timers.reset();for(const k of Object.keys(keys)){if(before[k]===undefined)delete process.env[k];else process.env[k]=before[k];}});

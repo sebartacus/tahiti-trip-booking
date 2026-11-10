@@ -1,3 +1,6 @@
+import { readPermisExamDays } from "@/lib/permisExamDayServer";
+import { permisIsExamDay } from "@/lib/permisExamDay";
+import { datePermis } from "@/lib/permisPlanning";
 import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
 import { getTahitiToday as permisToday } from "@/lib/tahiti-date";
 import { NextResponse } from "next/server";
@@ -243,11 +246,6 @@ export async function POST(request: Request) {
         { error: "Le cours pratique doit précéder l’examen." },
         { status: 400 },
       );
-    if (practicalDate?.getDay() === 3 && Number(slot.slice(0, 2)) < 13)
-      return NextResponse.json(
-        { error: "Le mercredi matin est réservé aux examens." },
-        { status: 400 },
-      );
     if (
       [firstName, lastName].some((value) => value.length > 100) ||
       phone.length > 50 ||
@@ -274,6 +272,9 @@ export async function POST(request: Request) {
           { error: "Cette date d’examen n’est plus disponible." },
           { status: 409 },
         );
+    }
+    if (!bookingLater && Number(slot.slice(0, 2)) < 13 && permisIsExamDay(datePermis(courseDate)!, await readPermisExamDays(supabase))) {
+      return NextResponse.json({ error: "Matinée réservée aux examens : cours à partir de 13h00." }, { status: 400 });
     }
     const { data, error } = await supabase.rpc("create_salon_permis_sale", {
       p_offer_code: offer.code,

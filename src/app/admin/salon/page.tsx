@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { permisExamSessions } from "@/lib/permisRepriseCalendar";
+import { permisCourseBeforeExam } from "@/lib/permisScheduling";
+import { permisExamSessions, permisAllowedSlots } from "@/lib/permisRepriseCalendar";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAdminSession } from "@/hooks/useAdminSession";
 import { SALON_PRICING, formatSalonPrice } from "@/lib/salon-pricing";
@@ -16,13 +17,6 @@ import { SalonPecheForm } from "./SalonPecheForm";
 import { SalonCharterForm } from "./SalonCharterForm";
 import { SalonPlanningPanel } from "./SalonPlanningPanel";
 
-const slots = [
-  "07h00 - 09h00",
-  "09h00 - 11h00",
-  "11h00 - 13h00",
-  "13h00 - 15h00",
-  "15h00 - 17h00",
-];
 type Sale = {
   id: string;
   sold_at: string;
@@ -88,6 +82,7 @@ export default function AdminSalonPage() {
   const { authenticated, checking, logout } = useAdminSession();
   const [sales, setSales] = useState<Sale[]>([]);
   const [blocked, setBlocked] = useState<string[]>([]);
+  const [examDays, setExamDays] = useState<string[]>([]);
   const [reservedSlots, setReservedSlots] = useState<string[]>([]);
   const [created, setCreated] = useState<Created | null>(null);
   const [loading, setLoading] = useState(false);
@@ -108,6 +103,7 @@ export default function AdminSalonPage() {
     slot: "",
     comment: "",
   });
+  const slots = form.courseDate ? permisAllowedSlots(form.courseDate, "individuel", examDays).filter(slot => permisCourseBeforeExam(form.exam, form.courseDate, slot)) : [];
   const exams = useMemo(() => nextExams(blocked), [blocked]);
   const selected =
     form.offerCode === SALON_PRICING.permis.serenite.offerCode
@@ -134,10 +130,10 @@ export default function AdminSalonPage() {
     setReservedSlots([]);
     if (!date) return;
     const response = await fetch(
-      `/api/admin/salon?courseDate=${encodeURIComponent(toFrenchDate(date))}`,
+      `/api/permis/disponibilites?date=${encodeURIComponent(date)}`,
     );
     const payload = await response.json();
-    if (response.ok) setReservedSlots(payload.reservedSlots || []);
+    if (response.ok) { setReservedSlots(payload.occupiedSlots || []); setExamDays(payload.examDays || []); }
   }
   async function submit(event: FormEvent) {
     event.preventDefault();

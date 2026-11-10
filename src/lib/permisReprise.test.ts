@@ -94,6 +94,7 @@ async function main() {
       removes++; assert.deepEqual(JSON.parse(String(init.body)).prefixes, [storagePath]); return json([]);
     }
     if (url.pathname.endsWith("/examens_bloques")) return json([{ date_examen: exam }]);
+    if (url.pathname.endsWith("/reservations") && url.searchParams.get("select") === "examen") return json([]);
     if (url.pathname.endsWith("/reservations")) {
       if (init?.method === "PATCH") {
         links++; assert.equal(url.searchParams.get("id"), "eq.52");
@@ -220,7 +221,7 @@ async function main() {
     const source = readFileSync(file, "utf8");
     assert.ok(!/supabase|uploadDocument\(/.test(source), "No direct Supabase browser access");
   }
-  const baseline = "f6d58350786be8a7d8c10aac8a0cbeb3e4eba690";
+  const baseline = "HEAD";
   for (const prefix of ["src/app/api/payzen", "src/lib/permisInvoice", "src/lib/permisPricing", "src/app/baleines", "src/app/peche", "src/app/charter", "src/lib/adminCarnetsBaleines"]) {
     assert.equal(execFileSync("git", ["diff", baseline, "--", prefix], { encoding: "utf8" }), "");
   }

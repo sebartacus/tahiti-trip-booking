@@ -34,6 +34,7 @@ test("API publique : rejette avant toute ecriture, conserve deux candidats et Pl
     const request = new Request(input, init), url = new URL(request.url);
     assert.equal(url.origin, "https://chronology.invalid");
     if (url.pathname.endsWith("/examens_bloques")) return Response.json(null);
+    if (request.method === "GET" && url.searchParams.get("select") === "examen") return Response.json([]);
     assert.equal(request.method, "POST");
     const row = await request.json(); inserts++;
     assert.equal(row.prenom2, "Bob"); assert.equal(row.creneau, "13h00 - 17h00");

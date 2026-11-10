@@ -1,3 +1,4 @@
+import { readPermisExamDays } from "@/lib/permisExamDayServer";
 import { NextResponse } from "next/server";
 import { getPermisServerClient } from "@/lib/permisServer";
 import { datePermis } from "@/lib/permisPlanning";
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
     const blockedExams = [...new Set((blocked.data || [])
       .map(row => row.date_examen)
       .filter((v): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && datePermis(v) === v))];
+    const examDays = await readPermisExamDays(db);
     const occupiedSlots = new Set<string>();
     if (date) {
       const french = date.split("-").reverse().join("/");
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
         if (!result.data?.length || offset >= (result.count ?? offset)) break;
       }
     }
-    return NextResponse.json({ blockedExams, occupiedSlots: [...occupiedSlots] }, { headers });
+    return NextResponse.json({ blockedExams, examDays, occupiedSlots: [...occupiedSlots] }, { headers });
   } catch {
     return NextResponse.json({ error: "Impossible de charger les disponibilités Permis." }, { status: 500, headers });
   }

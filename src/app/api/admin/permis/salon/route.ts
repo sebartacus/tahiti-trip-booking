@@ -1,3 +1,6 @@
+import { readPermisExamDays } from "@/lib/permisExamDayServer";
+import { permisIsExamDay } from "@/lib/permisExamDay";
+import { datePermis } from "@/lib/permisPlanning";
 import { permisExamAvailable } from "@/lib/permisRepriseCalendar";
 import { getTahitiToday as permisToday } from "@/lib/tahiti-date";
 import { NextResponse } from "next/server";
@@ -93,9 +96,6 @@ export async function POST(request: Request) {
     if (!courseLater && (!courseDate || courseDate < new Date(new Date().setHours(0, 0, 0, 0)) || !COURSE_TYPES.has(typeCours) || !allowedSlots.has(creneau))) {
       return NextResponse.json({ error: "Le cours pratique et son créneau sont obligatoires." }, { status: 400 });
     }
-    if (!courseLater && courseDate?.getDay() === 3 && (slotRange(creneau)?.start || 0) < 13 * 60) {
-      return NextResponse.json({ error: "Le mercredi matin est réservé aux examens." }, { status: 400 });
-    }
     if (prenom2 || nom2 || typeCours === "commun" || (body.nombreParticipants !== undefined && body.nombreParticipants !== 1)) {
       return NextResponse.json({ error: "Créez une réservation distincte par candidat." }, { status: 400 });
     }
@@ -110,6 +110,9 @@ export async function POST(request: Request) {
     }
 
     // Keep the historic admin endpoint default for older clients; the form sends its choice.
+    if (!courseLater && Number(creneau.slice(0, 2)) < 13 && permisIsExamDay(datePermis(dateCours)!, await readPermisExamDays(getPermisServerClient()))) {
+      return NextResponse.json({ error: "Matinée réservée aux examens : cours à partir de 13h00." }, { status: 400 });
+    }
     const pricing = getPermisAdminPrice(formule, body.pricing_type ?? "salon_tourisme");
     if (!pricing) return NextResponse.json({ error: "Tarif admin invalide." }, { status: 400 });
     const amount = pricing.pricing_amount;
