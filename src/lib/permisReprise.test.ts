@@ -93,6 +93,7 @@ async function main() {
     if (url.pathname === "/storage/v1/object/documents-permis" && init?.method === "DELETE") {
       removes++; assert.deepEqual(JSON.parse(String(init.body)).prefixes, [storagePath]); return json([]);
     }
+    if (url.pathname.endsWith("/permis_indisponibilites")) return json([{ debut_minute: 900, fin_minute: 1020 }]);
     if (url.pathname.endsWith("/examens_bloques")) return json([{ date_examen: exam }]);
     if (url.pathname.endsWith("/reservations") && url.searchParams.get("select") === "examen") return json([]);
     if (url.pathname.endsWith("/reservations")) {
@@ -155,6 +156,7 @@ async function main() {
     const options = await available.json();
     assert.deepEqual(Object.keys(options).sort(), ["exams", "slots"]);
     assert.ok(!options.exams.includes(exam)); assert.ok(!options.slots.includes("13h00 - 15h00"));
+    assert.ok(!options.slots.includes("15h00 - 17h00"));
     assert.equal((await availability(req(undefined, { query: "?date=2026-02-31" }))).status, 400);
 
     assert.equal((await planning(req({ reservation_id: 99, examen: exam }))).status, 400);

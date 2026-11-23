@@ -144,6 +144,7 @@ export async function POST(request: Request) {
       origine_reservation: "salon_admin", statut: paidAt ? "Validé" : "En attente",
     }).select("*").single();
 
+    if (creation.error?.code === "23P01") return NextResponse.json({ error: "Ce créneau est indisponible. Choisissez-en un autre." }, { status: 409 });
     if (creation.error || !creation.data) {
       console.error("Erreur réservation Permis Salon :", creation.error);
       return NextResponse.json({ error: "Impossible de créer la réservation." }, { status: 500 });

@@ -4,6 +4,8 @@ import { readPermisCandidate, requirePermisCandidate, RepriseError, repriseFailu
 import { permisAllowedSlots, permisExamOptions, validPermisIso } from "@/lib/permisRepriseCalendar";
 import { datePermis } from "@/lib/permisPlanning";
 import { permisSlotsOverlap } from "@/lib/permisScheduling";
+import { permisSlotBlocked } from "@/lib/permisUnavailability";
+import { readPermisBlockedTimes } from "@/lib/permisUnavailabilityServer";
 import { getTahitiToday } from "@/lib/tahiti-date";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +23,8 @@ export async function GET(request: Request) {
     const examDays = await readPermisExamDays(db);
     let slots = day && day >= today ? permisAllowedSlots(day, row.type_cours, examDays) : [];
     if (day && slots.length) {
+      const blockedTimes = await readPermisBlockedTimes(db, day);
+      slots = slots.filter(slot => !permisSlotBlocked(slot, blockedTimes));
       // Normalize historical date formats and exclude only the authenticated dossier.
       for (let offset = 0; ; ) {
         const result = await db.from("reservations").select("date_cours,creneau", { count: "exact" }).neq("id", id).order("id").range(offset, offset + 999);

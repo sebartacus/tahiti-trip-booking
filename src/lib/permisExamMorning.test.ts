@@ -82,6 +82,7 @@ test("Reprise sécurisée : disponibilités filtrées et refus serveur sans RPC"
     assert.equal(url.origin, "https://reprise-morning.invalid");
     assert.equal(request.method, "GET", "Rejected planning never calls a writing RPC");
     if (url.pathname.endsWith("/examens_bloques")) return Response.json([]);
+    if (url.pathname.endsWith("/permis_indisponibilites")) return Response.json([]);
     assert.ok(url.pathname.endsWith("/reservations"));
     const select = url.searchParams.get("select");
     if (select === "examen") return Response.json([{ examen: "17/11/2026" }]);
@@ -106,6 +107,7 @@ test("Reprise sécurisée : disponibilités filtrées et refus serveur sans RPC"
 });
 
 const morningMigration = readFileSync("supabase/migrations/202611100001_guard_permis_exam_mornings.sql", "utf8");
+const unavailabilityMigration = readFileSync("supabase/migrations/202611230001_permis_course_unavailability.sql", "utf8");
 const chronologyMigration = readFileSync("supabase/migrations/202611090001_guard_permis_chronology.sql", "utf8");
 async function preparePermisDatabase(db: PGlite, rpc: "secure" | "missing" | "public" | "anon" | "no_service" = "secure") {
   await db.exec("create role anon; create role authenticated; create role service_role; create table reservations(id int primary key, examen text,date_cours text,creneau text,archived boolean,statut text); create table examens_bloques(date_examen date)");
@@ -119,6 +121,55 @@ async function preparePermisDatabase(db: PGlite, rpc: "secure" | "missing" | "pu
     if (rpc === "no_service") await db.exec("revoke execute on function permis_save_planning(text,jsonb,jsonb) from service_role");
   }
 }
+
+test("Indisponibilités pratiques : créneau, journée, période et chevauchements", async () => {
+  const db = new PGlite();
+  try {
+    await preparePermisDatabase(db);
+    await db.exec(`insert into reservations(id,date_cours,creneau) values (1,'23/11/2026','07h00 - 09h00')`);
+    await db.exec(chronologyMigration);
+    await db.exec(morningMigration);
+    await db.exec(unavailabilityMigration);
+
+    const add = async (start: string, end: string, from: number | null, to: number | null) => {
+      const result = await db.query<{ result: { blocage: { id: string }; conflits: number } }>(
+        "select permis_add_indisponibilite($1,$2,$3,$4,'Motif interne') as result", [start, end, from, to],
+      );
+      return result.rows[0].result;
+    };
+    const book = (id: number, day: string, slot: string) => db.query(
+      "insert into reservations(id,date_cours,creneau) values ($1,$2,$3)", [id, day, slot],
+    );
+
+    const partial = await add("2026-11-23", "2026-11-23", 480, 720);
+    assert.equal(partial.conflits, 1);
+    await assert.rejects(book(2, "2026-11-23", "11h00 - 13h00"), /Permis course unavailable/);
+    await book(2, "2026-11-23", "12h00 - 13h00");
+    await db.exec("update reservations set statut='Payé', creneau=creneau where id=1");
+    assert.deepEqual((await db.query("select date_cours,creneau,statut from reservations where id=1")).rows,
+      [{ date_cours: "23/11/2026", creneau: "07h00 - 09h00", statut: "Payé" }]);
+
+    await add("2026-11-24", "2026-11-24", null, null);
+    const period = await add("2026-11-26", "2026-11-28", null, null);
+    for (const day of ["2026-11-24", "2026-11-26", "2026-11-27", "2026-11-28"]) {
+      await assert.rejects(book(3, day, "15h00 - 17h00"), /Permis course unavailable/);
+    }
+    await assert.rejects(db.exec("update reservations set date_cours='27/11/2026' where id=2"), /Permis course unavailable/);
+    await assert.rejects(book(3, "2026-11-25", "07h00 - 09h00"), /Exam morning unavailable/);
+    await book(3, "2026-11-29", "13h00 - 15h00");
+    await assert.rejects(book(4, "29/11/2026", "14h00 - 16h00"), /Permis course unavailable/);
+    await assert.rejects(db.exec(`insert into reservations(id,date_cours,creneau)
+      values (4,'30/11/2026','13h00 - 15h00'), (5,'2026-11-30','14h00 - 16h00')`), /Permis course unavailable/);
+    await db.query("delete from permis_indisponibilites where id=$1", [period.blocage.id]);
+    await book(4, "2026-11-28", "15h00 - 17h00");
+
+    await db.exec("set role anon");
+    await assert.rejects(db.exec("select * from permis_indisponibilites"), /permission denied/);
+    await assert.rejects(add("2026-11-29", "2026-11-29", null, null), /permission denied/);
+  } finally {
+    await db.close();
+  }
+});
 
 test("Migration préparée : calendrier SQL identique, écritures directes et historique préservé", async () => {
   const db = new PGlite();

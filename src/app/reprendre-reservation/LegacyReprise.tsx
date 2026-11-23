@@ -1,5 +1,6 @@
 "use client";
-import { permisCourseBeforeExam } from "@/lib/permisScheduling";
+import { permisCourseBeforeExam, permisSlotsOverlap } from "@/lib/permisScheduling";
+import { permisSlotBlocked, type PermisBlockDates, type PermisTimeRange } from "@/lib/permisUnavailability";
 
 import { useEffect, useState } from "react";
 import UploadDocuments from "@/app/UploadDocuments";
@@ -36,7 +37,8 @@ const [dateCours, setDateCours] = useState<Date | null>(null);
 const [creneau, setCreneau] = useState("");
 const [examDays, setExamDays] = useState<string[]>([]);
 const selectedCourseDay = datePermis(dateCours?.toLocaleDateString("fr-FR") || reservation?.date_cours);
-const [creneauxReserves, setCreneauxReserves] = useState<string[]>([]);
+const [availability, setAvailability] = useState<{ day: string; occupiedSlots: string[]; blockedTimes: PermisTimeRange[] } | null>(null);
+const [blockedDates, setBlockedDates] = useState<PermisBlockDates[]>([]);
   const [erreur, setErreur] = useState("");
 const [message, setMessage] = useState("");
 const [datesExamensBloques, setDatesExamensBloques] = useState<string[]>([]);
@@ -66,7 +68,10 @@ useEffect(() => {
   fetch("/api/permis/disponibilites", { cache: "no-store" }).then(async response => {
     if (!response.ok) throw new Error("Disponibilités indisponibles.");
     return response.json();
-  }).then(data => setExamDays(data.examDays || [])).catch(console.error);
+  }).then(data => {
+    setExamDays(data.examDays || []);
+    setBlockedDates(data.blockedDates || []);
+  }).catch(console.error);
 }, []);
 
 
@@ -81,43 +86,22 @@ const examens = genererExamens(datesExamensBloques).filter(
     (examen.iso && !datesExamensBloques.includes(examen.iso))
 );
 
-async function chargerCreneauxReserves(date: Date) {
-  const dateFormatee = date.toLocaleDateString("fr-FR");
-
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("creneau")
-    .eq("date_cours", dateFormatee);
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  const reserves = (data || [])
-  .map((reservation) => reservation.creneau)
-  .filter(Boolean);
-
-const bloques = new Set<string>();
-
-reserves.forEach((creneau) => {
-  bloques.add(creneau);
-
-  if (creneau === "13h00 - 17h00") {
-    bloques.add("13h00 - 15h00");
-    bloques.add("15h00 - 17h00");
-  }
-
-  if (
-    creneau === "13h00 - 15h00" ||
-    creneau === "15h00 - 17h00"
-  ) {
-    bloques.add("13h00 - 17h00");
-  }
-});
-
-setCreneauxReserves([...bloques]);
-}
+useEffect(() => {
+  if (!selectedCourseDay) return;
+  const controller = new AbortController();
+  fetch(`/api/permis/disponibilites?date=${selectedCourseDay}`, {
+    cache: "no-store", signal: controller.signal,
+  }).then(async response => {
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    if (controller.signal.aborted) return;
+    setAvailability({ day: selectedCourseDay, occupiedSlots: data.occupiedSlots, blockedTimes: data.blockedTimes });
+    setExamDays(data.examDays);
+  }).catch(() => {
+    if (!controller.signal.aborted) setErreur("Impossible de charger les créneaux.");
+  });
+  return () => controller.abort();
+}, [selectedCourseDay]);
 async function rechercherReservation() {
     setErreur("");
     setMessage("");
@@ -244,10 +228,11 @@ async function mettreAJourReservation() {
   const chosenSlot = creneau || reservation.creneau;
   if (course && chosenSlot && (course !== datePermis(reservation.date_cours) || chosenSlot !== reservation.creneau)) {
     try {
-      const response = await fetch("/api/permis/disponibilites", { cache: "no-store" });
+      const response = await fetch(`/api/permis/disponibilites?date=${course}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Disponibilités indisponibles. Réessayez.");
       const data = await response.json();
       setExamDays(data.examDays || []);
+      if (permisSlotBlocked(chosenSlot, data.blockedTimes)) throw new Error("Ce créneau est indisponible.");
       if (!permisAllowedSlots(course, null, data.examDays || []).includes(chosenSlot)) throw new Error("Matinée réservée aux examens : cours à partir de 13h00.");
     } catch (error) { alert(error instanceof Error ? error.message : "Disponibilités indisponibles."); return; }
   }
@@ -264,7 +249,7 @@ async function mettreAJourReservation() {
 
   if (error) {
     console.error(error);
-    alert("Erreur lors de la mise à jour.");
+    alert(error.code === "23P01" ? "Ce créneau est indisponible." : "Erreur lors de la mise à jour.");
     return;
   }
 
@@ -370,12 +355,17 @@ onChange={(e) => setExamen(e.target.value)}
   </h3>
 
   <Calendar
-  tileDisabled={({ date }) => !permisCourseBeforeExam(examen, date.toLocaleDateString("fr-FR"))}
+  tileDisabled={({ date, view }) => {
+    const day = datePermis(date.toLocaleDateString("fr-FR"));
+    return view === "month" && !!day && (
+      !permisCourseBeforeExam(examen, day) || blockedDates.some(block => block.date_debut <= day && day <= block.date_fin)
+    );
+  }}
   defaultActiveStartDate={getTahitiTodayAsLocalDate()}
   onChange={(value) => {
     const date = value as Date;
     setDateCours(date);
-    chargerCreneauxReserves(date);
+    setCreneau("");
   }}
   value={dateCours}
   minDate={getTahitiTodayAsLocalDate()}
@@ -399,8 +389,9 @@ onChange={(e) => setExamen(e.target.value)}
     onChange={(e) => setCreneau(e.target.value)}
   >
     <option value="">Choisir un créneau</option>
-    {(selectedCourseDay ? permisAllowedSlots(selectedCourseDay, null, examDays) : [])
-  .filter((horaire) => !creneauxReserves.includes(horaire))
+    {(selectedCourseDay && availability?.day === selectedCourseDay ? permisAllowedSlots(selectedCourseDay, null, examDays)
+      .filter(slot => !permisSlotBlocked(slot, availability.blockedTimes)
+        && !availability.occupiedSlots.some(other => permisSlotsOverlap(slot, other))) : [])
   .map((horaire) => (
     <option key={horaire} value={horaire}>
       {horaire}

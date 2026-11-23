@@ -59,6 +59,7 @@ export async function POST(request: Request) {
       pricing_type: pricing.salonActive ? "salon_tourisme" : "normal",
       pricing_amount: pricing.amount * nombreParticipants,
     }).select("id,pricing_amount,pricing_type").single();
+    if (insertion.error?.code === "23P01") return NextResponse.json({ error: "Ce créneau est indisponible. Choisissez-en un autre." }, { status: 409 });
     if (insertion.error || !insertion.data) return NextResponse.json({ error: "Impossible d’enregistrer la réservation." }, { status: 500 });
     return NextResponse.json({ ...insertion.data, paymentToken: createPaymentIntentToken({ reservationId: String(insertion.data.id), reservationTable: "reservations", amount: Number(insertion.data.pricing_amount) }) }, { status: 201 });
   } catch (error) {

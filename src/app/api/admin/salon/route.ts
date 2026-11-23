@@ -296,10 +296,10 @@ export async function POST(request: Request) {
       p_creneau: slot,
     });
     if (error) {
-      const conflict = error.code === "23505";
+      const conflict = error.code === "23505" || error.code === "23P01";
       return NextResponse.json(
         {
-          error: conflict ? "Ce créneau vient d’être réservé." : error.message,
+          error: conflict ? "Ce créneau est indisponible." : error.message,
         },
         { status: conflict ? 409 : 400 },
       );

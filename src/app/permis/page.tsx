@@ -11,6 +11,7 @@ import {
 } from "@/lib/permisPricing";
 import { datePermis } from "@/lib/permisPlanning";
 import { permisCourseBeforeExam } from "@/lib/permisScheduling";
+import { permisSlotBlocked, type PermisBlockDates, type PermisTimeRange } from "@/lib/permisUnavailability";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getTahitiTodayAsLocalDate } from "@/lib/tahiti-date";
@@ -37,7 +38,9 @@ export default function PermisPage() {
   const [dateCours, setDateCours] = useState<Date | null>(null);
   const [typeCours, setTypeCours] = useState("");
   const [creneau, setCreneau] = useState("");
-const [creneauxReserves, setCreneauxReserves] = useState<string[]>([]);
+  const [availability, setAvailability] = useState<{ day: string; occupiedSlots: string[]; blockedTimes: PermisTimeRange[] } | null>(null);
+  const [blockedDates, setBlockedDates] = useState<PermisBlockDates[]>([]);
+  const [availabilityError, setAvailabilityError] = useState("");
 
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
@@ -59,6 +62,7 @@ useEffect(() => {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error);
       setDatesExamensBloques(payload.blockedExams || []);
+      setBlockedDates(payload.blockedDates || []);
       setExamDays(payload.examDays || []);
     } catch (error) {
       console.error(error);
@@ -89,18 +93,29 @@ const dateAchat = new Date();
 const dateLimiteReservation = new Date();
 dateLimiteReservation.setMonth(dateLimiteReservation.getMonth() + 6);
 
-async function chargerCreneauxReserves(date: Date) {
-  const isoDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-  try {
-    const response = await fetch(`/api/permis/disponibilites?date=${isoDate}`, { cache: "no-store" });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error);
-    setCreneauxReserves(payload.occupiedSlots || []);
-    setExamDays(payload.examDays || []);
-  } catch (error) {
-    console.error(error);
+useEffect(() => {
+  if (!dateCours) return;
+  const day = formatDateISO(dateCours);
+  const controller = new AbortController();
+
+  async function load() {
+    try {
+      const response = await fetch(`/api/permis/disponibilites?date=${day}`, {
+        cache: "no-store", signal: controller.signal,
+      });
+      if (!response.ok) throw new Error();
+      const payload = await response.json();
+      if (controller.signal.aborted) return;
+      setAvailability({ day, occupiedSlots: payload.occupiedSlots, blockedTimes: payload.blockedTimes });
+      setExamDays(payload.examDays);
+    } catch {
+      if (!controller.signal.aborted) setAvailabilityError("Impossible de charger les créneaux. Revenez au calendrier pour réessayer.");
+    }
   }
-}  
+
+  void load();
+  return () => controller.abort();
+}, [dateCours]);
 function horaireEnMinutes(horaire: string) {
   const [debut, fin] = horaire.split(" - ");
 
@@ -116,7 +131,9 @@ function horaireEnMinutes(horaire: string) {
 function creneauDisponible(horaire: string) {
   const nouveau = horaireEnMinutes(horaire);
 
-  return !creneauxReserves.some((reserve) => {
+  if (!dateCours || availability?.day !== formatDateISO(dateCours) || permisSlotBlocked(horaire, availability.blockedTimes)) return false;
+
+  return !availability.occupiedSlots.some((reserve) => {
     const existant = horaireEnMinutes(reserve);
 
     return nouveau.debut < existant.fin && existant.debut < nouveau.fin;
@@ -255,7 +272,14 @@ paiement_effectue: false,
 
   if (!reservationResponse.ok || !reservationCreee.id) {
     console.error(reservationCreee);
-    setErreur("Erreur lors de l'enregistrement.");
+    if (reservationResponse.status === 409 && dateCours) {
+      setCreneau("");
+      setTypeCours("");
+      setDateCours(null);
+      setErreur(reservationCreee.error || "Ce créneau est indisponible.");
+    } else {
+      setErreur(reservationCreee.error || "Erreur lors de l'enregistrement.");
+    }
     setEnregistrementEnCours(false);
     return;
   }
@@ -706,10 +730,15 @@ const recap = (
   }
 
   setErreur("");
+  setAvailability(null);
+  setAvailabilityError("");
   setDateCours(date);
-  chargerCreneauxReserves(date);
 }}
                 value={dateCours}
+                tileDisabled={({ date, view }) => view === "month" && blockedDates.some(block => {
+                  const day = formatDateISO(date);
+                  return block.date_debut <= day && day <= block.date_fin;
+                })}
                 minDate={getTahitiTodayAsLocalDate()}
                 maxDate={dateMaxCours}
                 locale="fr-FR"
@@ -747,8 +776,10 @@ const recap = (
   <section className="bg-cyan-900 rounded-2xl p-8">
     <h2 className="text-2xl font-bold mb-4">Choisissez votre créneau</h2>
 
+    {availabilityError && <p role="alert" className="mb-4">{availabilityError}</p>}
+    {!availabilityError && !availability && <p role="status" className="mb-4">Chargement des créneaux…</p>}
     <div className="space-y-4">
-      {creneauxDisponibles.map((horaire) => {
+      {availability && creneauxDisponibles.map((horaire) => {
         const disponible = creneauDisponible(horaire);
 
         return (
@@ -764,7 +795,7 @@ const recap = (
           >
             <div>{horaire}</div>
             <div className="text-sm">
-              {disponible ? "Disponible" : "Déjà réservé"}
+              {disponible ? "Disponible" : "Indisponible"}
             </div>
           </button>
         );

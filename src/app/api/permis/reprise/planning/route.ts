@@ -30,7 +30,7 @@ export async function PATCH(request: Request) {
     // This RPC requires the unapplied 2B migration. Never fall back to an UPDATE.
     const result = await db.rpc("permis_save_planning", { p_reservation_id: id, p_expected: before, p_patch: patch });
     if (result.error) {
-      if (/Blocked exam|Exam registration deadline|Course must precede exam|Past course|Exam morning|Wednesday morning/.test(result.error.message)) throw new RepriseError(409, "Examen ou cours indisponible. Rechargez les disponibilités.");
+      if (/Blocked exam|Exam registration deadline|Course must precede exam|Past course|Permis course unavailable|Exam morning|Wednesday morning/.test(result.error.message)) throw new RepriseError(409, "Examen ou cours indisponible. Rechargez les disponibilités.");
       throw new Error("Planning save failed");
     }
     const saved = result.data;

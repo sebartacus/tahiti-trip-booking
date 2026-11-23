@@ -1,5 +1,7 @@
 "use client";
 
+import PermisUnavailability from "./permis/PermisUnavailability";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -1430,6 +1432,8 @@ export default function AdminPage() {
           ))}
         </div>
       </section>
+
+      <PermisUnavailability />
 
       <div className="mb-6 flex flex-wrap gap-2">
         <button

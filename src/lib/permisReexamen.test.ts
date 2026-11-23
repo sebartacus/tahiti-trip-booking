@@ -20,6 +20,8 @@ test("Calendrier partagé : mercredi, jeudi férié, délai et années inconnues
 });
 
 test("Réinscription : routes réelles + transaction PostgreSQL isolée", async t => {
+  const fixedDay = "2026-11-23";
+  t.mock.timers.enable({ apis: ["Date"], now: new Date(fixedDay + "T20:00:00Z") });
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create role service_role;
     create table reservations (
@@ -29,8 +31,11 @@ test("Réinscription : routes réelles + transaction PostgreSQL isolée", async 
     create table examens_bloques (id serial primary key, date_examen date);
     insert into reservations values (1,'Alice','Test',null,null,'16 septembre 2026','Validé',false,
       '10/09/2026','07h00 - 09h00',true,'facture-privee.pdf','certificat.pdf','photo.jpg','identite.pdf','formulaire.pdf',25000,'test@example.invalid');`);
-  // This executes the exact prepared migration only against an in-memory database.
-  await db.exec(readFileSync("supabase/migrations/202610070001_add_permis_exam_reinscriptions.sql", "utf8"));
+  // PGlite has its own clock. Pin only the RPC's reference date to match the route.
+  const migration = readFileSync("supabase/migrations/202610070001_add_permis_exam_reinscriptions.sql", "utf8");
+  const sqlClock = "today date := (clock_timestamp() at time zone 'Pacific/Tahiti')::date;";
+  assert.ok(migration.includes(sqlClock));
+  await db.exec(migration.replace(sqlClock, `today date := DATE '${fixedDay}';`));
   const originalFetch = globalThis.fetch;
   const keys = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "ADMIN_SESSION_SECRET"] as const;
   const env = keys.map(key => process.env[key]);
@@ -59,7 +64,8 @@ test("Réinscription : routes réelles + transaction PostgreSQL isolée", async 
   const { GET } = await import("../app/api/admin/permis/examens/route");
   const headers = () => ({ "Content-Type": "application/json", cookie: `${ADMIN_SESSION_COOKIE}=${createAdminSessionToken()}`, origin: "https://admin.invalid" });
   const today = getTahitiToday(), exam = permisExamOptions(today, true)[0];
-  assert.ok(exam, "Extend the verified holiday data before running this test after 2026");
+  assert.equal(today, fixedDay);
+  assert.ok(exam, "The fixture must have a verified future session.");
   const original = await read();
   const send = (extra: Record<string, unknown> = {}) => POST(new Request("https://admin.invalid/api", { method: "POST", headers: headers(), body: JSON.stringify({ examen: exam, expectedExamen: original.examen, ...extra }) }), { params: Promise.resolve({ id: "1" }) });
 
@@ -92,7 +98,7 @@ test("Réinscription : routes réelles + transaction PostgreSQL isolée", async 
     await db.exec("update reservations set prenom2=null");
   });
   await t.test("Date invalide, inconnue 2027, délai, injection de champs : aucun changement", async () => {
-    for (const extra of [{ examen: "2026-02-30" }, { examen: "2027-01-13" }, { examen: addPermisDays(today, 7) }, { montant: 1 }, { expectedExamen: "Autre" }]) assert.ok([400, 409].includes((await send(extra)).status));
+    for (const extra of [{ examen: "2026-02-30" }, { examen: "2027-02-03" }, { examen: addPermisDays(today, 7) }, { montant: 1 }, { expectedExamen: "Autre" }]) assert.ok([400, 409].includes((await send(extra)).status));
     assert.deepEqual(await read(), original); assert.equal((await history()).length, 0);
   });
   await t.test("Dossier archivé, permis obtenu, sans examen ou examen futur : refus", async () => {
@@ -115,8 +121,13 @@ test("Réinscription : routes réelles + transaction PostgreSQL isolée", async 
   await t.test("Erreur UPDATE après insertion historique : rollback intégral", async () => {
     await db.exec(`create function fail_exam_update() returns trigger language plpgsql as $$ begin raise exception 'forced error'; end $$;
       create trigger fail_exam_update before update of examen on reservations for each row execute function fail_exam_update();`);
-    assert.equal((await send()).status, 503); assert.deepEqual(await read(), original); assert.equal((await history()).length, 0);
-    await db.exec("drop trigger fail_exam_update on reservations");
+    try {
+      assert.equal((await send()).status, 503);
+      assert.deepEqual(await read(), original);
+      assert.equal((await history()).length, 0);
+    } finally {
+      await db.exec("drop trigger fail_exam_update on reservations");
+    }
   });
   await t.test("Succès : seule date modifiée, historique durable et regroupement", async () => {
     const response = await send(); assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));

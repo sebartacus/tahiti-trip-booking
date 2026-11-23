@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createAdminSessionToken, ADMIN_SESSION_COOKIE } from "./adminSession";
 import { GET as list } from "../app/api/admin/permis/route";
+import { DELETE as deleteBlock, GET as listBlocks, POST as addBlock } from "../app/api/admin/permis/indisponibilites/route";
 import { GET as availability } from "../app/api/permis/disponibilites/route";
 import { POST as document } from "../app/api/admin/documents/route";
 import { PATCH as status } from "../app/api/admin/permis/[id]/route";
@@ -29,6 +30,8 @@ async function main() {
   let createdRow: Record<string, unknown> = {};
   const realFetch = globalThis.fetch;
   const candidate = { id: 52, prenom: "Alice", nom: "Test", prenom2: "Bob", nom2: "Test", email: "private@example.invalid", telephone: "secret-phone", examen: "Plus tard", date_cours: null, archived: false, statut: "Validé", facture_url: "factures/permis/existing.pdf", certificat_url: "existing-certificate.pdf" };
+  const blockId = "a3d68982-ab27-41aa-9094-6a2faf473bf3";
+  const block = { id: blockId, date_debut: "2026-09-15", date_fin: "2026-09-15", debut_minute: 480, fin_minute: 720, motif: "Motif interne" };
   const json = (value: unknown, code = 200, extra: Record<string,string> = {}) => new Response(JSON.stringify(value), { status: code, headers: { "Content-Type": "application/json", ...extra } });
   globalThis.fetch = async (input, init) => {
     calls++;
@@ -56,6 +59,26 @@ async function main() {
     }
     if (url.pathname.endsWith("/examens_bloques")) return json([{date_examen:"2026-09-16",motif:"must-not-leak"}]);
     if (url.pathname.endsWith("/reservations") && url.searchParams.get("select") === "examen") return Response.json([]);
+    if (url.pathname.endsWith("/rpc/permis_add_indisponibilite")) {
+      assert.deepEqual(JSON.parse(String(init?.body)), {
+        p_date_debut: "2026-09-15", p_date_fin: "2026-09-15",
+        p_debut_minute: 480, p_fin_minute: 720, p_motif: "Motif interne",
+      });
+      return json({ blocage: block, conflits: 1 });
+    }
+    if (url.pathname.endsWith("/permis_indisponibilites")) {
+      if (init?.method === "DELETE") {
+        assert.equal(url.searchParams.get("id"), "eq." + blockId);
+        return new Response(null, { status: 204 });
+      }
+      if (mode === "adminBlocks") return json([block], 200, { "Content-Range": "0-0/1" });
+      const dates = { date_debut: "2026-09-15", date_fin: "2026-09-15" };
+      assert.ok(!url.searchParams.get("select")?.includes("motif"));
+      const rows = url.searchParams.has("date_debut")
+        ? [{ ...dates, debut_minute: 480, fin_minute: 720 }]
+        : [{ date_debut: "2026-09-17", date_fin: "2026-09-19", debut_minute: null, fin_minute: null }];
+      return json(rows, 200, { "Content-Range": "0-0/1" });
+    }
     if (url.pathname.endsWith("/reservations")) {
       if (init?.method === "PATCH") {
         const update = JSON.parse(String(init.body));
@@ -68,6 +91,7 @@ async function main() {
         return json({id:52,...update});
       }
       if (init?.method === "POST") {
+        if (mode === "blockedPurchase") return json({ code: "23P01", message: "Permis course unavailable" }, 409);
         assert.ok(mode === "purchase" || mode === "salon");
         const inserted = JSON.parse(String(init.body));
         assert.equal(inserted.prenom,"Alice");
@@ -91,6 +115,19 @@ async function main() {
     assert.equal((await document(request({reservationId:52,field:"facture_url"},false))).status,401);
     assert.equal((await status(request({action:"status",statut:"Validé"},false),{params:Promise.resolve({id:"52"})})).status,401);
     assert.equal(calls,0);
+    const blockInput = { mode: "horaire", dateDebut: "2026-09-15", heureDebut: "08:00", heureFin: "12:00", motif: " Motif interne " };
+    assert.equal((await listBlocks(request(undefined, false))).status, 401);
+    assert.equal((await addBlock(request(blockInput, false))).status, 401);
+    assert.equal((await addBlock(request({ ...blockInput, heureFin: "08:00" }))).status, 400);
+    assert.equal(calls, 0);
+    const createdBlock = await addBlock(request(blockInput));
+    assert.equal(createdBlock.status, 201);
+    assert.deepEqual(await createdBlock.json(), { blocage: block, conflits: 1 });
+    mode = "adminBlocks";
+    assert.deepEqual(await (await listBlocks(request())).json(), { blocages: [block] });
+    const deleteRequest = new Request("https://app.invalid/api?id=" + blockId, { method: "DELETE", headers: request().headers });
+    assert.equal((await deleteBlock(deleteRequest)).status, 200);
+    mode = "list";
     const listed=await list(request());
     assert.equal(listed.status,200);
     assert.equal(listed.headers.get("cache-control"),"no-store");
@@ -101,10 +138,10 @@ async function main() {
 
     const available=await availability(new Request("https://app.invalid/api?date=2026-09-15"));
     assert.equal(available.status,200);
-    assert.deepEqual(await available.json(),{blockedExams:["2026-09-16"],examDays:[],occupiedSlots:["07h00 - 09h00"]});
+    assert.deepEqual(await available.json(),{blockedExams:["2026-09-16"],examDays:[],occupiedSlots:["07h00 - 09h00"],blockedTimes:[{start:480,end:720}],blockedDates:[]});
     assert.equal((await availability(new Request("https://app.invalid/api?date=2026-02-31"))).status,400);
     assert.equal((await availability(new Request("https://app.invalid/api?date=15/09/2026"))).status,400);
-    assert.deepEqual(await (await availability(new Request("https://app.invalid/api"))).json(),{blockedExams:["2026-09-16"],examDays:[],occupiedSlots:[]});
+    assert.deepEqual(await (await availability(new Request("https://app.invalid/api"))).json(),{blockedExams:["2026-09-16"],examDays:[],occupiedSlots:[],blockedTimes:[],blockedDates:[{date_debut:"2026-09-17",date_fin:"2026-09-19"}]});
 
     for(const field of ["certificat_url","facture_url"]) {
       const opened=await document(request({reservationId:52,field}));
@@ -136,6 +173,10 @@ async function main() {
     assert.ok(!(await failed.text()).includes("sensitive-backend-error"));
 
     mode="purchase";
+    mode = "blockedPurchase";
+    const blockedPurchase = await purchase(request({ prenom: "Alice", nom: "Test", email: "test@example.invalid", telephone: "000000", formule: "Classique", nombreParticipants: 1, examen: "Plus tard" }));
+    assert.equal(blockedPurchase.status, 409);
+    mode = "purchase";
     const bought=await purchase(request({prenom:"Alice",nom:"Test",email:"test@example.invalid",telephone:"000000",formule:"Classique",nombreParticipants:1,examen:"Plus tard"}));
     assert.equal(bought.status,201);
     mode="salon";

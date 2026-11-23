@@ -1,5 +1,7 @@
 "use client";
 
+import { permisSlotBlocked, type PermisTimeRange } from "@/lib/permisUnavailability";
+
 import Link from "next/link";
 import { permisCourseBeforeExam } from "@/lib/permisScheduling";
 import { permisExamSessions, permisAllowedSlots } from "@/lib/permisRepriseCalendar";
@@ -84,6 +86,7 @@ export default function AdminSalonPage() {
   const [blocked, setBlocked] = useState<string[]>([]);
   const [examDays, setExamDays] = useState<string[]>([]);
   const [reservedSlots, setReservedSlots] = useState<string[]>([]);
+  const [blockedTimes, setBlockedTimes] = useState<PermisTimeRange[]>([]);
   const [created, setCreated] = useState<Created | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -128,12 +131,13 @@ export default function AdminSalonPage() {
     update("courseDate", date);
     update("slot", "");
     setReservedSlots([]);
+    setBlockedTimes([]);
     if (!date) return;
     const response = await fetch(
       `/api/permis/disponibilites?date=${encodeURIComponent(date)}`,
     );
     const payload = await response.json();
-    if (response.ok) { setReservedSlots(payload.occupiedSlots || []); setExamDays(payload.examDays || []); }
+    if (response.ok) { setReservedSlots(payload.occupiedSlots || []); setBlockedTimes(payload.blockedTimes || []); setExamDays(payload.examDays || []); }
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -655,10 +659,10 @@ export default function AdminSalonPage() {
                       {slots.map((slot) => (
                         <option
                           key={slot}
-                          disabled={reservedSlots.includes(slot)}
+                          disabled={(reservedSlots.includes(slot) || permisSlotBlocked(slot, blockedTimes))}
                         >
                           {slot}
-                          {reservedSlots.includes(slot)
+                          {(reservedSlots.includes(slot) || permisSlotBlocked(slot, blockedTimes))
                             ? " — indisponible"
                             : ""}
                         </option>
